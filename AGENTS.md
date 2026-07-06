@@ -146,18 +146,23 @@ Content    = AES-128-CBC decrypt → zlib inflate → UTF-8 HTML
 
 - jwpub: `jwpub://b/NWTR/book:chapter:verse[-book:chapter:verse]`
 - RTF: `BBCCCVVV[-BBCCCVVV]` (z. B. `40005001`)
-- Ausgabe: `[Matthäus 5:1](https://www.jw.org/finder?bible=40005001)`
-- **Wichtig:** `ScriptureNormalizer.toJwLibraryLink()` nutzt bewusst `https://www.jw.org/finder`
-  statt des rohen `jwlibrary://`-Custom-Protokolls. Per Direkttest (Windows-Ausführen-Dialog,
-  außerhalb von Obsidian) öffnet `jwlibrary:///finder?bible=…` auf Windows zwar JW Library,
-  navigiert aber **nicht** zur Bibelstelle – `https://www.jw.org/finder?bible=…` navigiert
-  korrekt und fällt ohne installierte App auf die Website zurück
-- Lieder: `jwlibrary:///finder?pub=sjjm&issue=0&track=NNN` ist **bestätigt falsch** (Annahme aus
-  v0.2.0, nie verifiziert). Per Direkttest bestätigt funktionierend: `lank=pub-sjjm_NNN_VIDEO`
-  navigiert zum richtigen Lied, öffnet aber die Video- statt der Textansicht – ein Format für
-  die Textansicht ist noch nicht gefunden. `NoteBuilder.songLink()` nutzt aktuell weiterhin das
-  unbestätigte alte Format; vor einem Fix hier erst mit echtem Nutzer-Feedback das korrekte
-  Format für die Textansicht klären
+- Ausgabe: `[Matthäus 5:1](jwlibrary:///finder?bible=40005001)`
+- `ScriptureNormalizer.toJwLibraryLink()` nutzt das rohe `jwlibrary://`-Custom-Protokoll – das
+  ist das Standardformat, das auch andere JW-Library-Linking-Tools nutzen (z. B.
+  obsidian-library-linker) und funktioniert bei einer intakten JW-Library-Installation korrekt.
+  **Bekanntes Nutzer-Problem:** Auf einer bestimmten Windows-Installation navigierte der Link
+  per Direkttest (Windows-Ausführen-Dialog, unabhängig von Obsidian reproduzierbar) nicht zur
+  Bibelstelle. Da das Format identisch zu dem des Referenz-Plugins ist und dessen Doku keinerlei
+  Plattform-Einschränkung nennt, ist das sehr wahrscheinlich eine kaputte/fehlerhafte lokale
+  JW-Library-Installation (bekannte Kategorie von Windows-JW-Library-Bugs), keine
+  Format-/Code-Frage. Erster Trouble­shooting-Schritt bei erneuten Meldungen: JW Library
+  neu installieren bzw. App-Cache leeren, bevor am Code weitergesucht wird.
+- Lieder: `jwlibrary:///finder?pub=sjjm&issue=0&track=NNN` ist unverifiziert (Annahme aus
+  v0.2.0). Ein Format, das nachweislich zum richtigen Lied navigiert (`lank=pub-sjjm_NNN_VIDEO`),
+  öffnet die Video- statt der Textansicht – aber auch dieser Test lief auf der oben erwähnten
+  potenziell kaputten JW-Library-Installation und ist daher mit Vorsicht zu genießen. Vor einer
+  Änderung an `NoteBuilder.songLink()` erst mit einer nachweislich intakten JW-Library-Installation
+  neu verifizieren.
 
 ### Notiz- & Ordnerbenennung (NoteBuilder)
 

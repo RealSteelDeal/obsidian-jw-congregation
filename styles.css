@@ -1,8 +1,35 @@
-/*
+.jw-import-preview {
+	margin-top: 1em;
+	padding: 0.75em 1em;
+	border-radius: 6px;
+	background-color: var(--background-secondary);
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.jw-import-preview h3 {
+	margin-top: 0;
+	margin-bottom: 0.5em;
+	font-size: var(--font-ui-medium);
+	color: var(--text-muted);
+}
 
-If your plugin does not need CSS, delete this file.
+.jw-preview-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: var(--font-ui-small);
+}
 
-*/
+.jw-preview-table td {
+	padding: 3px 8px 3px 0;
+	vertical-align: top;
+}
+
+.jw-preview-table td.jw-label {
+	width: 40%;
+	color: var(--text-muted);
+	white-space: nowrap;
+}
+
+.jw-preview-error {
+	color: var(--text-error);
+	font-size: var(--font-ui-small);
+}

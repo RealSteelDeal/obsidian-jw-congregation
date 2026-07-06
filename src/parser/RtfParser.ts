@@ -8,8 +8,6 @@ const HYPERLINK_RE = /HYPERLINK\s+"([^"]+)"/g;
 const UNICODE_RE = /\\u(\d+)\??/g;
 // Bible finder URL pattern: bible=BBCCCVVV[-BBCCCVVV]
 const BIBLE_CODE_RE = /bible=([\d]+-?[\d]*)/i;
-// Song finder URL pattern: lank=pub-sjjm_NR_VIDEO
-const SONG_RE = /pub-sjjm_(\d+)_VIDEO/i;
 
 const WEEKDAY_PATTERN = /\b(Freitag|Samstag|Sonntag)\b/i;
 // Time pattern

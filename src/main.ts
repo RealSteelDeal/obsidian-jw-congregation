@@ -1,4 +1,4 @@
-import { FileSystemAdapter, Notice, Plugin, TFolder, normalizePath } from 'obsidian';
+import { Notice, Plugin, TFolder, normalizePath } from 'obsidian';
 import { DEFAULT_SETTINGS, JwPluginSettings, JwSettingTab } from './settings';
 import { SourceRouter } from './parser/SourceRouter';
 import { NoteBuilder } from './builder/NoteBuilder';
@@ -37,15 +37,8 @@ export default class JwCongregationPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	getPluginDir(): string {
-		const adapter = this.app.vault.adapter as FileSystemAdapter;
-		// eslint-disable-next-line @typescript-eslint/no-var-requires
-		const nodePath = require('path') as typeof import('path');
-		return nodePath.join(adapter.getBasePath(), this.manifest.dir ?? '');
-	}
-
 	async importFile(filename: string, data: Buffer, targetFolder?: string): Promise<void> {
-		const router = new SourceRouter(this.getPluginDir());
+		const router = new SourceRouter();
 		const builder = new NoteBuilder({
 			lang: this.settings.lang,
 			scriptureLinks: this.settings.scriptureLinks,

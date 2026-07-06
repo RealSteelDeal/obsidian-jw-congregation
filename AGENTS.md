@@ -6,14 +6,17 @@ Obsidian Community Plugin (TypeScript → gebündeltes JavaScript via esbuild).
 Liest JW-Kongressprogramme (`.jwpub` / RTF-ZIP) ein und erzeugt Markdown-Notizen.
 
 - Einstiegspunkt: `src/main.ts` → kompiliert nach `main.js`
-- Release-Artefakte: `main.js`, `manifest.json`, `styles.css`, `sql-wasm.wasm`
+- Release-Artefakte: `main.js`, `manifest.json`, `styles.css` (mehr nicht – der
+  Community-Plugin-Installer lädt aus einem GitHub-Release ausschließlich diese drei
+  Dateien; alles andere muss in `main.js` eingebettet sein)
 
 ## Umgebung & Toolchain
 
 - Node.js ≥ 18 (LTS empfohlen)
 - Paketmanager: **npm**
-- Bundler: **esbuild** (`esbuild.config.mjs`) – kopiert bei jedem Build zusätzlich
-  `node_modules/sql.js/dist/sql-wasm.wasm` neben `main.js`
+- Bundler: **esbuild** (`esbuild.config.mjs`) – bettet die sql.js-`.wasm`-Datei via
+  `loader: { '.wasm': 'binary' }` als Base64 direkt in `main.js` ein (kein separates
+  Artefakt, kein `fs.readFileSync` zur Laufzeit nötig)
 
 ```bash
 npm install       # Abhängigkeiten
@@ -70,12 +73,15 @@ Content    = AES-128-CBC decrypt → zlib inflate → UTF-8 HTML
 `initSqlJs()` **ohne** `locateFile`/`wasmBinary` schlägt in Obsidian fehl, weil sql.js die
 `.wasm`-Datei nicht im Electron-Renderer-Kontext findet. Lösung:
 
-- `esbuild.config.mjs` kopiert `sql-wasm.wasm` aus `node_modules/sql.js/dist/` neben `main.js`
-- `JwpubParser` bekommt im Konstruktor den absoluten Plugin-Ordner (`pluginDir`) übergeben
-- `openContents()` liest die WASM-Datei per `fs.readFileSync(path.join(pluginDir, 'sql-wasm.wasm'))`
-  und übergibt sie als `ArrayBuffer` via `initSqlJs({ wasmBinary })`
-- `main.ts.getPluginDir()` ermittelt den Pfad über `(vault.adapter as FileSystemAdapter).getBasePath() + manifest.dir`
-- `SourceRouter` und `ImportModal` reichen `pluginDir` entsprechend durch
+- `esbuild.config.mjs` setzt `loader: { '.wasm': 'binary' }` – jeder `.wasm`-Import wird
+  beim Bundling als Base64-String in `main.js` eingebettet und zur Laufzeit als
+  `Uint8Array` bereitgestellt (esbuild-Doku: "binary" loader)
+- `JwpubParser.ts` importiert die Datei direkt: `import sqlWasmBinary from 'sql.js/dist/sql-wasm.wasm'`
+  und übergibt sie (als `ArrayBuffer` geslict) via `initSqlJs({ wasmBinary })`
+- **Kein** `fs.readFileSync`, **kein** `pluginDir`/`getPluginDir()` mehr nötig – funktioniert
+  unabhängig vom Installationsweg (manuell kopiert oder über den Community-Plugin-Store),
+  da der Store-Installer aus einem Release nur `main.js`, `manifest.json`, `styles.css` lädt
+  und eine separate `sql-wasm.wasm`-Datei dort schlicht nie ankäme
 
 ### HTML-Parsing (JwpubParser)
 
@@ -136,7 +142,7 @@ Content    = AES-128-CBC decrypt → zlib inflate → UTF-8 HTML
 
 ## Manifest-Regeln
 
-- `isDesktopOnly: true` (zwingend – Node crypto/zlib, sql.js WASM via fs.readFileSync)
+- `isDesktopOnly: true` (zwingend – Node crypto/zlib; sql.js-WASM ist in `main.js` eingebettet)
 - `id` niemals nach Release ändern
 - `minAppVersion` aktuell halten
 
@@ -149,7 +155,6 @@ Manuell in Obsidian:
   main.js
   manifest.json
   styles.css
-  sql-wasm.wasm
 ```
 
 Skripte (Node, ohne Obsidian):
@@ -160,20 +165,24 @@ node scripts/test-parse.mjs
 ```
 
 `scripts/out/` ist in `.gitignore` – kein urheberrechtlich geschütztes Material committen.
-`sql-wasm.wasm` im Repo-Root ist ebenfalls `.gitignore`t (Build-Artefakt aus `node_modules`).
 
 ## Do / Don't
 
 **Do**
 - `Number()` beim Lesen von sql.js-Integer-Feldern die als String kommen können
 - `hasTypeMarker` in `extractTitle()` übergeben
-- `scripts/out/` und `sql-wasm.wasm` nie committen
+- `scripts/out/` nie committen
 - Bei Änderungen an `JwpubParser.ts` auch `scripts/test-parse.mjs` synchron halten (duplizierte Logik!)
 - Verbotene Dateisystem-Zeichen ersetzen (nicht löschen) – siehe `FS_CHAR_MAP`
 - `/` in Ordner-/Dateinamen vermeiden (wird von Obsidian als Pfadtrenner interpretiert)
+- Release-Artefakte auf `main.js`, `manifest.json`, `styles.css` beschränken – der
+  Community-Plugin-Installer lädt aus einem GitHub-Release nur diese drei Dateien
 
 **Don't**
 - `DOMParser` in Node-Skripten direkt nutzen (stattdessen `linkedom` injizieren)
 - Bibelstellen aus `BibleCitation`-Tabelle lesen (nutzt interne MEPS-IDs, nicht `BBCCCVVV`)
-- `initSqlJs()` ohne `wasmBinary`/`pluginDir` aufrufen (schlägt in Obsidian lautlos fehl)
+- `initSqlJs()` ohne `wasmBinary` aufrufen (schlägt in Obsidian lautlos fehl)
+- Zusätzliche Dateien neben `main.js`/`manifest.json`/`styles.css` als Laufzeit-Abhängigkeit
+  voraussetzen (z. B. per `fs.readFileSync(pluginDir, …)`) – die kommen beim
+  Store-Install nie mit; stattdessen per esbuild-Loader in `main.js` einbetten
 - Pausen-Einträge in Notizen aufnehmen (Lieder werden inzwischen erfasst, Pausen weiterhin nicht)

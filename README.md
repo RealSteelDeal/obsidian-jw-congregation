@@ -36,8 +36,8 @@ Ein Obsidian Community Plugin, das offizielle Programmdateien von Kongressen der
 
 1. Repository klonen oder herunterladen
 2. `npm install` im Projektordner
-3. `npm run build` (einmalig) oder `npm run dev` (Watch-Modus) – kopiert dabei auch die sql.js-WASM-Datei (`sql-wasm.wasm`) neben `main.js`
-4. `main.js`, `manifest.json`, `styles.css` und `sql-wasm.wasm` in den Plugin-Ordner des Vaults kopieren:
+3. `npm run build` (einmalig) oder `npm run dev` (Watch-Modus)
+4. `main.js`, `manifest.json` und `styles.css` in den Plugin-Ordner des Vaults kopieren:
    ```
    <Vault>/.obsidian/plugins/jw-congregation-program/
    ```
@@ -127,7 +127,7 @@ Die **Übersicht** (`00. Übersicht.md`) listet den kompletten Tag mit Links:
 ## Technische Details
 
 - **Entschlüsselung:** `sha256(cardString)` XOR Konstante → AES-128-CBC-Key + IV
-- **sql.js läuft mit lokalem WASM-Binary**, das per `fs.readFileSync` aus dem Plugin-Ordner geladen wird (kein Netzwerkzugriff, funktioniert zuverlässig im Electron-Renderer)
+- **sql.js läuft mit eingebettetem WASM-Binary**: die `.wasm`-Datei wird beim Build per esbuild-`binary`-Loader als Base64 direkt in `main.js` eingebettet (kein Netzwerkzugriff, keine separate Datei nötig – wichtig, da der Community-Plugin-Installer aus einem Release nur `main.js`, `manifest.json` und `styles.css` lädt)
 - **Parser-Strategie:** DOMParser (nativ in Electron) über den entschlüsselten HTML-Content
 - **Bibelstellen:** direkt aus `<a href="jwpub://b/NWTR/...">` Links im HTML
 - **Lieder:** erkannt über `<a href="jwpub://p/X:...">` ohne begleitenden Bibel-Link; Liednummer aus dem Linktext (`Lied NNN`)

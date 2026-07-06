@@ -12,9 +12,6 @@ node_modules
 # They should be uploaded to GitHub releases instead.
 main.js
 
-# sql.js WASM binary, copied from node_modules at build time (see esbuild.config.mjs)
-sql-wasm.wasm
-
 # Exclude sourcemaps
 *.map
 

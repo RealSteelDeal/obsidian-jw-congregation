@@ -74,7 +74,7 @@ export class ImportModal extends Modal {
 					});
 				newFolderText = text;
 			});
-		newFolderSetting.settingEl.style.display = existingMatch ? 'none' : '';
+		if (existingMatch) newFolderSetting.settingEl.hide();
 
 		const folderDropdownSetting = new Setting(contentEl)
 			.setName('Zielordner')
@@ -87,10 +87,10 @@ export class ImportModal extends Modal {
 				drop.setValue(existingMatch ? this.targetFolder : NEW_FOLDER_VALUE);
 				drop.onChange(value => {
 					if (value === NEW_FOLDER_VALUE) {
-						newFolderSetting.settingEl.style.display = '';
+						newFolderSetting.settingEl.show();
 						this.targetFolder = newFolderText?.getValue().trim() || '';
 					} else {
-						newFolderSetting.settingEl.style.display = 'none';
+						newFolderSetting.settingEl.hide();
 						this.targetFolder = value;
 					}
 				});
@@ -124,7 +124,7 @@ export class ImportModal extends Modal {
 		this.previewEl.empty();
 
 		try {
-			const router = new SourceRouter(this.plugin.getPluginDir());
+			const router = new SourceRouter();
 			const result = await router.route(this.filename, this.fileData);
 			this.preview = result.congress;
 			this.renderPreview(result.congress, result.source);

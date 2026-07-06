@@ -5,6 +5,9 @@ import * as zlib from 'zlib';
 import { promisify } from 'util';
 import { Congress, CongressType, Day, ItemType, ProgramItem, Scripture, Session } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
+// esbuild's "binary" loader embeds this as base64 in main.js and decodes it to a
+// Uint8Array at bundle time — no separate file needs to ship alongside main.js.
+import sqlWasmBinary from 'sql.js/dist/sql-wasm.wasm';
 
 const inflate = promisify(zlib.inflate);
 
@@ -15,8 +18,6 @@ const XOR_CONSTANT = Buffer.from(
 
 // Matches jwpub://b/NWTR/book:chapter:verse[-book:chapter:verse]
 const BIBLE_HREF_RE = /^jwpub:\/\/b\/NWTR\/([\d:]+(?:-[\d:]+)?)$/;
-// Matches jwpub://p/X:... (song/publication links → skip)
-const SONG_HREF_RE = /^jwpub:\/\/p\/X:/;
 // Time at start of paragraph text
 const TIME_RE = /^\s*(\d{1,2}:\d{2})/;
 // Skip items that are only music or song lines
@@ -30,10 +31,8 @@ interface DbRow {
 
 export class JwpubParser {
 
-	constructor(private readonly pluginDir: string) {}
-
 	async parse(fileBuffer: Buffer): Promise<Congress> {
-		const { db, innerZip } = await this.openContents(fileBuffer);
+		const db = await this.openContents(fileBuffer);
 		const pub = this.readPublication(db);
 		const keyIv = this.deriveKey(pub);
 		const docs = this.readDocuments(db);
@@ -48,7 +47,7 @@ export class JwpubParser {
 	// DB access
 	// ──────────────────────────────────────────────────────────────────────────
 
-	private async openContents(fileBuffer: Buffer): Promise<{ db: Database; innerZip: AdmZip }> {
+	private async openContents(fileBuffer: Buffer): Promise<Database> {
 		const outerZip = new AdmZip(fileBuffer);
 		const contentsEntry = outerZip.getEntry('contents');
 		if (!contentsEntry) throw new Error('jwpub: missing "contents" entry');
@@ -57,17 +56,12 @@ export class JwpubParser {
 		const dbEntry = innerZip.getEntries().find(e => e.entryName.endsWith('.db'));
 		if (!dbEntry) throw new Error('jwpub: no .db file in contents');
 
-		// eslint-disable-next-line @typescript-eslint/no-var-requires
-		const nodeFs = require('fs') as typeof import('fs');
-		// eslint-disable-next-line @typescript-eslint/no-var-requires
-		const nodePath = require('path') as typeof import('path');
-		const wasmBuffer = nodeFs.readFileSync(nodePath.join(this.pluginDir, 'sql-wasm.wasm'));
-		const wasmBinary = wasmBuffer.buffer.slice(
-			wasmBuffer.byteOffset,
-			wasmBuffer.byteOffset + wasmBuffer.byteLength,
+		const wasmBinary = sqlWasmBinary.buffer.slice(
+			sqlWasmBinary.byteOffset,
+			sqlWasmBinary.byteOffset + sqlWasmBinary.byteLength,
 		) as ArrayBuffer;
 		const SQL = await initSqlJs({ wasmBinary });
-		return { db: new SQL.Database(dbEntry.getData()), innerZip };
+		return new SQL.Database(dbEntry.getData());
 	}
 
 	private readPublication(db: Database): DbRow {
@@ -156,7 +150,6 @@ export class JwpubParser {
 
 		for (const doc of docs) {
 			const docId = Number(doc['DocumentId']);
-			const title = String(doc['Title'] ?? '');
 			const raw   = Buffer.from(doc['Content'] as Uint8Array);
 
 			let html: string;
@@ -410,7 +403,7 @@ export class JwpubParser {
 		for (const subLi of Array.from(sourceList.children)) {
 			if (subLi.tagName !== 'LI') continue;
 			const subP = subLi.querySelector('p') ?? subLi;
-			let subTitle = (subP.textContent ?? '').replace(/^[•\-]\s*/, '').replace(/^\d+\.\s*/, '').trim();
+			let subTitle = (subP.textContent ?? '').replace(/^[•-]\s*/, '').replace(/^\d+\.\s*/, '').trim();
 			subTitle = this.stripScriptureCitation(subTitle);
 			if (!subTitle) continue;
 			const subScriptures = this.extractScriptures(subLi as HTMLElement);

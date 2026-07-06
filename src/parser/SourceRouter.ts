@@ -8,12 +8,8 @@ export type ParseResult =
 
 export class SourceRouter {
 
-	private readonly jwpub: JwpubParser;
+	private readonly jwpub = new JwpubParser();
 	private readonly rtf = new RtfParser();
-
-	constructor(pluginDir: string) {
-		this.jwpub = new JwpubParser(pluginDir);
-	}
 
 	async route(filename: string, data: Buffer): Promise<ParseResult> {
 		if (this.isJwpub(filename, data)) {

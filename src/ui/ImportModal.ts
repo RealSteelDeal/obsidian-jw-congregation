@@ -124,7 +124,7 @@ export class ImportModal extends Modal {
 		this.previewEl.empty();
 
 		try {
-			const router = new SourceRouter();
+			const router = new SourceRouter(this.plugin.sqlWasmBinary);
 			const result = await router.route(this.filename, this.fileData);
 			this.preview = result.congress;
 			this.renderPreview(result.congress, result.source);

@@ -8,8 +8,12 @@ export type ParseResult =
 
 export class SourceRouter {
 
-	private readonly jwpub = new JwpubParser();
+	private readonly jwpub: JwpubParser;
 	private readonly rtf = new RtfParser();
+
+	constructor(sqlWasmBinary: Uint8Array) {
+		this.jwpub = new JwpubParser(sqlWasmBinary);
+	}
 
 	async route(filename: string, data: Buffer): Promise<ParseResult> {
 		if (this.isJwpub(filename, data)) {

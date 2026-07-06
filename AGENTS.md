@@ -44,14 +44,14 @@ src/
   ui/
     ImportModal.ts           # Dateiauswahl, Zielordner-Dropdown, Vorschau, Import-Bestätigung
 scripts/
-  analyze-jwpub.mjs          # Entwickler-Tool: DB + HTML ausgeben
-  test-parse.mjs             # Entwickler-Test: alle 3 Kongresstypen parsen (eigene, unabhängige Kopie der Parser-Logik!)
+  analyze-jwpub.mjs          # Entwickler-Tool: DB + HTML ausgeben (eigenständiges, einfaches Decrypt, keine Parser-Logik)
+  test-parse.mjs             # Entwickler-Test: importiert den echten JwpubParser per jiti und parst übergebene .jwpub-Dateien
 ```
 
-**Achtung:** `scripts/test-parse.mjs` ist eine eigenständige, dupliziert gehaltene Kopie der
-Parser-Logik (nutzt `linkedom` statt echtem `DOMParser`, läuft ohne TypeScript-Kompilierung).
-Sie importiert **nicht** `src/parser/JwpubParser.ts`. Bei Änderungen an der Parser-Logik in
-`JwpubParser.ts` das Testskript manuell nachziehen, sonst zeigt es veraltetes Verhalten.
+**`scripts/test-parse.mjs`** importiert `src/parser/JwpubParser.ts` direkt über `jiti`
+(TypeScript-Ausführung in Node ohne separaten Build-Schritt) und injiziert `linkedom`s
+`DOMParser` als `globalThis.DOMParser`. Es gibt **keine** duplizierte Parser-Logik mehr –
+Änderungen an `JwpubParser.ts` wirken sich automatisch auf das Testskript aus.
 
 ## Wichtige Implementierungsdetails
 
@@ -76,12 +76,19 @@ Content    = AES-128-CBC decrypt → zlib inflate → UTF-8 HTML
 - `esbuild.config.mjs` setzt `loader: { '.wasm': 'binary' }` – jeder `.wasm`-Import wird
   beim Bundling als Base64-String in `main.js` eingebettet und zur Laufzeit als
   `Uint8Array` bereitgestellt (esbuild-Doku: "binary" loader)
-- `JwpubParser.ts` importiert die Datei direkt: `import sqlWasmBinary from 'sql.js/dist/sql-wasm.wasm'`
-  und übergibt sie (als `ArrayBuffer` geslict) via `initSqlJs({ wasmBinary })`
-- **Kein** `fs.readFileSync`, **kein** `pluginDir`/`getPluginDir()` mehr nötig – funktioniert
-  unabhängig vom Installationsweg (manuell kopiert oder über den Community-Plugin-Store),
-  da der Store-Installer aus einem Release nur `main.js`, `manifest.json`, `styles.css` lädt
-  und eine separate `sql-wasm.wasm`-Datei dort schlicht nie ankäme
+- `main.ts` importiert die Datei direkt: `import sqlWasmBinary from 'sql.js/dist/sql-wasm.wasm'`
+  und hält sie als `plugin.sqlWasmBinary`; `SourceRouter`/`JwpubParser` bekommen sie per
+  Konstruktor injiziert (statt selbst zu wissen, *wie* sie geladen wurde) und übergeben sie
+  (als `ArrayBuffer` geslict) via `initSqlJs({ wasmBinary })`
+- Diese Dependency-Injection ist bewusst so gewählt: `scripts/test-parse.mjs` (Node, kein
+  esbuild) liest dieselbe `.wasm`-Datei stattdessen per `fs.readFileSync` aus
+  `node_modules/sql.js/dist/` und reicht sie genauso an `new JwpubParser(wasmBinary)` durch –
+  `JwpubParser` selbst bleibt agnostisch gegenüber der Lade-Methode
+- **Kein** `fs.readFileSync` **in `JwpubParser.ts` selbst**, **kein** `pluginDir`/`getPluginDir()`
+  mehr nötig – funktioniert unabhängig vom Installationsweg (manuell kopiert oder über den
+  Community-Plugin-Store), da der Store-Installer aus einem Release nur `main.js`,
+  `manifest.json`, `styles.css` lädt und eine separate `sql-wasm.wasm`-Datei dort schlicht
+  nie ankäme
 
 ### HTML-Parsing (JwpubParser)
 
@@ -101,6 +108,10 @@ Content    = AES-128-CBC decrypt → zlib inflate → UTF-8 HTML
 - CA-Typmarker: `<p><strong>Typ:</strong></p>` (kein color-span)
 - `extractTitle()` strippt den Typ-Prefix **nur** wenn `hasTypeMarker=true`, sonst würde er in Bibelstellen-Colons beißen
 - `stripScriptureCitation()` entfernt ein trailing `(Buch Kapitel:Vers[; …])` aus Titeln (Haupttitel **und** Vortragsreihen-/Fragen-Teiltitel via `extractSubParts()`)
+- `extractScriptures(container, exclude?)`: der `exclude`-Parameter überspringt Links innerhalb
+  eines bestimmten Nachfahren-Elements. `parseTalkSeries()` nutzt das, um die verschachtelte
+  `ul.source`-Teileliste bei der eigenen (übergeordneten) Bibelstellen-Extraktion auszuschließen –
+  sonst tauchen die Bibelstellen aller Teile zusätzlich (redundant) auf der übergeordneten Zeile auf
 
 ### CA vs. CO
 
@@ -114,6 +125,22 @@ Content    = AES-128-CBC decrypt → zlib inflate → UTF-8 HTML
 | Tagesordner | ja (Freitag/Samstag/Sonntag) | nein – Notizen direkt im Kongressordner |
 | „Tag:"-Zeile in Notizen | ja | nein (eintägig, aber Datum kann variieren) |
 | Ordnername | `Regionaler Kongress {Jahr} – {Motto}` | `Kreiskongressprogramm {Jahr-1}-{Jahr} – mit dem {Kreisaufseher\|Vertreter des Zweigbüros} – „{Motto}"` |
+
+### RTF-Fallback (RtfParser)
+
+- Akzeptiert sowohl eine gezippte RTF-Sammlung als auch eine einzelne rohe `.rtf`-Datei
+  (`isRawRtf()` erkennt die `{\rtf`-Signatur) – beides landet in `SourceRouter.isRtfZip()`
+  als gültiger Fallback
+- **Wichtig:** RTF-Absatzgrenzen (`\par`/`\line`/`\page`) müssen vor dem generischen
+  Steuerwort-Stripping in echte `\n` umgewandelt werden (`BREAK_RE`). Werden sie (wie früher)
+  einfach mitgestrippt, kollabiert das gesamte Dokument zu **einer** Zeile und es wird pro
+  Datei nur noch ein einziger Programmpunkt erkannt
+- `splitParagraphs()` teilt das rohe RTF anhand von `BREAK_RE` und liefert je Absatz sowohl
+  den dekodierten Text als auch das zugehörige rohe RTF-Fragment (`Paragraph`) – dadurch
+  können Bibelstellen-Hyperlinks (`matchScriptures()`) pro Absatz statt global über das
+  gesamte Dokument gesucht werden
+- `decodeWholeDocument()` (kollabiert weiterhin auf eine Zeile) wird nur noch für
+  Wochentag-/Motto-/Skip-Erkennung verwendet, nicht für die Programmpunkt-Extraktion
 
 ### Bibelstellen-Format
 
@@ -144,7 +171,9 @@ Content    = AES-128-CBC decrypt → zlib inflate → UTF-8 HTML
 
 - `isDesktopOnly: true` (zwingend – Node crypto/zlib; sql.js-WASM ist in `main.js` eingebettet)
 - `id` niemals nach Release ändern
-- `minAppVersion` aktuell halten
+- `minAppVersion` aktuell halten – aktuell `1.6.6` wegen `FileManager.trashFile()` (Rollback
+  bei fehlgeschlagenem Import in `main.ts`); jede API, die eine höhere Version verlangt,
+  zieht diesen Wert entsprechend nach oben (ESLint (`obsidianmd/no-unsupported-api`) meldet das)
 
 ## Testing
 
@@ -161,7 +190,7 @@ Skripte (Node, ohne Obsidian):
 
 ```bash
 node scripts/analyze-jwpub.mjs <datei.jwpub>
-node scripts/test-parse.mjs
+node scripts/test-parse.mjs <datei1.jwpub> [datei2.jwpub ...]
 ```
 
 `scripts/out/` ist in `.gitignore` – kein urheberrechtlich geschütztes Material committen.
@@ -172,7 +201,6 @@ node scripts/test-parse.mjs
 - `Number()` beim Lesen von sql.js-Integer-Feldern die als String kommen können
 - `hasTypeMarker` in `extractTitle()` übergeben
 - `scripts/out/` nie committen
-- Bei Änderungen an `JwpubParser.ts` auch `scripts/test-parse.mjs` synchron halten (duplizierte Logik!)
 - Verbotene Dateisystem-Zeichen ersetzen (nicht löschen) – siehe `FS_CHAR_MAP`
 - `/` in Ordner-/Dateinamen vermeiden (wird von Obsidian als Pfadtrenner interpretiert)
 - Release-Artefakte auf `main.js`, `manifest.json`, `styles.css` beschränken – der

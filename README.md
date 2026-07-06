@@ -27,7 +27,7 @@ Ein Obsidian Community Plugin, das offizielle Programmdateien von Kongressen der
 
 ## Voraussetzungen
 
-- Obsidian ≥ 1.4.0
+- Obsidian ≥ 1.6.6
 - **Nur Desktop** (Node-Crypto & zlib sind Electron-APIs)
 
 ## Installation

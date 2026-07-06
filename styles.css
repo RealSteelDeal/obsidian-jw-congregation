@@ -53,3 +53,15 @@
 .jw-folder-suggest-item:hover {
 	background-color: var(--background-modifier-hover);
 }
+
+/* De-emphasize scripture reference links in the day overview note, so the
+   programme item's own title link stays the visual focus of the line even
+   when many scriptures are listed after it. */
+.jw-overview-refs {
+	font-size: var(--font-smallest);
+	color: var(--text-muted);
+}
+
+.jw-overview-refs a {
+	color: var(--text-muted);
+}

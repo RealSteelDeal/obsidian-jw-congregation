@@ -8,6 +8,9 @@ const HYPERLINK_RE = /HYPERLINK\s+"([^"]+)"/g;
 const UNICODE_RE = /\\u(\d+)\??/g;
 // Bible finder URL pattern: bible=BBCCCVVV[-BBCCCVVV]
 const BIBLE_CODE_RE = /bible=([\d]+-?[\d]*)/i;
+// RTF paragraph/line/page breaks — the only control words that carry structural
+// meaning for us. Everything else is decorative and gets discarded below.
+const BREAK_RE = /\\(?:par|line|page)\b\s?/gi;
 
 const WEEKDAY_PATTERN = /\b(Freitag|Samstag|Sonntag)\b/i;
 // Time pattern
@@ -15,35 +18,38 @@ const TIME_RE = /\b(\d{1,2}:\d{2})\b/;
 // Lines that are only cover/info pages (skip them)
 const SKIP_SECTION_RE = /\b(Informationen|Deckblatt|Programm\b)/i;
 
+interface Paragraph {
+	/** Decoded, human-readable text of this paragraph. */
+	text: string;
+	/** Raw (still RTF-encoded) source of this paragraph — used to scope hyperlink lookups. */
+	raw: string;
+}
+
 export class RtfParser {
 
 	async parse(fileBuffer: Buffer): Promise<Congress> {
-		const zip = new AdmZip(fileBuffer);
-		const rtfEntries = zip.getEntries()
-			.filter(e => e.entryName.toLowerCase().endsWith('.rtf'));
-
-		if (rtfEntries.length === 0) throw new Error('RTF-ZIP: keine .rtf-Dateien gefunden');
+		const rtfSources = this.collectRtfSources(fileBuffer);
+		if (rtfSources.length === 0) throw new Error('RTF-ZIP: keine .rtf-Dateien gefunden');
 
 		const days: Day[] = [];
 		let theme = '';
 
-		for (const entry of rtfEntries) {
-			const raw = entry.getData().toString('latin1'); // RTF is latin-1 encoded
-			const text = this.decodeRtf(raw);
+		for (const rawRtf of rtfSources) {
+			const wholeText = this.decodeWholeDocument(rawRtf);
 
-			if (SKIP_SECTION_RE.test(text.slice(0, 300))) continue;
+			if (SKIP_SECTION_RE.test(wholeText.slice(0, 300))) continue;
 
-			const weekdayMatch = WEEKDAY_PATTERN.exec(text);
+			const weekdayMatch = WEEKDAY_PATTERN.exec(wholeText);
 			if (!weekdayMatch) continue;
 
 			const weekday = weekdayMatch[1] ?? '';
-			const items = this.extractItems(raw, text);
+			const items = this.extractItems(rawRtf);
 			if (items.length === 0) continue;
 
 			const sessions = this.splitIntoSessions(items);
 			days.push({ name: weekday, weekday, sessions });
 
-			if (!theme) theme = this.extractTheme(text);
+			if (!theme) theme = this.extractTheme(wholeText);
 		}
 
 		// Sort days canonically: Freitag → Samstag → Sonntag
@@ -55,60 +61,88 @@ export class RtfParser {
 		return { type, theme, year, days };
 	}
 
-	private decodeRtf(rtf: string): string {
-		// Strip RTF control words, decode unicode escapes, collapse whitespace
+	/** Accepts either a single raw .rtf file or a .zip containing one or more .rtf files. */
+	private collectRtfSources(fileBuffer: Buffer): string[] {
+		if (this.isRawRtf(fileBuffer)) {
+			return [fileBuffer.toString('latin1')];
+		}
+
+		const zip = new AdmZip(fileBuffer);
+		return zip.getEntries()
+			.filter(e => e.entryName.toLowerCase().endsWith('.rtf'))
+			.map(e => e.getData().toString('latin1')); // RTF is latin-1 encoded
+	}
+
+	private isRawRtf(buf: Buffer): boolean {
+		return buf.subarray(0, 5).toString('latin1') === '{\\rtf';
+	}
+
+	/** Whole-document decode (paragraph breaks collapsed) — used for weekday/theme/skip detection only. */
+	private decodeWholeDocument(rtf: string): string {
 		return rtf
 			.replace(UNICODE_RE, (_, code) => String.fromCharCode(Number(code)))
-			.replace(/\\[a-z]+\d*\s?/gi, ' ')
+			.replace(/\\[a-z]+-?\d*\s?/gi, ' ')
 			.replace(/[{}]/g, '')
 			.replace(/\s+/g, ' ')
 			.trim();
 	}
 
-	private extractItems(rawRtf: string, decodedText: string): ProgramItem[] {
+	/** Decodes a single already-isolated paragraph (no BREAK_RE inside, so nothing to collapse). */
+	private decodeParagraph(rawParagraph: string): string {
+		return rawParagraph
+			.replace(UNICODE_RE, (_, code) => String.fromCharCode(Number(code)))
+			.replace(/\\[a-z]+-?\d*\s?/gi, ' ')
+			.replace(/[{}]/g, '')
+			.replace(/\s+/g, ' ')
+			.trim();
+	}
+
+	/**
+	 * Splits the raw RTF into paragraphs on \par/\line/\page and decodes each one
+	 * independently, keeping the raw source alongside so hyperlinks can be looked up
+	 * per paragraph instead of across the whole document.
+	 */
+	private splitParagraphs(rawRtf: string): Paragraph[] {
+		return rawRtf
+			.split(BREAK_RE)
+			.map(raw => ({ raw, text: this.decodeParagraph(raw) }))
+			.filter(p => p.text.length > 0);
+	}
+
+	private extractItems(rawRtf: string): ProgramItem[] {
 		const items: ProgramItem[] = [];
+		const paragraphs = this.splitParagraphs(rawRtf);
 
-		// Collect all hyperlinks from raw RTF for scripture/song references
-		const hyperlinks = this.collectHyperlinks(rawRtf);
-
-		// Split decoded text into lines and process time-keyed paragraphs
-		const lines = decodedText.split(/[\r\n]+/);
 		let i = 0;
-		while (i < lines.length) {
-			const line = lines[i]?.trim() ?? '';
-			const timeMatch = TIME_RE.exec(line);
+		while (i < paragraphs.length) {
+			const paragraph = paragraphs[i];
+			if (!paragraph) { i++; continue; }
+
+			const timeMatch = TIME_RE.exec(paragraph.text);
 			if (!timeMatch) { i++; continue; }
 
 			const time = timeMatch[1] ?? '';
 			// Skip songs and pauses
-			if (/\b(Lied|Pause)\b/i.test(line)) { i++; continue; }
+			if (/\b(Lied|Pause)\b/i.test(paragraph.text)) { i++; continue; }
 
-			const title = this.cleanTitle(line, time);
+			const title = this.cleanTitle(paragraph.text, time);
 			if (!title) { i++; continue; }
 
-			const itemType = this.detectItemType(line);
-			const scriptures = this.matchScriptures(hyperlinks, line);
-			const bulletPoints = this.collectBullets(lines, i + 1);
+			const itemType = this.detectItemType(paragraph.text);
+			const scriptures = this.matchScriptures(paragraph.raw);
+			const bulletPoints = this.collectBullets(paragraphs, i + 1);
 
-			const item: ProgramItem = { time, itemType, title, scriptures, bulletPoints };
-			items.push(item);
+			items.push({ time, itemType, title, scriptures, bulletPoints });
 			i++;
 		}
 		return items;
 	}
 
-	private collectHyperlinks(rawRtf: string): string[] {
-		const links: string[] = [];
-		for (const m of rawRtf.matchAll(HYPERLINK_RE)) {
-			if (m[1]) links.push(m[1]);
-		}
-		return links;
-	}
-
-	private matchScriptures(links: string[], line: string): Scripture[] {
-		// Only link scriptures that appear near the current line (heuristic: use all from block)
+	private matchScriptures(rawParagraph: string): Scripture[] {
 		const scriptures: Scripture[] = [];
-		for (const url of links) {
+		for (const m of rawParagraph.matchAll(HYPERLINK_RE)) {
+			const url = m[1];
+			if (!url) continue;
 			const bibleMatch = BIBLE_CODE_RE.exec(url);
 			if (!bibleMatch || !bibleMatch[1]) continue;
 			try {
@@ -120,20 +154,20 @@ export class RtfParser {
 		return scriptures;
 	}
 
-	private collectBullets(lines: string[], startIndex: number): string[] {
+	private collectBullets(paragraphs: Paragraph[], startIndex: number): string[] {
 		const bullets: string[] = [];
-		for (let j = startIndex; j < Math.min(startIndex + 10, lines.length); j++) {
-			const l = lines[j]?.trim() ?? '';
-			if (TIME_RE.test(l)) break; // next program item starts
-			if (l.startsWith('•') || l.startsWith('-') || l.match(/^\d+\./)) {
-				bullets.push(l.replace(/^[•\-\d.]\s*/, ''));
+		for (let j = startIndex; j < Math.min(startIndex + 10, paragraphs.length); j++) {
+			const text = paragraphs[j]?.text ?? '';
+			if (TIME_RE.test(text)) break; // next program item starts
+			if (text.startsWith('•') || text.startsWith('-') || /^\d+\./.test(text)) {
+				bullets.push(text.replace(/^[•\-\d.]\s*/, ''));
 			}
 		}
 		return bullets;
 	}
 
-	private cleanTitle(line: string, time: string): string {
-		return line
+	private cleanTitle(text: string, time: string): string {
+		return text
 			.replace(time, '')
 			.replace(/^\s*[-–—·]\s*/, '')
 			.trim()

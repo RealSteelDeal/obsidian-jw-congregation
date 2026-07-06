@@ -5,9 +5,6 @@ import * as zlib from 'zlib';
 import { promisify } from 'util';
 import { Congress, CongressType, Day, ItemType, ProgramItem, Scripture, Session } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
-// esbuild's "binary" loader embeds this as base64 in main.js and decodes it to a
-// Uint8Array at bundle time — no separate file needs to ship alongside main.js.
-import sqlWasmBinary from 'sql.js/dist/sql-wasm.wasm';
 
 const inflate = promisify(zlib.inflate);
 
@@ -30,6 +27,14 @@ interface DbRow {
 }
 
 export class JwpubParser {
+
+	/**
+	 * @param sqlWasmBinary The sql.js WASM binary. Callers own how it's obtained
+	 *   (esbuild's "binary" loader embeds it as base64 in main.js at bundle time;
+	 *   Node scripts can read it straight from node_modules) — this class only cares
+	 *   that it receives the bytes.
+	 */
+	constructor(private readonly sqlWasmBinary: Uint8Array) {}
 
 	async parse(fileBuffer: Buffer): Promise<Congress> {
 		const db = await this.openContents(fileBuffer);
@@ -56,9 +61,9 @@ export class JwpubParser {
 		const dbEntry = innerZip.getEntries().find(e => e.entryName.endsWith('.db'));
 		if (!dbEntry) throw new Error('jwpub: no .db file in contents');
 
-		const wasmBinary = sqlWasmBinary.buffer.slice(
-			sqlWasmBinary.byteOffset,
-			sqlWasmBinary.byteOffset + sqlWasmBinary.byteLength,
+		const wasmBinary = this.sqlWasmBinary.buffer.slice(
+			this.sqlWasmBinary.byteOffset,
+			this.sqlWasmBinary.byteOffset + this.sqlWasmBinary.byteLength,
 		) as ArrayBuffer;
 		const SQL = await initSqlJs({ wasmBinary });
 		return new SQL.Database(dbEntry.getData());
@@ -353,7 +358,10 @@ export class JwpubParser {
 		const title    = this.extractTitle(firstP!, time, hasTypeMarker);
 		if (!title) return null;
 
-		const scriptures = this.extractScriptures(li);
+		// Scriptures directly on the series (if any) — excludes the nested sub-parts
+		// list, whose scriptures are already shown individually per part.
+		const sourceList = li.querySelector('ul.source, ol.source');
+		const scriptures = this.extractScriptures(li, sourceList);
 		const parts = this.extractSubParts(li);
 
 		return { time, itemType, title, scriptures, bulletPoints: [], parts };
@@ -464,10 +472,16 @@ export class JwpubParser {
 		return text.replace(/\s*\([^()]*\d+:\d+[^()]*\)\s*$/, '').trim();
 	}
 
-	private extractScriptures(container: HTMLElement): Scripture[] {
+	/**
+	 * @param exclude Skip links inside this element — used so a talk-series' own
+	 *   scripture list doesn't also swallow every scripture already covered by its
+	 *   sub-parts (which are nested inside `container`).
+	 */
+	private extractScriptures(container: HTMLElement, exclude?: Element | null): Scripture[] {
 		const scriptures: Scripture[] = [];
 		const links = container.querySelectorAll('a[href]');
 		for (const link of Array.from(links)) {
+			if (exclude && exclude.contains(link)) continue;
 			const href = link.getAttribute('href') ?? '';
 			const m    = BIBLE_HREF_RE.exec(href);
 			if (!m || !m[1]) continue;

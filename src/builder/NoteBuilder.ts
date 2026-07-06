@@ -1,4 +1,4 @@
-import { Congress, Day, ItemType, ProgramItem, Scripture } from '../models/congress';
+import { Congress, Day, ProgramItem, Scripture } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 import { SupportedLang } from '../normalizer/bookNames';
 
@@ -102,21 +102,31 @@ export class NoteBuilder {
 			return `${time}[${item.title}](${this.songLink(item.songNumber)})`;
 		}
 
-		const scriptures = item.scriptures.length > 0
-			? ` — ${item.scriptures.map(s => this.formatScripture(s)).join(' · ')}`
-			: '';
 		const titleLink = baseName ? `[[${baseName}|${item.title}]]` : item.title;
-		return `${time}${titleLink}${scriptures}`;
+		return `${time}${titleLink}${this.overviewScriptures(item.scriptures)}`;
 	}
 
 	private overviewPartLine(part: ProgramItem, parentBaseName: string | undefined): string {
-		const scriptures = part.scriptures.length > 0
-			? ` — ${part.scriptures.map(s => this.formatScripture(s)).join(' · ')}`
-			: '';
 		const titleLink = parentBaseName
 			? `[[${parentBaseName}#${part.title}|${part.title}]]`
 			: part.title;
-		return `${titleLink}${scriptures}`;
+		return `${titleLink}${this.overviewScriptures(part.scriptures)}`;
+	}
+
+	// Scripture references in the day overview are wrapped in a span (raw HTML,
+	// which Obsidian's Markdown renderer passes through) so styles.css can visually
+	// de-emphasize them — a bullet with time + title + half a dozen scripture links
+	// otherwise reads as a wall of blue links with the title lost among them.
+	private overviewScriptures(scriptures: Scripture[]): string {
+		if (scriptures.length === 0) return '';
+		const refs = scriptures.map(s => this.overviewScriptureLink(s)).join(' · ');
+		return ` <span class="jw-overview-refs">— ${refs}</span>`;
+	}
+
+	private overviewScriptureLink(s: Scripture): string {
+		const label = ScriptureNormalizer.format(s, this.opts.lang);
+		if (!this.opts.scriptureLinks) return label;
+		return `<a href="${ScriptureNormalizer.toJwLibraryLink(s)}">${label}</a>`;
 	}
 
 	private songLink(songNumber: number): string {
@@ -228,19 +238,5 @@ export class NoteBuilder {
 		return this.replaceForbiddenChars(text)
 			.replace(/\s+/g, ' ')
 			.trim();
-	}
-
-	static itemTypeLabel(type: ItemType, lang: SupportedLang): string {
-		const labels: Record<ItemType, Record<SupportedLang, string>> = {
-			'talk':        { de: 'Vortrag',         en: 'Talk' },
-			'talk-series': { de: 'Vortragsreihe',   en: 'Symposium' },
-			'bible-drama': { de: 'Bibeldrama',       en: 'Bible Drama' },
-			'baptism':     { de: 'Taufe',            en: 'Baptism' },
-			'interview':   { de: 'Interview',        en: 'Interview' },
-			'symposium':   { de: 'Symposium',        en: 'Symposium' },
-			'song':        { de: 'Lied',             en: 'Song' },
-			'other':       { de: 'Sonstiges',        en: 'Other' },
-		};
-		return labels[type][lang];
 	}
 }

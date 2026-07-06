@@ -6,7 +6,6 @@ export type ItemType =
 	| 'bible-drama'
 	| 'baptism'
 	| 'interview'
-	| 'symposium'
 	| 'song'
 	| 'other';
 

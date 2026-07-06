@@ -3,9 +3,13 @@ import { DEFAULT_SETTINGS, JwPluginSettings, JwSettingTab } from './settings';
 import { SourceRouter } from './parser/SourceRouter';
 import { NoteBuilder } from './builder/NoteBuilder';
 import { ImportModal } from './ui/ImportModal';
+// esbuild's "binary" loader embeds this as base64 in main.js and decodes it to a
+// Uint8Array at bundle time — no separate file needs to ship alongside main.js.
+import sqlWasmBinary from 'sql.js/dist/sql-wasm.wasm';
 
 export default class JwCongregationPlugin extends Plugin {
 	settings!: JwPluginSettings;
+	readonly sqlWasmBinary = sqlWasmBinary;
 
 	async onload() {
 		await this.loadSettings();
@@ -38,7 +42,7 @@ export default class JwCongregationPlugin extends Plugin {
 	}
 
 	async importFile(filename: string, data: Buffer, targetFolder?: string): Promise<void> {
-		const router = new SourceRouter();
+		const router = new SourceRouter(this.sqlWasmBinary);
 		const builder = new NoteBuilder({
 			lang: this.settings.lang,
 			scriptureLinks: this.settings.scriptureLinks,
@@ -53,18 +57,22 @@ export default class JwCongregationPlugin extends Plugin {
 		}
 
 		if (result.source === 'rtf' && result.fallback) {
-			new Notice('jwpub-Parsing fehlgeschlagen – RTF-Fallback verwendet.');
+			new Notice('Jwpub-Parsing fehlgeschlagen – RTF-Fallback verwendet.');
 		}
 
 		const { congressFolder, notes } = builder.buildNotes(result.congress);
 		const baseFolder = normalizePath(targetFolder?.trim() || this.settings.targetFolder);
 		const congressPath = normalizePath(`${baseFolder}/${congressFolder}`);
 
+		// Track only the notes actually created in this run, so a failure partway
+		// through can be rolled back without touching folders/notes that already
+		// existed before the import (e.g. a reused target folder).
+		const createdPaths: string[] = [];
+
 		try {
 			await this.ensureFolder(baseFolder);
 			await this.ensureFolder(congressPath);
 
-			let created = 0;
 			for (const note of notes) {
 				let notePath: string;
 				if (note.dayFolder) {
@@ -81,12 +89,16 @@ export default class JwCongregationPlugin extends Plugin {
 					continue;
 				}
 				await this.app.vault.create(notePath, note.content);
-				created++;
+				createdPaths.push(notePath);
 			}
 
-			new Notice(`${created} Notiz(en) erstellt in „${congressFolder}".`);
+			new Notice(`${createdPaths.length} Notiz(en) erstellt in „${congressFolder}".`);
 		} catch (err) {
-			new Notice(`Import fehlgeschlagen: ${String(err)}`);
+			for (const path of createdPaths.reverse()) {
+				const file = this.app.vault.getAbstractFileByPath(path);
+				if (file) await this.app.fileManager.trashFile(file);
+			}
+			new Notice(`Import fehlgeschlagen, bereits erstellte Notizen wurden zurückgerollt: ${String(err)}`);
 		}
 	}
 

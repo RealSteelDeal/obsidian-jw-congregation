@@ -7,6 +7,7 @@ export type ItemType =
 	| 'baptism'
 	| 'interview'
 	| 'song'
+	| 'aside'
 	| 'other';
 
 export interface Scripture {

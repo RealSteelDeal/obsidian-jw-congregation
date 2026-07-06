@@ -45,7 +45,9 @@ export class NoteBuilder {
 			let index = 0;
 			for (const session of day.sessions) {
 				for (const item of session.items) {
-					if (item.itemType === 'song') continue;
+					// Songs and asides (Pause/Musikvideo) show up in the overview only —
+					// no dedicated, numbered note for either.
+					if (item.itemType === 'song' || item.itemType === 'aside') continue;
 					index++;
 					const number = String(index).padStart(2, '0');
 

@@ -37,13 +37,36 @@ async function analyzeJwpub(filePath) {
   const dbEntry = innerZip.getEntries().find(e => e.entryName.endsWith('.db'));
   if (!dbEntry) throw new Error('Keine .db-Datei');
 
+  // Outer zip entries (cover images etc. typically live here, next to "contents")
+  console.log('\n[Outer-Zip-Einträge]');
+  outerZip.getEntries().forEach(e => console.log(`  ${e.entryName}  (${e.header.size}b)`));
+
+  // Inner zip entries (besides the .db file)
+  console.log('\n[Inner-Zip-Einträge]');
+  innerZip.getEntries().forEach(e => console.log(`  ${e.entryName}  (${e.header.size}b)`));
+
   const SQL = await initSqlJs();
   const db = new SQL.Database(dbEntry.getData());
+
+  // All table names in the SQLite DB — looking for Multimedia/Image/Extract tables
+  console.log('\n[Tabellen]');
+  const tables = rows(db.exec("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"));
+  tables.forEach(t => console.log(`  ${t.name}`));
 
   // Publication
   const pub = rows(db.exec('SELECT * FROM Publication LIMIT 1'))[0];
   console.log('\n[Publication]');
   console.log(JSON.stringify(pub, null, 2));
+
+  // Multimedia table (if present) — likely holds cover/image references per document
+  if (tables.some(t => t.name === 'Multimedia')) {
+    console.log('\n[Multimedia]');
+    rows(db.exec('SELECT * FROM Multimedia LIMIT 30')).forEach(r => console.log(JSON.stringify(r)));
+  }
+  if (tables.some(t => t.name === 'DocumentMultimedia')) {
+    console.log('\n[DocumentMultimedia]');
+    rows(db.exec('SELECT * FROM DocumentMultimedia LIMIT 30')).forEach(r => console.log(JSON.stringify(r)));
+  }
 
   const MepsLanguageIndex = Number(pub.MepsLanguageIndex);
   const Symbol = String(pub.Symbol);

@@ -48,14 +48,22 @@ export class ScriptureNormalizer {
 		return { book, chapter, verseStart };
 	}
 
-	/** Formats a Scripture as a JW-Library deeplink. */
+	/**
+	 * Formats a Scripture as a JW Library deeplink.
+	 *
+	 * Uses the https://www.jw.org/finder URL rather than the raw jwlibrary:// custom
+	 * protocol: on Windows the raw scheme opens JW Library but fails to navigate to
+	 * the reference (confirmed by direct testing, independent of Obsidian) — the
+	 * https URL correctly hands off to the installed app and also degrades
+	 * gracefully to the website when JW Library isn't installed.
+	 */
 	static toJwLibraryLink(s: Scripture): string {
 		const start = ScriptureNormalizer.toRtfCode(s.book, s.chapter, s.verseStart);
 		if (s.verseEnd !== undefined && s.verseEnd !== s.verseStart) {
 			const end = ScriptureNormalizer.toRtfCode(s.book, s.chapter, s.verseEnd);
-			return `jwlibrary:///finder?bible=${start}-${end}`;
+			return `https://www.jw.org/finder?bible=${start}-${end}`;
 		}
-		return `jwlibrary:///finder?bible=${start}`;
+		return `https://www.jw.org/finder?bible=${start}`;
 	}
 
 	/** Formats a Scripture as human-readable string, e.g. "Sprüche 16:20" or "Mt 5:1-12". */
@@ -68,7 +76,7 @@ export class ScriptureNormalizer {
 		return base;
 	}
 
-	/** Renders a Scripture as a Markdown link: [Spr 16:20](jwlibrary:///finder?bible=20016020) */
+	/** Renders a Scripture as a Markdown link: [Spr 16:20](https://www.jw.org/finder?bible=20016020) */
 	static toMarkdownLink(s: Scripture, lang: SupportedLang): string {
 		const label = ScriptureNormalizer.format(s, lang);
 		const href  = ScriptureNormalizer.toJwLibraryLink(s);

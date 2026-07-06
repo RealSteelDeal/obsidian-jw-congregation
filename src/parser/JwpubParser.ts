@@ -17,8 +17,12 @@ const XOR_CONSTANT = Buffer.from(
 const BIBLE_HREF_RE = /^jwpub:\/\/b\/NWTR\/([\d:]+(?:-[\d:]+)?)$/;
 // Time at start of paragraph text
 const TIME_RE = /^\s*(\d{1,2}:\d{2})/;
-// Skip items that are only music or song lines
-const SKIP_TEXT_RE = /^\s*\d{1,2}:\d{2}\s+(Musik(?:video)?)\s*$/i;
+// Standalone "Musik"/"Musikvideo" line (no song link, no talk) — shown in the
+// overview as an aside, without its own note.
+const MUSIC_VIDEO_RE = /^(Musik(?:video)?)$/i;
+// "Pause" line, optionally with a duration, e.g. "Pause" or "Pause (15 Min.)" —
+// same treatment as Musikvideo: overview-only, no dedicated note.
+const PAUSE_RE = /^(Pause\b.*)$/i;
 // "Beantworte die folgenden Fragen:" / "Answer the following questions:" style Q&A blocks
 const QUESTIONS_RE = /^(Beantworte die folgenden Fragen|Answer the following questions)/i;
 
@@ -287,16 +291,22 @@ export class JwpubParser {
 		const timeMatch = TIME_RE.exec(firstText);
 		if (!timeMatch) return null;
 		const time = timeMatch[1] ?? '';
+		const textAfterTime = firstText.replace(TIME_RE, '').trim();
 
-		// Skip Musik/Musikvideo lines
-		if (SKIP_TEXT_RE.test(firstText)) return null;
+		// "Musikvideo" / "Pause" lines — shown in the overview like a song (no
+		// dedicated note), since they're programme markers rather than talks.
+		if (MUSIC_VIDEO_RE.test(textAfterTime) || PAUSE_RE.test(textAfterTime)) {
+			return { time, itemType: 'aside', title: textAfterTime, scriptures: [], bulletPoints: [] };
+		}
 
 		// Song reference (has jwpub://p/X: link but no bible ref) — captured as its own
-		// item so it can be listed & linked in the day overview, but doesn't get its own note.
+		// item so it can be listed & linked in the day overview, but doesn't get its own
+		// note. Uses the full paragraph text (not just the link text) so any adjoining
+		// remark in the same line — e.g. "Lied 43 (Bekanntmachungen und Gebet)" — is kept.
 		const songLink     = li.querySelector('a[href^="jwpub://p/X:"]');
 		const hasBibleLink = li.querySelector('a[href^="jwpub://b/NWTR/"]') !== null;
 		if (songLink && !hasBibleLink) {
-			return this.parseSongLine(time, songLink);
+			return this.parseSongLine(time, textAfterTime, songLink);
 		}
 
 		// Detect type from span.du-color or <strong> prefix
@@ -312,7 +322,6 @@ export class JwpubParser {
 
 		// "Beantworte die folgenden Fragen:" Q&A block — same shape as a talk series
 		// (a title followed by a numbered sub-list), just without a TYPE: marker.
-		const textAfterTime = firstText.replace(TIME_RE, '').trim();
 		if (QUESTIONS_RE.test(textAfterTime)) {
 			return this.parseQuestionsBlock(li, time);
 		}
@@ -325,15 +334,15 @@ export class JwpubParser {
 		return { time, itemType, title, scriptures, bulletPoints: [] };
 	}
 
-	private parseSongLine(time: string, songLink: Element): ProgramItem | null {
-		const text = songLink.textContent?.trim() ?? '';
-		const numMatch = /(\d+)/.exec(text);
+	private parseSongLine(time: string, fullText: string, songLink: Element): ProgramItem | null {
+		const linkText = songLink.textContent?.trim() ?? '';
+		const numMatch = /(\d+)/.exec(linkText);
 		if (!numMatch) return null;
 		const songNumber = Number(numMatch[1]);
 		return {
 			time,
 			itemType: 'song',
-			title: text || `Lied ${songNumber}`,
+			title: fullText || linkText || `Lied ${songNumber}`,
 			scriptures: [],
 			bulletPoints: [],
 			songNumber,

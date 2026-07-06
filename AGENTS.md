@@ -97,8 +97,21 @@ Content    = AES-128-CBC decrypt → zlib inflate → UTF-8 HTML
 - Sessions durch `<h2>Vormittag</h2>` / `<h2>Nachmittag</h2>` getrennt
 - **Lieder** (`itemType: 'song'`): `<li>` hat `a[href^="jwpub://p/X:"]` aber kein
   `a[href^="jwpub://b/NWTR/"]` → werden **nicht** übersprungen, sondern als eigener
-  `ProgramItem` mit `songNumber` erfasst (Nummer aus dem Linktext „Lied NNN"). Sie bekommen
-  **keine eigene Notiz**, tauchen aber in der Tagesübersicht mit JW-Library-Deeplink auf.
+  `ProgramItem` mit `songNumber` erfasst. `title` ist der **volle Absatztext** (nicht nur der
+  Linktext), damit begleitende Programmhinweise wie „Lied 155 und Gebet" nicht verloren gehen;
+  `NoteBuilder.splitSongTitle()` trennt beim Rendern „Lied NNN" (verlinkt) vom Rest (Klartext).
+  Songs bekommen **keine eigene Notiz**, tauchen aber in der Tagesübersicht auf.
+- **`aside`** (`itemType: 'aside'`): Pause- und Musikvideo-Zeilen (`MUSIC_VIDEO_RE`/`PAUSE_RE`,
+  geprüft auf den Text nach der Uhrzeit). Wie Lieder: keine eigene Notiz, aber sichtbar in der
+  Tagesübersicht (reiner Text, kein Link).
+- **Titelbilder**: `extractCoverImage(db, innerZip, docId)` liest `DocumentMultimedia` (join
+  `Multimedia`) für ein `DocumentId`, filtert auf `CategoryType = 8` (die am Dokumentanfang
+  eingebettete „cnt_1"-Bannervariante; `CategoryType 9` ist eine quadratische Miniatur, die wir
+  nicht nutzen) und liest die Bilddatei per `FilePath` direkt aus der **inneren** Zip (liegt dort
+  unverschlüsselt neben der `.db`-Datei). Bei CO hat **jedes** Tagesdokument (DocumentId 1/2/3)
+  sein eigenes Bild; bei CA (eintägig) gibt es nur ein Bild auf dem Deckblatt (DocumentId 0) –
+  `buildCongress()` merkt sich das als `congressCoverImage`-Fallback für Tage ohne eigenes Bild.
+  Per echten Testdateien verifiziert (siehe `scripts/analyze-jwpub.mjs`-Ausgabe).
 - **„Beantworte die folgenden Fragen"**: ist im jwpub ein **eigenständiges Dokument**
   (kein `<li>` innerhalb eines Tagesprogramms!), erkannt über `<h1>` bzw. `QUESTIONS_RE`
   (`extractQuestionsDocument()`). Wird der `Wiederholungsfragen`-Session des zuletzt
@@ -169,11 +182,15 @@ Content    = AES-128-CBC decrypt → zlib inflate → UTF-8 HTML
 - **Kein Frontmatter** in Notizen – nur sichtbare Felder (`**Tag:**`, `**Uhrzeit:**`,
   `**Bibeltexte:**`, `**Redner:**`), da der Dateiname bereits der Notiztitel ist
 - **Durchnummerierung** pro Tag/Kongress in Programmreihenfolge: `01. Titel.md`, `02. Titel.md`, …
-  (Lieder werden bei der Nummerierung übersprungen, `NoteBuilder.buildNotes()`)
+  (Lieder **und** Asides werden bei der Nummerierung übersprungen, `NoteBuilder.buildNotes()`)
 - **`00. Übersicht.md`** pro Tag: verlinkt jeden Programmpunkt auf seine Notiz
   (`[[01. Titel|Titel]]`) und jeden Vortragsreihen-/Fragen-Teil direkt auf den passenden
   Abschnitt der übergeordneten Notiz (`[[02. Titel#1. Teiltitel|Teiltitel]]`) – dafür wird
   vor dem Rendern der Übersicht eine `Map<ProgramItem, string>` mit den Basisdateinamen aufgebaut
+- **Titelbild** (falls vorhanden) wird als `Titelbild.<ext>` in `GeneratedAttachment[]`
+  zurückgegeben (`BuildResult.attachments`, getrennt von `notes`, da Binärdaten statt Markdown)
+  und in der Übersicht per `![[Titelbild.<ext>]]` als erste Zeile eingebettet. `main.ts` schreibt
+  Attachments über `vault.createBinary()` und zählt sie zum selben Rollback-Tracking wie Notizen
 - **Zeichen-Ersetzung statt Löschung**: für Windows verbotene Zeichen (`< > : " / \ | * ?`)
   werden durch optisch ähnliche Unicode-Zeichen ersetzt (`FS_CHAR_MAP` in `NoteBuilder`),
   damit z. B. ein Fragezeichen am Titelende nicht verschwindet

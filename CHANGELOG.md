@@ -4,8 +4,9 @@
 
 ### Neu
 
+- **Titelbild in der Übersicht**: Das Titelbild des jeweiligen Tages (Regionaler Kongress) bzw. des Kongresses (Kreiskongress, hat nur ein Deckblattbild) wird beim Import als `Titelbild.jpg` neben die Notizen geschrieben und oben in `00. Übersicht.md` eingebettet.
 - **Pausen und Musikvideos in der Übersicht**: wurden bisher komplett übersprungen, erscheinen jetzt (wie Lieder) in der Tagesübersicht – ohne eigene Notiz.
-- **Lieder-Zeile zeigt den vollständigen Programmtext**: statt nur „Lied NNN" wird jetzt die komplette Zeile übernommen, damit begleitende Hinweise (z. B. „Lied 43 (Bekanntmachungen und Gebet)") nicht mehr verloren gehen.
+- **Lieder-Zeile zeigt den vollständigen Programmtext**: statt nur „Lied NNN" wird jetzt die komplette Zeile übernommen, damit begleitende Hinweise (z. B. „Lied 43 (Bekanntmachungen und Gebet)") nicht mehr verloren gehen – in der Übersicht ist dabei weiterhin nur „Lied NNN" selbst verlinkt, der Rest steht als normaler Text daneben.
 
 - **Zielordner-Auswahl im Import-Dialog**: bestehenden Vault-Ordner aus einem Dropdown wählen oder über „➕ Neuer Ordner …" einen neuen anlegen, statt nur den fest eingestellten Standardordner zu nutzen.
 - **Eigener Kongressordner** pro Import, benannt nach Kongresstyp, Jahr/Saison und Motto (z. B. `Regionaler Kongress 2026 – Ewiges Glück` bzw. `Kreiskongressprogramm 2026-2027 – mit dem Kreisaufseher – „Titel"`).

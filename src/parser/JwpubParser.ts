@@ -3,7 +3,7 @@ import initSqlJs, { Database } from 'sql.js';
 import * as crypto from 'crypto';
 import * as zlib from 'zlib';
 import { promisify } from 'util';
-import { Congress, CongressType, Day, ItemType, ProgramItem, Scripture, Session } from '../models/congress';
+import { Congress, CongressType, CoverImage, Day, ItemType, ProgramItem, Scripture, Session } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 
 const inflate = promisify(zlib.inflate);
@@ -41,13 +41,13 @@ export class JwpubParser {
 	constructor(private readonly sqlWasmBinary: Uint8Array) {}
 
 	async parse(fileBuffer: Buffer): Promise<Congress> {
-		const db = await this.openContents(fileBuffer);
+		const { db, innerZip } = await this.openContents(fileBuffer);
 		const pub = this.readPublication(db);
 		const keyIv = this.deriveKey(pub);
 		const docs = this.readDocuments(db);
 		const meta = this.readMetadata(db);
 
-		const congress = await this.buildCongress(docs, meta, keyIv, pub);
+		const congress = await this.buildCongress(docs, meta, keyIv, pub, db, innerZip);
 		db.close();
 		return congress;
 	}
@@ -56,7 +56,7 @@ export class JwpubParser {
 	// DB access
 	// ──────────────────────────────────────────────────────────────────────────
 
-	private async openContents(fileBuffer: Buffer): Promise<Database> {
+	private async openContents(fileBuffer: Buffer): Promise<{ db: Database; innerZip: AdmZip }> {
 		const outerZip = new AdmZip(fileBuffer);
 		const contentsEntry = outerZip.getEntry('contents');
 		if (!contentsEntry) throw new Error('jwpub: missing "contents" entry');
@@ -70,7 +70,7 @@ export class JwpubParser {
 			this.sqlWasmBinary.byteOffset + this.sqlWasmBinary.byteLength,
 		) as ArrayBuffer;
 		const SQL = await initSqlJs({ wasmBinary });
-		return new SQL.Database(dbEntry.getData());
+		return { db: new SQL.Database(dbEntry.getData()), innerZip };
 	}
 
 	private readPublication(db: Database): DbRow {
@@ -141,6 +141,8 @@ export class JwpubParser {
 		meta: Map<number, Map<string, string>>,
 		keyIv: { key: Buffer; iv: Buffer },
 		pub: DbRow,
+		db: Database,
+		innerZip: AdmZip,
 	): Promise<Congress> {
 		const symbol = String(pub['Symbol']);
 		const year   = Number(pub['Year']);
@@ -156,6 +158,10 @@ export class JwpubParser {
 
 		const days: Day[] = [];
 		let themeScripture: Scripture | undefined;
+		// CA congresses only have a title image on the cover document (DocumentId 0),
+		// not on the single day's own document — used as a fallback for days that
+		// don't have their own image (see below).
+		let congressCoverImage: CoverImage | undefined;
 
 		for (const doc of docs) {
 			const docId = Number(doc['DocumentId']);
@@ -170,9 +176,10 @@ export class JwpubParser {
 
 			const dom = new DOMParser().parseFromString(html, 'text/html');
 
-			// Cover document: extract theme scripture
+			// Cover document: extract theme scripture + congress-level cover image
 			if (docId === 0) {
 				themeScripture = this.extractThemeScripture(dom);
+				congressCoverImage = this.extractCoverImage(db, innerZip, docId);
 				continue;
 			}
 
@@ -193,6 +200,7 @@ export class JwpubParser {
 
 			const day = this.parseDay(dom, dayName);
 			if (day.sessions.some(s => s.items.length > 0)) {
+				day.coverImage = this.extractCoverImage(db, innerZip, docId) ?? congressCoverImage;
 				days.push(day);
 			}
 		}
@@ -225,6 +233,38 @@ export class JwpubParser {
 		if (firstRef) return this.hrefToScripture(firstRef.getAttribute('href') ?? '');
 
 		return undefined;
+	}
+
+	/**
+	 * Looks up the document's title image via the DocumentMultimedia/Multimedia
+	 * tables (CategoryType 8 = the "cnt_1" banner variant embedded at the top of
+	 * the document, as opposed to CategoryType 9, a square thumbnail used elsewhere)
+	 * and reads the actual image bytes from the inner zip.
+	 */
+	private extractCoverImage(db: Database, innerZip: AdmZip, docId: number): CoverImage | undefined {
+		const res = db.exec(
+			`SELECT m.FilePath AS FilePath, m.MimeType AS MimeType
+			 FROM DocumentMultimedia dm
+			 JOIN Multimedia m ON m.MultimediaId = dm.MultimediaId
+			 WHERE dm.DocumentId = ${docId} AND m.CategoryType = 8
+			 LIMIT 1`,
+		);
+		const cols = res[0]?.columns;
+		const vals = res[0]?.values[0];
+		if (!cols || !vals) return undefined;
+
+		const row      = Object.fromEntries(cols.map((c, i) => [c, vals[i]]));
+		const filePath = String(row['FilePath'] ?? '');
+		if (!filePath) return undefined;
+
+		const entry = innerZip.getEntry(filePath);
+		if (!entry) return undefined;
+
+		return {
+			data: entry.getData(),
+			filename: filePath,
+			mimeType: String(row['MimeType'] ?? 'image/jpeg'),
+		};
 	}
 
 	private extractDayName(dom: Document): string | null {

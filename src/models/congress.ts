@@ -33,11 +33,18 @@ export interface Session {
 	items: ProgramItem[];
 }
 
+export interface CoverImage {
+	data: Uint8Array;
+	filename: string;    // original filename from the jwpub zip (used to derive the extension)
+	mimeType: string;
+}
+
 export interface Day {
 	name: string;        // "Freitag" | "Samstag" | "Sonntag"
 	weekday: string;
 	date?: string;       // ISO-8601 if available
 	sessions: Session[];
+	coverImage?: CoverImage;
 }
 
 export interface Congress {

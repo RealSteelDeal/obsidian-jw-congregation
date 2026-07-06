@@ -13,9 +13,16 @@ export interface GeneratedNote {
 	content: string;
 }
 
+export interface GeneratedAttachment {
+	filename: string;
+	dayFolder?: string;
+	data: Uint8Array;
+}
+
 export interface BuildResult {
 	congressFolder: string;
 	notes: GeneratedNote[];
+	attachments: GeneratedAttachment[];
 }
 
 export class NoteBuilder {
@@ -35,6 +42,7 @@ export class NoteBuilder {
 
 	buildNotes(congress: Congress): BuildResult {
 		const notes: GeneratedNote[] = [];
+		const attachments: GeneratedAttachment[] = [];
 		const isMultiDay = congress.type === 'CO';
 
 		for (const day of congress.days) {
@@ -61,19 +69,47 @@ export class NoteBuilder {
 				}
 			}
 
+			let coverImageFilename: string | undefined;
+			if (day.coverImage) {
+				coverImageFilename = `Titelbild${this.extensionFor(day.coverImage.mimeType, day.coverImage.filename)}`;
+				attachments.push({ filename: coverImageFilename, dayFolder, data: day.coverImage.data });
+			}
+
 			notes.push({
 				filename: '00. Übersicht.md',
 				dayFolder,
-				content: this.renderOverviewNote(day, congress, noteBaseNames),
+				content: this.renderOverviewNote(day, congress, noteBaseNames, coverImageFilename),
 			});
 			notes.push(...dayNotes);
 		}
 
-		return { congressFolder: this.congressFolderName(congress), notes };
+		return { congressFolder: this.congressFolderName(congress), notes, attachments };
 	}
 
-	private renderOverviewNote(day: Day, congress: Congress, noteBaseNames: Map<ProgramItem, string>): string {
+	private extensionFor(mimeType: string, originalFilename: string): string {
+		const known: Record<string, string> = {
+			'image/jpeg': '.jpg',
+			'image/png': '.png',
+			'image/gif': '.gif',
+			'image/webp': '.webp',
+		};
+		if (known[mimeType]) return known[mimeType];
+		const match = /\.[a-z0-9]+$/i.exec(originalFilename);
+		return match?.[0] ?? '.jpg';
+	}
+
+	private renderOverviewNote(
+		day: Day,
+		congress: Congress,
+		noteBaseNames: Map<ProgramItem, string>,
+		coverImageFilename?: string,
+	): string {
 		const lines: string[] = [];
+
+		if (coverImageFilename) {
+			lines.push(`![[${coverImageFilename}]]`);
+			lines.push('');
+		}
 
 		if (congress.type === 'CO') {
 			lines.push(`**Tag:** ${day.weekday}`);

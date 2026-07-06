@@ -17,13 +17,14 @@ Ein Obsidian Community Plugin, das offizielle Programmdateien von Kongressen der
 - **Eine Notiz pro Programmpunkt**, durchnummeriert in Programmreihenfolge (`01.`, `02.`, …)
   - Vortragsreihen erhalten eine Notiz mit einer Überschrift pro Teil
 - **„Übersicht"-Notiz pro Tag** (`00. Übersicht.md`) mit dem kompletten Tagesprogramm:
+  - Titelbild des Tages (bei Regionalen Kongressen) bzw. des Kongresses (bei Kreiskongressen) oben in der Notiz
   - jeder Programmpunkt verlinkt auf seine Notiz
   - Vortragsreihen-Teile verlinken direkt auf den passenden Abschnitt in der Notiz
   - Bibeltexte sind inline verlinkt
   - Lieder werden mit JW-Library-Deeplink angezeigt (ohne eigene Notiz)
+  - Pausen und Musikvideos werden als Hinweis angezeigt (ohne eigene Notiz)
 - **Klickbare Bibelstellen** als JW-Library-Deeplinks in allen Notizen
 - **„Beantworte die folgenden Fragen"** (Kreiskongress-Wiederholungsfragen) wird als eigene Notiz mit einer Überschrift pro Frage erzeugt und steht immer an letzter Stelle
-- **Pausen** werden nicht in die Notizen aufgenommen
 
 ## Voraussetzungen
 
@@ -69,6 +70,7 @@ Ein Obsidian Community Plugin, das offizielle Programmdateien von Kongressen der
 Kongress/
   Regionaler Kongress 2026 – Ewiges Glück/
     Freitag/
+      Titelbild.jpg
       00. Übersicht.md
       01. Ist ewiges Glück möglich.md
       02. Die gute Botschaft von Jesus.md
@@ -78,6 +80,7 @@ Kongress/
     Sonntag/
       ...
   Kreiskongressprogramm 2026-2027 – mit dem Kreisaufseher – „Titel"/
+    Titelbild.jpg
     00. Übersicht.md
     01. Warum sollten wir mit ganzem Herzen auf Jehova vertrauen.md
     02. Uns die zum Vorbild nehmen, die auf Jehova vertraut haben.md
@@ -116,6 +119,8 @@ Vortragsreihen erhalten eine Notiz mit einer Überschrift je Teil (die Übersich
 Die **Übersicht** (`00. Übersicht.md`) listet den kompletten Tag mit Links:
 
 ```markdown
+![[Titelbild.jpg]]
+
 ## Vormittag
 - **9:30** – [Lied 160](jwlibrary:///finder?pub=sjjm&issue=0&track=160)
 - **9:40** – [[01. Ist ewiges Glück möglich|Ist ewiges Glück möglich]] — [Psalm 16:11](jwlibrary:///finder?bible=19016011)
@@ -131,6 +136,7 @@ Die **Übersicht** (`00. Übersicht.md`) listet den kompletten Tag mit Links:
 - **Parser-Strategie:** DOMParser (nativ in Electron) über den entschlüsselten HTML-Content
 - **Bibelstellen:** direkt aus `<a href="jwpub://b/NWTR/...">` Links im HTML
 - **Lieder:** erkannt über `<a href="jwpub://p/X:...">` ohne begleitenden Bibel-Link; Liednummer aus dem Linktext (`Lied NNN`)
+- **Titelbilder:** pro Tagesdokument über die `Multimedia`/`DocumentMultimedia`-Tabellen der jwpub-Datenbank aufgelöst (`CategoryType 8`, die am Dokumentanfang eingebettete Bannervariante) und als `Titelbild.<ext>` neben die Notizen des Tages geschrieben; Kreiskongresse haben nur ein Bild auf dem Kongress-Deckblatt, das für den einzigen Tag übernommen wird
 - **„Beantworte die folgenden Fragen"** ist im jwpub ein eigenständiges Dokument (kein Listenpunkt) und wird separat erkannt und der zugehörigen Tages-Session zugeordnet
 - **Dateinamen:** für Windows verbotene Zeichen (`? " : / \ | * < >`) werden durch optisch ähnliche Unicode-Zeichen ersetzt statt gelöscht, damit z. B. Fragezeichen im Titel erhalten bleiben
 - **Keine Netzwerkanfragen** – verarbeitet ausschließlich lokale Nutzerdateien

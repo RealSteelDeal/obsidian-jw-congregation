@@ -60,13 +60,13 @@ export default class JwCongregationPlugin extends Plugin {
 			new Notice('Jwpub-Parsing fehlgeschlagen – RTF-Fallback verwendet.');
 		}
 
-		const { congressFolder, notes } = builder.buildNotes(result.congress);
+		const { congressFolder, notes, attachments } = builder.buildNotes(result.congress);
 		const baseFolder = normalizePath(targetFolder?.trim() || this.settings.targetFolder);
 		const congressPath = normalizePath(`${baseFolder}/${congressFolder}`);
 
-		// Track only the notes actually created in this run, so a failure partway
-		// through can be rolled back without touching folders/notes that already
-		// existed before the import (e.g. a reused target folder).
+		// Track only the notes/attachments actually created in this run, so a failure
+		// partway through can be rolled back without touching folders/files that
+		// already existed before the import (e.g. a reused target folder).
 		const createdPaths: string[] = [];
 
 		try {
@@ -74,15 +74,7 @@ export default class JwCongregationPlugin extends Plugin {
 			await this.ensureFolder(congressPath);
 
 			for (const note of notes) {
-				let notePath: string;
-				if (note.dayFolder) {
-					const dayPath = normalizePath(`${congressPath}/${note.dayFolder}`);
-					await this.ensureFolder(dayPath);
-					notePath = normalizePath(`${dayPath}/${note.filename}`);
-				} else {
-					notePath = normalizePath(`${congressPath}/${note.filename}`);
-				}
-
+				const notePath = await this.resolvePath(congressPath, note.dayFolder, note.filename);
 				const existing = this.app.vault.getAbstractFileByPath(notePath);
 				if (existing) {
 					new Notice(`Übersprungen (existiert bereits): ${note.filename}`);
@@ -92,14 +84,31 @@ export default class JwCongregationPlugin extends Plugin {
 				createdPaths.push(notePath);
 			}
 
-			new Notice(`${createdPaths.length} Notiz(en) erstellt in „${congressFolder}".`);
+			for (const attachment of attachments) {
+				const attachPath = await this.resolvePath(congressPath, attachment.dayFolder, attachment.filename);
+				const existing = this.app.vault.getAbstractFileByPath(attachPath);
+				if (existing) continue;
+				const buf = attachment.data;
+				const arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
+				await this.app.vault.createBinary(attachPath, arrayBuffer);
+				createdPaths.push(attachPath);
+			}
+
+			new Notice(`${createdPaths.length} Datei(en) erstellt in „${congressFolder}".`);
 		} catch (err) {
 			for (const path of createdPaths.reverse()) {
 				const file = this.app.vault.getAbstractFileByPath(path);
 				if (file) await this.app.fileManager.trashFile(file);
 			}
-			new Notice(`Import fehlgeschlagen, bereits erstellte Notizen wurden zurückgerollt: ${String(err)}`);
+			new Notice(`Import fehlgeschlagen, bereits erstellte Dateien wurden zurückgerollt: ${String(err)}`);
 		}
+	}
+
+	private async resolvePath(congressPath: string, dayFolder: string | undefined, filename: string): Promise<string> {
+		if (!dayFolder) return normalizePath(`${congressPath}/${filename}`);
+		const dayPath = normalizePath(`${congressPath}/${dayFolder}`);
+		await this.ensureFolder(dayPath);
+		return normalizePath(`${dayPath}/${filename}`);
 	}
 
 	private async ensureFolder(path: string): Promise<void> {

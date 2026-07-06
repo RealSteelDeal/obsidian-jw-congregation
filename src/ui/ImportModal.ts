@@ -1,4 +1,4 @@
-import { App, Modal, Notice, Setting } from 'obsidian';
+import { App, Modal, Notice, Setting, TextComponent, TFolder } from 'obsidian';
 import type JwCongregationPlugin from '../main';
 import { SourceRouter } from '../parser/SourceRouter';
 import { Congress, CongressType } from '../models/congress';
@@ -9,14 +9,31 @@ const TYPE_LABELS: Record<CongressType, string> = {
 	'CA-brpgm':  'Kreiskongress (Zweigbüro)',
 };
 
+const NEW_FOLDER_VALUE = '__new__';
+
+function listAllFolders(app: App): TFolder[] {
+	const folders: TFolder[] = [];
+	const collect = (folder: TFolder) => {
+		if (folder.path !== '/') folders.push(folder);
+		for (const child of folder.children) {
+			if (child instanceof TFolder) collect(child);
+		}
+	};
+	collect(app.vault.getRoot());
+	folders.sort((a, b) => a.path.localeCompare(b.path));
+	return folders;
+}
+
 export class ImportModal extends Modal {
 	private fileData: Buffer | null = null;
 	private filename = '';
 	private preview: Congress | null = null;
 	private previewEl: HTMLElement | null = null;
+	private targetFolder: string;
 
 	constructor(app: App, private readonly plugin: JwCongregationPlugin) {
 		super(app);
+		this.targetFolder = plugin.settings.targetFolder;
 	}
 
 	onOpen() {
@@ -42,6 +59,45 @@ export class ImportModal extends Modal {
 				}),
 			);
 
+		const folders = listAllFolders(this.app);
+		const existingMatch = folders.some(f => f.path === this.targetFolder);
+		let newFolderText: TextComponent | undefined;
+
+		const newFolderSetting = new Setting(contentEl)
+			.setName('Name des neuen Ordners')
+			.addText(text => {
+				text
+					.setPlaceholder('Kongress')
+					.setValue(existingMatch ? '' : this.targetFolder)
+					.onChange(value => {
+						this.targetFolder = value.trim();
+					});
+				newFolderText = text;
+			});
+		newFolderSetting.settingEl.style.display = existingMatch ? 'none' : '';
+
+		const folderDropdownSetting = new Setting(contentEl)
+			.setName('Zielordner')
+			.setDesc('Bestehenden Ordner wählen oder einen neuen anlegen.')
+			.addDropdown(drop => {
+				for (const folder of folders) {
+					drop.addOption(folder.path, folder.path);
+				}
+				drop.addOption(NEW_FOLDER_VALUE, '➕ Neuer Ordner …');
+				drop.setValue(existingMatch ? this.targetFolder : NEW_FOLDER_VALUE);
+				drop.onChange(value => {
+					if (value === NEW_FOLDER_VALUE) {
+						newFolderSetting.settingEl.style.display = '';
+						this.targetFolder = newFolderText?.getValue().trim() || '';
+					} else {
+						newFolderSetting.settingEl.style.display = 'none';
+						this.targetFolder = value;
+					}
+				});
+			});
+		// Dropdown should visually appear above the "new folder name" field.
+		contentEl.insertBefore(folderDropdownSetting.settingEl, newFolderSetting.settingEl);
+
 		this.previewEl = contentEl.createDiv('jw-import-preview');
 
 		new Setting(contentEl)
@@ -55,7 +111,7 @@ export class ImportModal extends Modal {
 							return;
 						}
 						this.close();
-						await this.plugin.importFile(this.filename, this.fileData);
+						await this.plugin.importFile(this.filename, this.fileData, this.targetFolder);
 					}),
 			)
 			.addButton(btn =>
@@ -68,7 +124,7 @@ export class ImportModal extends Modal {
 		this.previewEl.empty();
 
 		try {
-			const router = new SourceRouter();
+			const router = new SourceRouter(this.plugin.getPluginDir());
 			const result = await router.route(this.filename, this.fileData);
 			this.preview = result.congress;
 			this.renderPreview(result.congress, result.source);

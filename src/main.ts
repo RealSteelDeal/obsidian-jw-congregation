@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFolder, normalizePath } from 'obsidian';
+import { FileSystemAdapter, Notice, Plugin, TFolder, normalizePath } from 'obsidian';
 import { DEFAULT_SETTINGS, JwPluginSettings, JwSettingTab } from './settings';
 import { SourceRouter } from './parser/SourceRouter';
 import { NoteBuilder } from './builder/NoteBuilder';
@@ -37,8 +37,15 @@ export default class JwCongregationPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	async importFile(filename: string, data: Buffer): Promise<void> {
-		const router = new SourceRouter();
+	getPluginDir(): string {
+		const adapter = this.app.vault.adapter as FileSystemAdapter;
+		// eslint-disable-next-line @typescript-eslint/no-var-requires
+		const nodePath = require('path') as typeof import('path');
+		return nodePath.join(adapter.getBasePath(), this.manifest.dir ?? '');
+	}
+
+	async importFile(filename: string, data: Buffer, targetFolder?: string): Promise<void> {
+		const router = new SourceRouter(this.getPluginDir());
 		const builder = new NoteBuilder({
 			lang: this.settings.lang,
 			scriptureLinks: this.settings.scriptureLinks,
@@ -56,24 +63,38 @@ export default class JwCongregationPlugin extends Plugin {
 			new Notice('jwpub-Parsing fehlgeschlagen – RTF-Fallback verwendet.');
 		}
 
-		const notes = builder.buildNotes(result.congress);
-		const folder = normalizePath(this.settings.targetFolder);
+		const { congressFolder, notes } = builder.buildNotes(result.congress);
+		const baseFolder = normalizePath(targetFolder?.trim() || this.settings.targetFolder);
+		const congressPath = normalizePath(`${baseFolder}/${congressFolder}`);
 
-		await this.ensureFolder(folder);
+		try {
+			await this.ensureFolder(baseFolder);
+			await this.ensureFolder(congressPath);
 
-		let created = 0;
-		for (const note of notes) {
-			const path = normalizePath(`${folder}/${note.filename}`);
-			const existing = this.app.vault.getAbstractFileByPath(path);
-			if (existing) {
-				new Notice(`Übersprungen (existiert bereits): ${note.filename}`);
-				continue;
+			let created = 0;
+			for (const note of notes) {
+				let notePath: string;
+				if (note.dayFolder) {
+					const dayPath = normalizePath(`${congressPath}/${note.dayFolder}`);
+					await this.ensureFolder(dayPath);
+					notePath = normalizePath(`${dayPath}/${note.filename}`);
+				} else {
+					notePath = normalizePath(`${congressPath}/${note.filename}`);
+				}
+
+				const existing = this.app.vault.getAbstractFileByPath(notePath);
+				if (existing) {
+					new Notice(`Übersprungen (existiert bereits): ${note.filename}`);
+					continue;
+				}
+				await this.app.vault.create(notePath, note.content);
+				created++;
 			}
-			await this.app.vault.create(path, note.content);
-			created++;
-		}
 
-		new Notice(`${created} Notiz(en) erstellt in „${folder}".`);
+			new Notice(`${created} Notiz(en) erstellt in „${congressFolder}".`);
+		} catch (err) {
+			new Notice(`Import fehlgeschlagen: ${String(err)}`);
+		}
 	}
 
 	private async ensureFolder(path: string): Promise<void> {

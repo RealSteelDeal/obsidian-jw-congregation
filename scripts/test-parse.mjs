@@ -29,6 +29,7 @@ const BIBLE_HREF_RE = /^jwpub:\/\/b\/NWTR\/([\d:]+(?:-[\d:]+)?)$/;
 const SONG_HREF_RE  = /^jwpub:\/\/p\/X:/;
 const TIME_RE       = /^\s*(\d{1,2}:\d{2})/;
 const SKIP_TEXT_RE  = /^\s*\d{1,2}:\d{2}\s+(Musik(?:video)?)\s*$/i;
+const QUESTIONS_RE  = /^(Beantworte die folgenden Fragen|Answer the following questions)/i;
 
 async function parseFile(path) {
   console.log(`\n${'='.repeat(60)}`);
@@ -102,6 +103,18 @@ async function parseFile(path) {
 
     const dom     = new DOMParser().parseFromString(html, 'text/html');
     const h1Text  = dom.querySelector('h1')?.textContent?.trim() ?? '';
+
+    if (QUESTIONS_RE.test(h1Text)) {
+      const body = dom.querySelector('.bodyTxt');
+      const parts = body ? extractSubParts(body) : [];
+      console.log(`\n  Doc ${docId} "${doc.Title}" → Q&A-Dokument, ${parts.length} Fragen`);
+      parts.forEach(p => console.log(`      • ${p.title}  (Texte: ${p.scriptures.map(s => `${s.book}:${s.chapter}:${s.verseStart}`).join(', ')})`));
+      if (days.length > 0) {
+        days[days.length - 1].sessions.push({ name: 'Wiederholungsfragen', items: [{ time: '', itemType: 'talk-series', title: 'Beantworte die folgenden Fragen', scriptures: [], bulletPoints: [], parts }] });
+      }
+      continue;
+    }
+
     const dayMatch = /\b(Freitag|Samstag|Sonntag)\b/i.exec(h1Text);
     const hasSession = dom.querySelector('.bodyTxt h2') !== null;
     if (!dayMatch && !hasSession) {
@@ -231,6 +244,27 @@ function extractTitle(p, time, hasTypeMarker) {
   if (hasTypeMarker) text = text.replace(/^[^:]+:\s*/, '').trim();
   text = text.replace(/^[-–—·]\s*/, '').trim();
   return text;
+}
+
+function stripScriptureCitation(text) {
+  return text.replace(/\s*\([^()]*\d+:\d+[^()]*\)\s*$/, '').trim();
+}
+
+function extractSubParts(container) {
+  const parts = [];
+  const sourceList = container.querySelector('ul.source, ol.source') ?? container.querySelector('ul, ol');
+  if (!sourceList) return parts;
+  let idx = 1;
+  for (const subLi of Array.from(sourceList.children)) {
+    if (subLi.tagName !== 'LI') continue;
+    const subP = subLi.querySelector('p') ?? subLi;
+    let subTitle = (subP.textContent ?? '').replace(/^[•\-]\s*/, '').replace(/^\d+\.\s*/, '').trim();
+    subTitle = stripScriptureCitation(subTitle);
+    if (!subTitle) continue;
+    parts.push({ time: '', itemType: 'talk', title: `${idx}. ${subTitle}`, scriptures: extractScriptures(subLi), bulletPoints: [] });
+    idx++;
+  }
+  return parts;
 }
 
 function extractScriptures(container) {

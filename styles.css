@@ -33,3 +33,23 @@
 	color: var(--text-error);
 	font-size: var(--font-ui-small);
 }
+
+.jw-folder-suggest {
+	z-index: 9999;
+	max-height: 200px;
+	overflow-y: auto;
+	background-color: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	box-shadow: var(--shadow-s);
+}
+
+.jw-folder-suggest-item {
+	padding: 4px 10px;
+	font-size: var(--font-ui-small);
+	cursor: pointer;
+}
+
+.jw-folder-suggest-item:hover {
+	background-color: var(--background-modifier-hover);
+}

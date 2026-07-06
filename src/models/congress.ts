@@ -7,6 +7,7 @@ export type ItemType =
 	| 'baptism'
 	| 'interview'
 	| 'symposium'
+	| 'song'
 	| 'other';
 
 export interface Scripture {
@@ -24,6 +25,7 @@ export interface ProgramItem {
 	scriptures: Scripture[];
 	bulletPoints: string[];
 	parts?: ProgramItem[];  // only for talk-series
+	songNumber?: number;    // only for itemType 'song'
 }
 
 export interface Session {

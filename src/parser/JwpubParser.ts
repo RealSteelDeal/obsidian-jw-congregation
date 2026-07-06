@@ -21,12 +21,16 @@ const SONG_HREF_RE = /^jwpub:\/\/p\/X:/;
 const TIME_RE = /^\s*(\d{1,2}:\d{2})/;
 // Skip items that are only music or song lines
 const SKIP_TEXT_RE = /^\s*\d{1,2}:\d{2}\s+(Musik(?:video)?)\s*$/i;
+// "Beantworte die folgenden Fragen:" / "Answer the following questions:" style Q&A blocks
+const QUESTIONS_RE = /^(Beantworte die folgenden Fragen|Answer the following questions)/i;
 
 interface DbRow {
 	[col: string]: unknown;
 }
 
 export class JwpubParser {
+
+	constructor(private readonly pluginDir: string) {}
 
 	async parse(fileBuffer: Buffer): Promise<Congress> {
 		const { db, innerZip } = await this.openContents(fileBuffer);
@@ -53,7 +57,16 @@ export class JwpubParser {
 		const dbEntry = innerZip.getEntries().find(e => e.entryName.endsWith('.db'));
 		if (!dbEntry) throw new Error('jwpub: no .db file in contents');
 
-		const SQL = await initSqlJs();
+		// eslint-disable-next-line @typescript-eslint/no-var-requires
+		const nodeFs = require('fs') as typeof import('fs');
+		// eslint-disable-next-line @typescript-eslint/no-var-requires
+		const nodePath = require('path') as typeof import('path');
+		const wasmBuffer = nodeFs.readFileSync(nodePath.join(this.pluginDir, 'sql-wasm.wasm'));
+		const wasmBinary = wasmBuffer.buffer.slice(
+			wasmBuffer.byteOffset,
+			wasmBuffer.byteOffset + wasmBuffer.byteLength,
+		) as ArrayBuffer;
+		const SQL = await initSqlJs({ wasmBinary });
 		return { db: new SQL.Database(dbEntry.getData()), innerZip };
 	}
 
@@ -161,7 +174,18 @@ export class JwpubParser {
 				continue;
 			}
 
-			// Skip info/Q&A pages (no <h2>Vormittag/Nachmittag)
+			// Standalone "Beantworte die folgenden Fragen" document — attach to the
+			// day it belongs to (the most recently parsed one) as its own session.
+			const questionsItem = this.extractQuestionsDocument(dom);
+			if (questionsItem) {
+				const targetDay = days[days.length - 1];
+				if (targetDay) {
+					targetDay.sessions.push({ name: 'Wiederholungsfragen', items: [questionsItem] });
+				}
+				continue;
+			}
+
+			// Skip other info pages (no <h2>Vormittag/Nachmittag)
 			const dayName = this.extractDayName(dom);
 			if (!dayName) continue;
 
@@ -169,6 +193,14 @@ export class JwpubParser {
 			if (day.sessions.some(s => s.items.length > 0)) {
 				days.push(day);
 			}
+		}
+
+		// Keep "Wiederholungsfragen" as the last session of its day, regardless of
+		// the order in which its source document appeared in the jwpub file.
+		for (const day of days) {
+			day.sessions.sort((a, b) =>
+				(a.name === 'Wiederholungsfragen' ? 1 : 0) - (b.name === 'Wiederholungsfragen' ? 1 : 0),
+			);
 		}
 
 		// CO: sort Freitag → Samstag → Sonntag
@@ -261,10 +293,13 @@ export class JwpubParser {
 		// Skip Musik/Musikvideo lines
 		if (SKIP_TEXT_RE.test(firstText)) return null;
 
-		// Skip if only a song reference (has jwpub://p/X: link but no bible ref)
-		const hasSongLink  = li.querySelector('a[href^="jwpub://p/X:"]') !== null;
+		// Song reference (has jwpub://p/X: link but no bible ref) — captured as its own
+		// item so it can be listed & linked in the day overview, but doesn't get its own note.
+		const songLink     = li.querySelector('a[href^="jwpub://p/X:"]');
 		const hasBibleLink = li.querySelector('a[href^="jwpub://b/NWTR/"]') !== null;
-		if (hasSongLink && !hasBibleLink) return null;
+		if (songLink && !hasBibleLink) {
+			return this.parseSongLine(time, songLink);
+		}
 
 		// Detect type from span.du-color or <strong> prefix
 		const [itemType, hasTypeMarker] = this.detectItemType(li);
@@ -277,12 +312,34 @@ export class JwpubParser {
 			return this.parseTalkSeries(li, time, itemType, hasTypeMarker);
 		}
 
+		// "Beantworte die folgenden Fragen:" Q&A block — same shape as a talk series
+		// (a title followed by a numbered sub-list), just without a TYPE: marker.
+		const textAfterTime = firstText.replace(TIME_RE, '').trim();
+		if (QUESTIONS_RE.test(textAfterTime)) {
+			return this.parseQuestionsBlock(li, time);
+		}
+
 		// Regular item
 		const title = this.extractTitle(firstP, time, hasTypeMarker);
 		if (!title) return null;
 
 		const scriptures = this.extractScriptures(li);
 		return { time, itemType, title, scriptures, bulletPoints: [] };
+	}
+
+	private parseSongLine(time: string, songLink: Element): ProgramItem | null {
+		const text = songLink.textContent?.trim() ?? '';
+		const numMatch = /(\d+)/.exec(text);
+		if (!numMatch) return null;
+		const songNumber = Number(numMatch[1]);
+		return {
+			time,
+			itemType: 'song',
+			title: text || `Lied ${songNumber}`,
+			scriptures: [],
+			bulletPoints: [],
+			songNumber,
+		};
 	}
 
 	private parseBibleDrama(li: HTMLElement, time: string, itemType: ItemType): ProgramItem | null {
@@ -304,31 +361,69 @@ export class JwpubParser {
 		if (!title) return null;
 
 		const scriptures = this.extractScriptures(li);
-
-		// Sub-items from <ul class="source"> > li
-		const parts: ProgramItem[] = [];
-		const sourceList = li.querySelector('ul.source');
-		if (sourceList) {
-			let index = 1;
-			for (const subLi of Array.from(sourceList.children)) {
-				if (subLi.tagName !== 'LI') continue;
-				const subP = subLi.querySelector('p');
-				if (!subP) continue;
-				const subTitle = (subP.textContent ?? '').replace(/^[•\-]\s*/, '').trim();
-				if (!subTitle) continue;
-				const subScriptures = this.extractScriptures(subLi as HTMLElement);
-				parts.push({
-					time: '',
-					itemType: 'talk',
-					title: `${index}. ${subTitle}`,
-					scriptures: subScriptures,
-					bulletPoints: [],
-				});
-				index++;
-			}
-		}
+		const parts = this.extractSubParts(li);
 
 		return { time, itemType, title, scriptures, bulletPoints: [], parts };
+	}
+
+	private parseQuestionsBlock(li: HTMLElement, time: string): ProgramItem | null {
+		const parts = this.extractSubParts(li);
+		if (parts.length === 0) return null;
+		return {
+			time,
+			itemType: 'talk-series',
+			title: 'Beantworte die folgenden Fragen',
+			scriptures: [],
+			bulletPoints: [],
+			parts,
+		};
+	}
+
+	/** Standalone "Beantworte die folgenden Fragen" / "Answer the following questions" document. */
+	private extractQuestionsDocument(dom: Document): ProgramItem | null {
+		const h1 = dom.querySelector('h1');
+		const h1Text = h1?.textContent?.trim() ?? '';
+		if (!QUESTIONS_RE.test(h1Text)) return null;
+
+		const body = dom.querySelector('.bodyTxt') ?? dom.body;
+		if (!body) return null;
+		const parts = this.extractSubParts(body as HTMLElement);
+		if (parts.length === 0) return null;
+
+		return {
+			time: '',
+			itemType: 'talk-series',
+			title: 'Beantworte die folgenden Fragen',
+			scriptures: [],
+			bulletPoints: [],
+			parts,
+		};
+	}
+
+	/** Extracts numbered sub-items from a nested <ul class="source"> (or any nested list) inside `container`. */
+	private extractSubParts(container: HTMLElement): ProgramItem[] {
+		const parts: ProgramItem[] = [];
+		const sourceList = container.querySelector('ul.source, ol.source') ?? container.querySelector('ul, ol');
+		if (!sourceList) return parts;
+
+		let index = 1;
+		for (const subLi of Array.from(sourceList.children)) {
+			if (subLi.tagName !== 'LI') continue;
+			const subP = subLi.querySelector('p') ?? subLi;
+			let subTitle = (subP.textContent ?? '').replace(/^[•\-]\s*/, '').replace(/^\d+\.\s*/, '').trim();
+			subTitle = this.stripScriptureCitation(subTitle);
+			if (!subTitle) continue;
+			const subScriptures = this.extractScriptures(subLi as HTMLElement);
+			parts.push({
+				time: '',
+				itemType: 'talk',
+				title: `${index}. ${subTitle}`,
+				scriptures: subScriptures,
+				bulletPoints: [],
+			});
+			index++;
+		}
+		return parts;
 	}
 
 	/**
@@ -368,7 +463,12 @@ export class JwpubParser {
 		}
 		// Remove leading punctuation
 		text = text.replace(/^[-–—·]\s*/, '').trim();
-		return text;
+		return this.stripScriptureCitation(text);
+	}
+
+	// Remove a trailing parenthetical scripture citation, e.g. "(Psalm 16:11; 100:2)"
+	private stripScriptureCitation(text: string): string {
+		return text.replace(/\s*\([^()]*\d+:\d+[^()]*\)\s*$/, '').trim();
 	}
 
 	private extractScriptures(container: HTMLElement): Scripture[] {

@@ -1,11 +1,10 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
-	"version": "1.0.0",
-	"minAppVersion": "1.0.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
-	"isDesktopOnly": false
+	"id": "jw-congregation-program",
+	"name": "JW Kongressprogramm",
+	"version": "0.1.0",
+	"minAppVersion": "1.4.0",
+	"description": "Importiert JW-Kongressprogramme (.jwpub / RTF-ZIP) und erstellt strukturierte Notizen im Vault.",
+	"author": "Lukas Schütter",
+	"authorUrl": "",
+	"isDesktopOnly": true
 }

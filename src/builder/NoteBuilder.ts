@@ -101,11 +101,22 @@ export class NoteBuilder {
 		const time = item.time ? `**${item.time}** – ` : '';
 
 		if (item.itemType === 'song' && item.songNumber) {
-			return `${time}[${item.title}](${this.songLink(item.songNumber)})`;
+			// Only "Lied NNN" itself should be the clickable JW Library link — a
+			// trailing remark from the same programme line (e.g. "und Gebet",
+			// "(Bekanntmachungen)") is kept as plain text after it, not part of the link.
+			const { label, remark } = this.splitSongTitle(item.title);
+			const link = `[${label}](${this.songLink(item.songNumber)})`;
+			return remark ? `${time}${link} ${remark}` : `${time}${link}`;
 		}
 
 		const titleLink = baseName ? `[[${baseName}|${item.title}]]` : item.title;
 		return `${time}${titleLink}${this.overviewScriptures(item.scriptures)}`;
+	}
+
+	private splitSongTitle(title: string): { label: string; remark?: string } {
+		const match = /^((?:Lied|Song)\s+\d+)[.,:;\s-]*(.*)$/i.exec(title.trim());
+		if (!match || !match[1]) return { label: title };
+		return { label: match[1], remark: match[2]?.trim() || undefined };
 	}
 
 	private overviewPartLine(part: ProgramItem, parentBaseName: string | undefined): string {

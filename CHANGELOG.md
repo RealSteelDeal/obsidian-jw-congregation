@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.3
+
+### Fehlerbehebungen
+
+- **Lieder-Link: endgültige Ursache behoben**: Das in 1.3.2 eingeführte `docid`-Format war korrekt (per echtem Test außerhalb Obsidian bestätigt), scheiterte aber innerhalb Obsidian, weil `https://`-Links auf Mobile über eine eingebaute WebView geöffnet werden, in der Universal Links (der App-Öffnen-Mechanismus) nicht funktionieren. Der Link nutzt jetzt wieder das `jwlibrary://`-Schema (wie Bibeltexte), das diese Falle umgeht.
+- **Bibeltext-Links**: `&pub=nwtsty` ergänzt, passend zum Format, das JW Library Desktop selbst beim Teilen einer Bibelstelle erzeugt.
+
 ## 1.3.2
 
 ### Fehlerbehebungen

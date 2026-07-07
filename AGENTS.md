@@ -233,18 +233,26 @@ Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohn
   neu installieren bzw. App-Cache leeren, bevor am Code weitergesucht wird.
 - **Lieder-Link-Historie:**
   - v0.2.0–1.3.0 nutzte `jwlibrary:///finder?pub=sjjm&issue=0&track=NNN` (reine Annahme,
-    nie verifiziert). Echter Nutzertest (Smartphone) zeigte: JW Library öffnet kurz, erkennt
+    nie verifiziert). Echter Nutzertest (iPhone) zeigte: JW Library öffnet kurz, erkennt
     die Anfrage aber nicht und leitet auf eine kaputte Web-Fallback-URL um
     (`https://finder/?pub=sjjm&issue=0&track=160#suppress_app_links`) – das Format war also nachweislich falsch.
-  - Aus echten RTF-Kongressdateien (siehe `scripts/out/`) extrahierte Original-jw.org-Links
-    für Lieder nutzen stattdessen `lank=` (Link-Anchor-ID): z. B.
-    `https://www.jw.org/finder?srcid=share&wtlocale=X&lank=pub-sjjm_611_VIDEO` für Lied 111 –
-    **`611 = 500 + 111`**, ein über 7 verschiedene Lieder (14, 17, 23, 76, 89, 111, 155, 160)
-    exakt bestätigtes Offset-Muster.
-  - Seit dieser Erkenntnis nutzt `NoteBuilder.songLink()` `jwlibrary:///finder?lank=pub-sjjm_${songNumber + 500}`
-    (ohne `_VIDEO`-Suffix, in der Annahme, dass das zur Textansicht statt zur Video-Variante führt).
-    **Weiterhin nicht auf einem echten Gerät verifiziert** – vor einer erneuten Änderung an
-    `songLink()` unbedingt mit echtem Test (nicht nur Windows-Ausführen-Dialog, siehe oben) prüfen.
+  - 1.3.1 versuchte darauf `jwlibrary:///finder?lank=pub-sjjm_${songNumber + 500}` (`lank=` aus
+    echten RTF-Exporten übernommen, siehe `scripts/out/`, dort aber nur mit `_VIDEO`-Suffix
+    belegt: `https://www.jw.org/finder?srcid=share&wtlocale=X&lank=pub-sjjm_611_VIDEO` für Lied 111,
+    `611 = 500 + 111`). **Auch das schlug auf einem echten iPhone fehl** – gleiches
+    Bounce-to-broken-URL-Verhalten. Vermutlich zwei Fehler gleichzeitig: `lank=` ist offenbar
+    nur für den `https://www.jw.org/finder`-Universal-Link registriert, nicht für das
+    `jwlibrary://`-Custom-Scheme; und `lank=..._VIDEO` ohne Suffix existiert womöglich gar nicht
+    (jw.org nutzt für reinen Text/Artikel eher `docid=`, nicht `lank=`).
+  - **Seit 1.3.2 verifiziert über JW Librarys eigene „Teilen"-Funktion** (zuverlässigste Quelle,
+    da direkt von der App generiert): Lied 54 → `https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=1102016854`,
+    Lied 94 → `...&docid=1102016894`. Beide ergeben denselben Basiswert
+    **`1102016800`** → `docid = 1102016800 + songNumber`. `NoteBuilder.songLink()` nutzt jetzt
+    dieses `docid=`-basierte `https://www.jw.org/finder`-Format (Universal Link, **kein**
+    `jwlibrary://`-Scheme mehr für Lieder – nur Bibelstellen nutzen weiterhin `jwlibrary://`).
+    Nur an zwei Liedern verifiziert (54, 94) – sollte bei künftigen Problemmeldungen zuerst mit
+    einem dritten, weit entfernten Lied (z. B. Nr. 1 oder > 140) gegengeprüft werden, um die
+    lineare Formel über den gesamten Liedernummernbereich zu bestätigen.
 
 ### Notiz- & Ordnerbenennung (NoteBuilder)
 

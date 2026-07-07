@@ -123,7 +123,7 @@ Die **Übersicht** (`00. Übersicht.md`) listet den kompletten Tag mit Links:
 ![[Titelbild.jpg]]
 
 ## Vormittag
-- **9:30** – [Lied 160](jwlibrary:///finder?lank=pub-sjjm_660)
+- **9:30** – [Lied 160](https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=1102017060)
 - **9:40** – [[01. Ist ewiges Glück möglich|Ist ewiges Glück möglich]] ([Psalm 16:11](jwlibrary:///finder?bible=19016011))
 - **11:15** – [[03. Messianische Prophezeiungen erfüllt|Messianische Prophezeiungen erfüllt]]
   - [[03. Messianische Prophezeiungen erfüllt#1. „Er hat unsere Krankheiten auf sich genommen"|1. „Er hat unsere Krankheiten auf sich genommen"]]

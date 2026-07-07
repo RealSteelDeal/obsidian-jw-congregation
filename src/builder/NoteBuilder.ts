@@ -186,15 +186,18 @@ export class NoteBuilder {
 		return `<a href="${ScriptureNormalizer.toJwLibraryLink(s)}">${label}</a>`;
 	}
 
-	// The pub/issue/track query JW Library doesn't recognize for songs (it falls
-	// back to a broken web redirect instead of opening the song). Real jw.org
-	// exports instead use a "lank" (link anchor) id — confirmed from actual RTF
-	// congress files this session as `lank=pub-sjjm_${songNumber + 500}_VIDEO`,
-	// which reliably opens the video. Dropping "_VIDEO" is the hypothesis here:
-	// it should resolve to the song's primary page (the lyrics) instead of the
-	// video-specific one. Unverified on a real device — please test after this change.
+	// Neither `pub=sjjm&issue=0&track=N` nor `lank=pub-sjjm_${N+500}` worked on a
+	// real iPhone (JW Library opened, didn't recognize the query, and bounced to
+	// a broken web fallback both times). The link below is instead copied
+	// verbatim from JW Library's own "Share" feature for a song, confirmed
+	// against two real songs from the "Singt voller Freude für Jehova" songbook:
+	// Lied 54 → docid=1102016854, Lied 94 → docid=1102016894 — both give the
+	// same base offset 1102016800, so docid = 1102016800 + songNumber.
+	// Uses the https://www.jw.org universal link (not the jwlibrary:// custom
+	// scheme, unlike scripture links) — that's the format the app itself shares,
+	// and it degrades gracefully to a real jw.org page if JW Library isn't installed.
 	private songLink(songNumber: number): string {
-		return `jwlibrary:///finder?lank=pub-sjjm_${songNumber + 500}`;
+		return `https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=${1102016800 + songNumber}`;
 	}
 
 	private renderSingleNote(item: ProgramItem, day: Day, congress: Congress): string {

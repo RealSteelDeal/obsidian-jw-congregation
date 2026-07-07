@@ -6,18 +6,30 @@ export interface NoteBuilderOptions {
 	lang: SupportedLang;
 	scriptureLinks: boolean;
 	reviewNote: boolean;
+	showTagField: boolean;
+	showTimeField: boolean;
+	showScriptureField: boolean;
+	showSpeakerField: boolean;
+	extraFields: string;
 }
 
 export interface GeneratedNote {
 	filename: string;
 	dayFolder?: string;
 	content: string;
+	/** True for purely derived content (no expected user edits) — safe to overwrite
+	 *  on re-import so plugin updates reach already-imported congresses without the
+	 *  user having to delete anything. Notes with writing space (talk notes, the
+	 *  review note, the printed questions note) default to false/undefined and are
+	 *  left untouched if they already exist, to never clobber user-added content. */
+	regenerate?: boolean;
 }
 
 export interface GeneratedAttachment {
 	filename: string;
 	dayFolder?: string;
 	data: Uint8Array;
+	regenerate?: boolean;
 }
 
 export interface BuildResult {
@@ -81,13 +93,14 @@ export class NoteBuilder {
 			let coverImageFilename: string | undefined;
 			if (day.coverImage) {
 				coverImageFilename = `Titelbild${this.extensionFor(day.coverImage.mimeType, day.coverImage.filename)}`;
-				attachments.push({ filename: coverImageFilename, dayFolder, data: day.coverImage.data });
+				attachments.push({ filename: coverImageFilename, dayFolder, data: day.coverImage.data, regenerate: true });
 			}
 
 			notes.push({
 				filename: '00. Übersicht.md',
 				dayFolder,
 				content: this.renderOverviewNote(day, congress, noteBaseNames, coverImageFilename),
+				regenerate: true,
 			});
 			notes.push(...dayNotes);
 		}
@@ -259,15 +272,18 @@ export class NoteBuilder {
 			lines.push(`*${item.subtitle}*`);
 			lines.push('');
 		}
-		if (congress.type === 'CO') lines.push(`**Tag:** ${day.weekday}`);
-		if (item.time) lines.push(`**Uhrzeit:** ${item.time}`);
+		if (this.opts.showTagField && congress.type === 'CO') lines.push(`**Tag:** ${day.weekday}`);
+		if (this.opts.showTimeField && item.time) lines.push(`**Uhrzeit:** ${item.time}`);
 
-		if (item.scriptures.length > 0) {
+		if (this.opts.showScriptureField && item.scriptures.length > 0) {
 			lines.push(this.scriptureBlock(item.scriptures));
 		}
 
-		lines.push('**Redner:**');
-		lines.push('');
+		if (this.opts.showSpeakerField) {
+			lines.push('**Redner:**');
+			lines.push('');
+		}
+		this.pushExtraFields(lines);
 
 		if (item.bulletPoints.length > 0) {
 			lines.push('---');
@@ -289,10 +305,10 @@ export class NoteBuilder {
 			lines.push(`*${item.subtitle}*`);
 			lines.push('');
 		}
-		if (congress.type === 'CO') lines.push(`**Tag:** ${day.weekday}`);
-		if (item.time) lines.push(`**Uhrzeit:** ${item.time}`);
+		if (this.opts.showTagField && congress.type === 'CO') lines.push(`**Tag:** ${day.weekday}`);
+		if (this.opts.showTimeField && item.time) lines.push(`**Uhrzeit:** ${item.time}`);
 
-		if (item.scriptures.length > 0) {
+		if (this.opts.showScriptureField && item.scriptures.length > 0) {
 			lines.push(this.scriptureBlock(item.scriptures));
 		}
 
@@ -303,20 +319,37 @@ export class NoteBuilder {
 			for (const part of parts) {
 				lines.push(`## ${part.title}`);
 				if (part.subtitle) lines.push(`*${part.subtitle}*`);
-				if (part.scriptures.length > 0) {
+				if (this.opts.showScriptureField && part.scriptures.length > 0) {
 					lines.push(this.scriptureBlock(part.scriptures));
 				}
-				lines.push('**Redner:**');
-				lines.push('');
+				if (this.opts.showSpeakerField) {
+					lines.push('**Redner:**');
+					lines.push('');
+				}
+				this.pushExtraFields(lines);
 				lines.push(this.noteSpace());
 			}
 		} else {
-			lines.push('**Redner:**');
-			lines.push('');
+			if (this.opts.showSpeakerField) {
+				lines.push('**Redner:**');
+				lines.push('');
+			}
+			this.pushExtraFields(lines);
 			lines.push(this.noteSpace());
 		}
 
 		return lines.join('\n');
+	}
+
+	// User-defined extra fields (settings.extraFields), one per line, appended
+	// right after the standard fields — e.g. a custom "**Notizen:**" line.
+	private pushExtraFields(lines: string[]): void {
+		const extra = this.opts.extraFields.trim();
+		if (!extra) return;
+		for (const line of extra.split('\n')) {
+			lines.push(line.trim());
+		}
+		lines.push('');
 	}
 
 	private scriptureBlock(scriptures: Scripture[]): string {

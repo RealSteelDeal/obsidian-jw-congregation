@@ -323,6 +323,23 @@ Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohn
   bei leerem `baseFolder` übersprungen (Vault-Root existiert immer). `ImportModal` bietet dafür
   im Zielordner-Dropdown einen expliziten Eintrag „Vault-Wurzel (kein Unterordner)" (`ROOT_VALUE`)
   neben bestehenden Ordnern und „➕ Neuer Ordner …".
+- **Erneuter Import / `regenerate`-Flag**: `GeneratedNote`/`GeneratedAttachment` tragen ein
+  optionales `regenerate: boolean`. `true` nur bei rein abgeleiteten Dateien ohne Schreibplatz
+  (`00. Übersicht.md`, `Titelbild.<ext>`) – die werden in `main.ts.importFile()` bei erneutem
+  Import per `vault.modify()`/`vault.modifyBinary()` überschrieben, statt übersprungen zu werden,
+  damit Plugin-Updates (neue Felder, Titelbild-Support, …) auch bei bereits importierten
+  Kongressen ankommen, ohne den Ordner löschen zu müssen. Alles mit Schreibplatz (Redner-Notizen,
+  `Wiederholung.md`, die Wiederholungsfragen-Notiz) bleibt ohne `regenerate` und wird bei
+  Existenz **nie** angefasst, um Nutzereinträge nicht zu überschreiben – bewusst kein
+  Diffing/Merge, um das nicht heimlich falsch zu machen.
+- **Notiz-Felder konfigurierbar**: `showTagField`/`showTimeField`/`showScriptureField`/
+  `showSpeakerField` (alle Standard: an) blenden die jeweilige Zeile in `renderSingleNote()`/
+  `renderSeriesNote()` (inkl. pro Vortragsreihen-Teil) komplett aus. `extraFields` (Freitext,
+  eine Zeile pro Feld) wird über `pushExtraFields()` direkt nach dem Redner-Feld angehängt – z. B.
+  für ein eigenes `**Notizen:**`-Feld, ohne dafür ein volles Template-System zu brauchen.
+- **Fortschritts-Notice** (`main.ts.importFile()`): bei mehr als 3 zu schreibenden Dateien wird
+  eine dauerhafte `Notice` (`timeout: 0`) erzeugt und per `setMessage()` laufend aktualisiert
+  (`X/Y`), statt den Import als Blackbox bis zum Schluss laufen zu lassen.
 
 ## Manifest-Regeln
 

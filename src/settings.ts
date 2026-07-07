@@ -7,6 +7,11 @@ export interface JwPluginSettings {
 	lang: SupportedLang;
 	scriptureLinks: boolean;
 	reviewNote: boolean;
+	showTagField: boolean;
+	showTimeField: boolean;
+	showScriptureField: boolean;
+	showSpeakerField: boolean;
+	extraFields: string;
 }
 
 export const DEFAULT_SETTINGS: JwPluginSettings = {
@@ -14,6 +19,11 @@ export const DEFAULT_SETTINGS: JwPluginSettings = {
 	lang: 'de',
 	scriptureLinks: true,
 	reviewNote: true,
+	showTagField: true,
+	showTimeField: true,
+	showScriptureField: true,
+	showSpeakerField: true,
+	extraFields: '',
 };
 
 export class JwSettingTab extends PluginSettingTab {
@@ -71,6 +81,66 @@ export class JwSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.reviewNote)
 					.onChange(async value => {
 						this.plugin.settings.reviewNote = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl).setName('Notiz-Felder').setHeading();
+
+		new Setting(containerEl)
+			.setName('Feld "Tag" anzeigen')
+			.setDesc('Nur bei Regionalen Kongressen relevant (Kreiskongresse sind eintägig).')
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.showTagField)
+					.onChange(async value => {
+						this.plugin.settings.showTagField = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName('Feld "Uhrzeit" anzeigen')
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.showTimeField)
+					.onChange(async value => {
+						this.plugin.settings.showTimeField = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName('Feld "Bibeltexte" anzeigen')
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.showScriptureField)
+					.onChange(async value => {
+						this.plugin.settings.showScriptureField = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName('Feld "Redner" anzeigen')
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.showSpeakerField)
+					.onChange(async value => {
+						this.plugin.settings.showSpeakerField = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName('Zusätzliche Felder')
+			.setDesc('Wird an jede Programmpunkt-Notiz angehängt (z. B. eine eigene "**Notizen:**"-Zeile). Eine Zeile pro Feld.')
+			.addTextArea(text =>
+				text
+					.setPlaceholder('**Notizen:**')
+					.setValue(this.plugin.settings.extraFields)
+					.onChange(async value => {
+						this.plugin.settings.extraFields = value;
 						await this.plugin.saveSettings();
 					}),
 			);

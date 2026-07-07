@@ -56,7 +56,9 @@ Ein Obsidian Community Plugin, das offizielle Programmdateien von Kongressen der
 2. Programmdatei auswählen (`.jwpub` oder RTF-ZIP)
 3. Zielordner wählen („Vault-Wurzel" (Standard), bestehenden Ordner aus dem Dropdown oder „➕ Neuer Ordner …")
 4. Vorschau prüfen (Kongresstyp, Motto, erkannte Tage/Programmpunkte)
-5. **Importieren** – der Kongressordner samt Notizen wird angelegt
+5. **Importieren** – der Kongressordner samt Notizen wird angelegt (mit Fortschrittsanzeige bei größeren Kongressen)
+
+**Erneuter Import in einen bereits bestehenden Kongressordner** (z. B. nach einem Plugin-Update): rein abgeleitete Dateien ohne Schreibplatz (`00. Übersicht.md`, `Titelbild.<ext>`) werden automatisch aktualisiert. Notizen mit Platz für eigene Einträge (Redner-Notizen, `Wiederholung.md`, die Wiederholungsfragen-Notiz) bleiben unangetastet, wenn sie schon existieren – der Ordner muss dafür nicht gelöscht werden.
 
 ## Einstellungen
 
@@ -66,6 +68,8 @@ Ein Obsidian Community Plugin, das offizielle Programmdateien von Kongressen der
 | Sprache | `Deutsch` | Bibelbuch-Namen (DE / EN) |
 | Bibelstellen verlinken | An | Erzeugt klickbare `jwlibrary://`-Links |
 | Wiederholungs-Notiz erstellen | An | Legt zusätzlich `Wiederholung.md` mit den drei Standard-Reflexionsfragen an |
+| Feld "Tag" / "Uhrzeit" / "Bibeltexte" / "Redner" anzeigen | jeweils An | Einzeln abschaltbar, falls ein Feld nicht gebraucht wird |
+| Zusätzliche Felder | *(leer)* | Freitext, wird an jede Programmpunkt-Notiz angehängt (z. B. eine eigene `**Notizen:**`-Zeile) |
 
 ## Ordner- & Notizstruktur
 

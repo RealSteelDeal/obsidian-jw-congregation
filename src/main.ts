@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFolder, normalizePath } from 'obsidian';
+import { Notice, Plugin, TFile, TFolder, normalizePath } from 'obsidian';
 import { DEFAULT_SETTINGS, JwPluginSettings, JwSettingTab } from './settings';
 import { SourceRouter } from './parser/SourceRouter';
 import { NoteBuilder } from './builder/NoteBuilder';
@@ -47,6 +47,11 @@ export default class JwCongregationPlugin extends Plugin {
 			lang: this.settings.lang,
 			scriptureLinks: this.settings.scriptureLinks,
 			reviewNote: this.settings.reviewNote,
+			showTagField: this.settings.showTagField,
+			showTimeField: this.settings.showTimeField,
+			showScriptureField: this.settings.showScriptureField,
+			showSpeakerField: this.settings.showSpeakerField,
+			extraFields: this.settings.extraFields,
 		});
 
 		let result;
@@ -72,8 +77,18 @@ export default class JwCongregationPlugin extends Plugin {
 
 		// Track only the notes/attachments actually created in this run, so a failure
 		// partway through can be rolled back without touching folders/files that
-		// already existed before the import (e.g. a reused target folder).
+		// already existed before the import (e.g. a reused target folder). Updates to
+		// already-existing "regenerate" files aren't rolled back on a later failure —
+		// they're purely derived content anyway, so a stale-but-valid version from
+		// before the failed run is a low-risk trade-off against the complexity of
+		// snapshotting old content just to restore it.
 		const createdPaths: string[] = [];
+		let updated = 0;
+		let skipped = 0;
+
+		const total = notes.length + attachments.length;
+		let done = 0;
+		const progress = total > 3 ? new Notice(`Import läuft … 0/${total}`, 0) : null;
 
 		try {
 			if (baseFolder) await this.ensureFolder(baseFolder);
@@ -83,25 +98,47 @@ export default class JwCongregationPlugin extends Plugin {
 				const notePath = await this.resolvePath(congressPath, note.dayFolder, note.filename);
 				const existing = this.app.vault.getAbstractFileByPath(notePath);
 				if (existing) {
-					new Notice(`Übersprungen (existiert bereits): ${note.filename}`);
-					continue;
+					if (note.regenerate && existing instanceof TFile) {
+						await this.app.vault.modify(existing, note.content);
+						updated++;
+					} else {
+						skipped++;
+					}
+				} else {
+					await this.app.vault.create(notePath, note.content);
+					createdPaths.push(notePath);
 				}
-				await this.app.vault.create(notePath, note.content);
-				createdPaths.push(notePath);
+				done++;
+				progress?.setMessage(`Import läuft … ${done}/${total}`);
 			}
 
 			for (const attachment of attachments) {
 				const attachPath = await this.resolvePath(congressPath, attachment.dayFolder, attachment.filename);
 				const existing = this.app.vault.getAbstractFileByPath(attachPath);
-				if (existing) continue;
 				const buf = attachment.data;
 				const arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
-				await this.app.vault.createBinary(attachPath, arrayBuffer);
-				createdPaths.push(attachPath);
+				if (existing) {
+					if (attachment.regenerate && existing instanceof TFile) {
+						await this.app.vault.modifyBinary(existing, arrayBuffer);
+						updated++;
+					} else {
+						skipped++;
+					}
+				} else {
+					await this.app.vault.createBinary(attachPath, arrayBuffer);
+					createdPaths.push(attachPath);
+				}
+				done++;
+				progress?.setMessage(`Import läuft … ${done}/${total}`);
 			}
 
-			new Notice(`${createdPaths.length} Datei(en) erstellt in „${congressFolder}".`);
+			progress?.hide();
+			const parts = [`${createdPaths.length} neu`];
+			if (updated > 0) parts.push(`${updated} aktualisiert`);
+			if (skipped > 0) parts.push(`${skipped} übersprungen (bereits vorhanden)`);
+			new Notice(`„${congressFolder}": ${parts.join(', ')}.`);
 		} catch (err) {
+			progress?.hide();
 			for (const path of createdPaths.reverse()) {
 				const file = this.app.vault.getAbstractFileByPath(path);
 				if (file) await this.app.fileManager.trashFile(file);

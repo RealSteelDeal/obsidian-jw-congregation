@@ -5,7 +5,17 @@ import { jiti } from './_setup.mjs';
 const { NoteBuilder } = await jiti.import('../src/builder/NoteBuilder.ts');
 
 function builder(opts = {}) {
-	return new NoteBuilder({ lang: 'de', scriptureLinks: true, ...opts });
+	return new NoteBuilder({
+		lang: 'de',
+		scriptureLinks: true,
+		reviewNote: false,
+		showTagField: true,
+		showTimeField: true,
+		showScriptureField: true,
+		showSpeakerField: true,
+		extraFields: '',
+		...opts,
+	});
 }
 
 function coItem(overrides = {}) {

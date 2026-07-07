@@ -5,6 +5,9 @@
 ### Neue Funktionen
 
 - **„Wiederholung"-Notiz**: legt zusätzlich `Wiederholung.md` mit den drei Standard-Reflexionsfragen für die Kongress-Wiederholung in der Versammlung an. Bei Kreiskongressen mit Link zur bereits vorhandenen Notiz „Beantworte die folgenden Fragen", bei Regionalen Kongressen mit Hinweis auf das Highlights-Video (dafür gibt's keine auswertbaren Daten in der Programmdatei). Über die neue Einstellung „Wiederholungs-Notiz erstellen" abschaltbar (Standard: an).
+- **Notiz-Felder einzeln abschaltbar**: die Felder „Tag", „Uhrzeit", „Bibeltexte" und „Redner" können jetzt jeweils einzeln aus- und eingeblendet werden. Zusätzlich eine neue Einstellung „Zusätzliche Felder" für frei definierbaren Text (z. B. ein eigenes `**Notizen:**`-Feld), der an jede Programmpunkt-Notiz angehängt wird.
+- **Fortschrittsanzeige beim Import**: bei größeren Importen (mehr als 3 Dateien) zeigt eine laufend aktualisierte Notice den Fortschritt (`X/Y`) an, statt den Import bis zum Schluss als Blackbox laufen zu lassen.
+- **Erneuter Import aktualisiert bestehende Kongresse**: rein abgeleitete Dateien ohne Schreibplatz (`00. Übersicht.md`, `Titelbild.<ext>`) werden bei erneutem Import jetzt automatisch aktualisiert, statt stillschweigend übersprungen zu werden – Plugin-Updates (neue Felder, Titelbild-Support, …) erreichen so auch bereits importierte Kongresse, ohne dass der Ordner gelöscht werden muss. Notizen mit Platz für eigene Einträge (Redner-Notizen, Wiederholungsfragen, `Wiederholung.md`) bleiben davon unberührt.
 
 ## 1.4.0
 

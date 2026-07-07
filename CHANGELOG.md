@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.2
+
+### Fehlerbehebungen
+
+- **Lieder-Link endgültig repariert**: Das in 1.3.1 eingeführte `lank`-Format schlug ebenfalls auf einem echten iPhone fehl. Über JW Librarys eigene „Teilen"-Funktion wurde das korrekte, docid-basierte Format verifiziert (`https://www.jw.org/finder?...&docid=NNNNNNNNNN`) – bestätigt an zwei echten Liedern aus „Singt voller Freude für Jehova".
+
 ## 1.3.1
 
 ### Fehlerbehebungen

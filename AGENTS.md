@@ -300,6 +300,24 @@ Klick auf eine Bibelstelle zeigt (falls eine Bibel-Datei geladen ist) den Vers-T
 Obsidian-Modal statt direkt extern zu öffnen — per echten Testdateien (`nwt_X.jwpub`,
 `nwtsty_X.jwpub`) verifiziert.
 
+- **Zwei getrennte Klick-Pfade nötig, nicht einer:**
+  - **Reading View** rendert echte `<a href="jwlibrary://…">`-Elemente → `onReadingViewClick()`,
+    ein `document`-Click-Listener in der Capture-Phase (`registerDomEvent(document, 'click', …, true)`).
+  - **Live Preview** (die CodeMirror-6-basierte Bearbeiten-Ansicht) rendert Links dagegen als
+    reine Deko-Spans (`span.cm-underline` in `span.cm-link`) — **kein** echtes `<a href>` im DOM,
+    der Reading-View-Handler greift hier nie (per echtem Test bestätigt: `evt.target` war
+    `span.cm-underline`, `closest('a[...]')` lieferte `null`). Dafür `onLivePreviewClick()` über
+    `registerEditorExtension(EditorView.domEventHandlers({ click: … }))` — bekommt die
+    `EditorView` direkt, ermittelt per `view.posAtDOM(target)` die Dokumentposition und liest den
+    rohen Markdown-Quelltext der Zeile (`view.state.doc.lineAt(pos).text`), um den Link per Regex
+    zu finden (`MARKDOWN_LINK_RE`/`HTML_LINK_RE` in `main.ts` — deckt sowohl `[Label](jwlibrary://…)`
+    aus den Einzel-Notizen als auch das rohe `<a href="jwlibrary://…">` aus der Übersicht ab).
+    Rückgabewert `true` aus dem CM6-Handler signalisiert „behandelt", unterdrückt Obsidians
+    eigene Standardaktion für diesen Klick.
+  - `@codemirror/view`/`@codemirror/state` sind in `esbuild.config.mjs` als `external` gelistet
+    (von Obsidian selbst zur Laufzeit bereitgestellt) — direkter Import in Plugin-Code ist der
+    übliche Weg, um CM6-Internas anzusprechen.
+
 - **Der Bibeltext liegt NICHT in der `Document`-Tabelle** (die enthält nur Intro-Seiten wie
   „Frage 1: Wer ist Gott?"). Eigene Tabellen: `BibleVerse` (~31.000 Zeilen, ein `Content`-Blob
   pro Vers, verschlüsselt wie `Document.Content`), `BibleChapter` (ein Blob pro Kapitel, mit

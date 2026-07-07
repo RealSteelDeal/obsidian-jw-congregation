@@ -1,4 +1,5 @@
 import { Notice, Plugin, TFile, TFolder, normalizePath } from 'obsidian';
+import { EditorView } from '@codemirror/view';
 import { DEFAULT_SETTINGS, JwPluginSettings, JwSettingTab } from './settings';
 import { SourceRouter } from './parser/SourceRouter';
 import { NoteBuilder } from './builder/NoteBuilder';
@@ -10,6 +11,13 @@ import { Scripture } from './models/congress';
 // esbuild's "binary" loader embeds this as base64 in main.js and decodes it to a
 // Uint8Array at bundle time — no separate file needs to ship alongside main.js.
 import sqlWasmBinary from 'sql.js/dist/sql-wasm.wasm';
+
+// Matches both markdown link syntax (used in per-item notes) and the raw HTML
+// anchors the overview note uses for scripture links (see NoteBuilder) — Live
+// Preview shows the *source* text for whichever form is actually written, so
+// both patterns need to be recognised here.
+const MARKDOWN_LINK_RE = /\[[^\]]*\]\((jwlibrary:\/\/[^)\s]*)\)/g;
+const HTML_LINK_RE = /<a\s+href="(jwlibrary:\/\/[^"]*)"/g;
 
 const BIBLE_FILE_NAME = 'bible-cache.jwpub';
 
@@ -38,26 +46,79 @@ export default class JwCongregationPlugin extends Plugin {
 
 		this.addSettingTab(new JwSettingTab(this.app, this));
 
-		// Capture phase so we run before Obsidian's own link-click handling —
-		// only intercepts our own jwlibrary:// scripture links (song links use a
-		// different https://www.jw.org scheme and are left alone), and only when
-		// a Bible file has actually been loaded.
-		this.registerDomEvent(document, 'click', this.onDocumentClick.bind(this), true);
+		// Reading View renders real <a href> elements — capture phase so we run
+		// before Obsidian's own link-click handling (only intercepts our own
+		// jwlibrary:// scripture links; song links use a different
+		// https://www.jw.org scheme and are left alone).
+		this.registerDomEvent(document, 'click', this.onReadingViewClick.bind(this), true);
+
+		// Live Preview (the CodeMirror-based editing view) renders links as
+		// decoration spans (span.cm-underline inside span.cm-link) — there's no
+		// real <a href> to read there at all, so the Reading View handler above
+		// never matches. This editor extension gets the raw markdown source
+		// text at the click position instead, via CM6's own APIs.
+		this.registerEditorExtension(
+			EditorView.domEventHandlers({
+				click: (evt, view) => this.onLivePreviewClick(evt, view),
+			}),
+		);
 	}
 
 	onunload() {}
 
-	private onDocumentClick(evt: MouseEvent): void {
+	private onReadingViewClick(evt: MouseEvent): void {
 		if (!this.settings.bibleFileLoaded) return;
 		const target = evt.target as HTMLElement | null;
-		const link = target?.closest('a[href^="jwlibrary://"]') as HTMLAnchorElement | null;
+		const link = target?.closest?.('a[href^="jwlibrary://"]') as HTMLAnchorElement | null;
 		if (!link) return;
 
 		const scripture = this.parseScriptureFromHref(link.href);
 		if (!scripture) return;
 
 		evt.preventDefault();
-		const href = link.href;
+		this.showVersePopupOrFallback(scripture, link.href);
+	}
+
+	private onLivePreviewClick(evt: MouseEvent, view: EditorView): boolean {
+		if (!this.settings.bibleFileLoaded) return false;
+		const target = evt.target as Node | null;
+		if (!target) return false;
+
+		let pos: number;
+		try {
+			pos = view.posAtDOM(target);
+		} catch {
+			return false;
+		}
+
+		const line = view.state.doc.lineAt(pos);
+		const offsetInLine = pos - line.from;
+		const found = this.findScriptureLinkInText(line.text, offsetInLine);
+		if (!found) return false;
+
+		evt.preventDefault();
+		this.showVersePopupOrFallback(found.scripture, found.href);
+		return true; // tells CM6 this event is handled — no further handlers/default action
+	}
+
+	/** Finds a jwlibrary:// scripture link (markdown or raw-HTML form) whose span covers `offset` within `text`. */
+	private findScriptureLinkInText(text: string, offset: number): { scripture: Scripture; href: string } | undefined {
+		for (const re of [MARKDOWN_LINK_RE, HTML_LINK_RE]) {
+			re.lastIndex = 0;
+			let m: RegExpExecArray | null;
+			while ((m = re.exec(text))) {
+				if (offset >= m.index && offset <= m.index + m[0].length) {
+					const href = m[1];
+					if (!href) continue;
+					const scripture = this.parseScriptureFromHref(href);
+					if (scripture) return { scripture, href };
+				}
+			}
+		}
+		return undefined;
+	}
+
+	private showVersePopupOrFallback(scripture: Scripture, href: string): void {
 		void (async () => {
 			const reader = await this.getBibleReader();
 			if (!reader) {

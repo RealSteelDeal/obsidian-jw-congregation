@@ -27,3 +27,7 @@ data.json
 
 # Decrypted jwpub analysis output (contains copyrighted content)
 scripts/out/
+
+# User-supplied Bible jwpub file for the Bible-verse popup feature — copyrighted
+# content, never committed. Written here at runtime by main.ts.setBibleFile().
+/bible-cache.jwpub

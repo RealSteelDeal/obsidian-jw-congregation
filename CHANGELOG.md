@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.1
+
+### Fehlerbehebungen (Bibeltext-Popup)
+
+- **Querverweis-Buchstaben in eigener Farbe**: nutzten bisher dieselbe Akzentfarbe wie die Vers-/Kapitelnummer und waren dadurch kaum von ihr zu unterscheiden.
+
 ## 1.5.0
 
 ### Neue Funktionen

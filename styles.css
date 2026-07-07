@@ -130,8 +130,13 @@ a.external-link[href*="jw.org/finder"]:not(#_)::after {
 	color: var(--text-warning);
 }
 
+/* Also deliberately not --text-accent — that's what the verse/chapter number
+   already uses, so cross-reference markers would blend right into it
+   otherwise (confirmed by real-world testing). A third, distinct tone from
+   the footnote's --text-warning so all three (verse number, footnote,
+   cross-reference) stay tellable apart at a glance. */
 .jw-bible-inline-crossref {
-	color: var(--text-accent);
+	color: var(--text-success);
 }
 
 /* Bible references embedded inside footnote/cross-reference/study-note text —

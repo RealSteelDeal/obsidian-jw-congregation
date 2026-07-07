@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.4
+
+### Fehlerbehebungen
+
+- **JW-Library-Links vervollständigt**: Lieder- und Bibeltext-Links enthielten bisher nur den jeweiligen Inhalts-Parameter (`docid=`/`bible=`), nicht aber `srcid`/`wtlocale`/`prefer`, die im per JW-Library-„Teilen"-Funktion bestätigten Referenzlink ebenfalls enthalten sind. Beide Linktypen nutzen jetzt exakt denselben Parametersatz wie die App selbst erzeugt.
+
+### Sonstiges
+
+- Veralteten, nirgends referenzierten Bau-Prompt (`docs/build-prompt.md`) entfernt – widersprach dem aktuellen Stand (z. B. `isDesktopOnly: true`, Frontmatter in Notizen).
+
 ## 1.3.3
 
 ### Fehlerbehebungen

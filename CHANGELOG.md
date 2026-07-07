@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.1.0
+
+### Neu
+
+- **Tagesmotto in der Übersicht**: Der Wochentag steht jetzt als große Überschrift (ohne "Tag:"-Präfix), darunter das Tagesmotto samt verlinkter Bibelstelle (z. B. „Geben macht glücklicher als Empfangen" (Apostelgeschichte 20:35)) – wird direkt aus dem jwpub-Tagesdokument gelesen.
+- **Bibeltexte im Klammer-Format**: In Übersicht und Notizen stehen Bibeltexte jetzt wie im offiziellen gedruckten Programm in einer gemeinsamen Klammer (z. B. „(Matthäus 5:1-2; Psalmen 100:2)"), mit kurzem Bindestrich statt Halbgeviertstrich für Versbereiche.
+- **Externes-Link-Icon entfernt**: Bibeltext- und Lieder-Links (`jwlibrary://`) zeigen kein Externe-Link-Icon mehr – weder in der Leseansicht noch beim Bearbeiten (Live Preview).
+
+### Fehlerbehebungen
+
+- **Bibeldrama-Zitat-Dopplung behoben**: Der Untertitel eines Bibeldramas zeigte die Bibelstellen-Zitate zusätzlich zum bereits separat verlinkten Bibeltext-Block an; die Zitate werden jetzt wie bei normalen Titeln aus dem Untertitel entfernt.
+
+### Sonstiges
+
+- Automatisierte Unit-Tests (Parser, Normalizer, NoteBuilder) über Node's eingebauten Test-Runner ergänzt.
+- Ungenutzten `sql-wasm.wasm`-Rest aus dem Projekt-Root entfernt.
+
 ## 1.0.0
 
 ### Sonstiges

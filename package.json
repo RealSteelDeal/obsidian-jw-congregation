@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-jw-congregation-program",
-	"version": "0.2.0",
+	"version": "1.1.0",
 	"description": "Importiert JW-Kongressprogramme (.jwpub / RTF-ZIP) und erstellt strukturierte Notizen in Obsidian.",
 	"main": "main.js",
 	"type": "module",

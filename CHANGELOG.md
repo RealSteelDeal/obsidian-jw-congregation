@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.3.0
+
+### Neu
+
+- **Mobile-Unterstützung (iOS/Android)**: Das Plugin läuft jetzt auch auf Obsidian Mobile, nicht mehr nur auf Desktop (`isDesktopOnly: false`). Die jwpub-Entschlüsselung wurde komplett auf plattformunabhängige Web-APIs umgestellt:
+  - AES-128-CBC-Entschlüsselung und SHA-256-Schlüsselableitung laufen jetzt über die Web-Crypto-API (`crypto.subtle`) statt über Node's `crypto`-Modul
+  - zlib-Dekomprimierung läuft über `pako` statt Node's `zlib`-Modul
+  - ZIP-Handling (jwpub- und RTF-Import) läuft über `fflate` statt `adm-zip`, das zwingend Node `fs`/`path`/`zlib` voraussetzte
+  - Die Entschlüsselung wurde gegen eine unabhängige Referenzimplementierung auf Byte-Identität der entschlüsselten Inhalte geprüft
+  - Klare Fehlermeldung statt kryptischem Absturz, falls ein Gerät ausnahmsweise kein WebCrypto/WebAssembly unterstützt
+
+### Fehlerbehebungen
+
+- **CSS-Lint-Warnung behoben**: Die Regeln zum Entfernen des Externe-Link-Icons bei Bibeltext-/Lieder-Links nutzten `!important`; das wurde durch höhere Selektor-Spezifität ersetzt (funktional identisch)
+
 ## 1.2.0
 
 ### Fehlerbehebungen

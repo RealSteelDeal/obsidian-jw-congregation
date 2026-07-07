@@ -112,8 +112,13 @@ export class NoteBuilder {
 		}
 
 		if (congress.type === 'CO') {
-			lines.push(`**Tag:** ${day.weekday}`);
+			lines.push(`# ${day.weekday}`);
 			lines.push('');
+			if (day.theme) {
+				const scripture = day.themeScripture ? ` (${this.formatScripture(day.themeScripture)})` : '';
+				lines.push(`${day.theme}${scripture}`);
+				lines.push('');
+			}
 		}
 
 		for (const session of day.sessions) {
@@ -166,10 +171,13 @@ export class NoteBuilder {
 	// which Obsidian's Markdown renderer passes through) so styles.css can visually
 	// de-emphasize them — a bullet with time + title + half a dozen scripture links
 	// otherwise reads as a wall of blue links with the title lost among them.
+	//
+	// Rendered in parentheses like the official printed programme, e.g.
+	// "(Matthäus 5:1, 2)" or "(Matthäus 5:3-16; Lukas 6:17-49)" for multiple refs.
 	private overviewScriptures(scriptures: Scripture[]): string {
 		if (scriptures.length === 0) return '';
-		const refs = scriptures.map(s => this.overviewScriptureLink(s)).join(' · ');
-		return ` <span class="jw-overview-refs">— ${refs}</span>`;
+		const refs = scriptures.map(s => this.overviewScriptureLink(s)).join('; ');
+		return ` <span class="jw-overview-refs">(${refs})</span>`;
 	}
 
 	private overviewScriptureLink(s: Scripture): string {
@@ -250,8 +258,8 @@ export class NoteBuilder {
 	}
 
 	private scriptureBlock(scriptures: Scripture[]): string {
-		const links = scriptures.map(s => this.formatScripture(s)).join(' · ');
-		return `**Bibeltexte:** ${links}`;
+		const links = scriptures.map(s => this.formatScripture(s)).join('; ');
+		return `**Bibeltexte:** (${links})`;
 	}
 
 	private formatScripture(s: Scripture): string {

@@ -65,3 +65,34 @@
 .jw-overview-refs a {
 	color: var(--text-muted);
 }
+
+/* Scripture and song links point at the jwlibrary:// custom protocol, which
+   Obsidian treats as an external link and decorates with a small icon —
+   drop it here so the reference text itself stays clean. !important because
+   Obsidian's own external-link rule otherwise wins on specificity. */
+a.external-link[href^="jwlibrary://"] {
+	background-image: none !important;
+	padding-right: 0 !important;
+}
+
+a.external-link[href^="jwlibrary://"]::after {
+	content: none !important;
+	display: none !important;
+	background-image: none !important;
+	padding-right: 0 !important;
+	margin: 0 !important;
+}
+
+/* Live Preview (editing view) renders the external-link icon as its own
+   CodeMirror decoration span rather than on a real <a href>, so it can't be
+   scoped to jwlibrary:// links the way the reading-view rule above is —
+   Obsidian never exposes the link target on this element. Hiding it here
+   applies to every external link's icon while editing, vault-wide, not just
+   this plugin's scripture/song links (accepted trade-off, chosen explicitly
+   over leaving the icon in place). */
+.cm-formatting-link-string.external-link {
+	background-image: none !important;
+	width: 0 !important;
+	padding: 0 !important;
+	margin: 0 !important;
+}

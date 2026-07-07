@@ -223,6 +223,29 @@ export class JwpubParser {
 	// HTML parsing
 	// ──────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Extracts a day's own motto quote + scripture, e.g. „Geben macht glücklicher
+	 * als Empfangen“ (Apostelgeschichte 20:35) — sits in the <p> right after
+	 * </header> (title image + weekday), before .bodyTxt. Some congress types
+	 * (CA) only cite the scripture there, since the quote is already the page's
+	 * own <h1> — detected by the paragraph having no text beyond the link itself.
+	 */
+	private extractDayTheme(dom: Document): { theme?: string; themeScripture?: Scripture } {
+		const header = dom.querySelector('header');
+		const p = header?.nextElementSibling;
+		if (!p || p.tagName !== 'P') return {};
+
+		const link = p.querySelector('a[href^="jwpub://b/NWTR/"]');
+		const themeScripture = link ? this.hrefToScripture(link.getAttribute('href') ?? '') : undefined;
+
+		const linkText = link?.textContent?.trim() ?? '';
+		const fullText = (p.textContent ?? '').trim();
+		if (!fullText || fullText === linkText) return { themeScripture };
+
+		const theme = this.stripScriptureCitation(fullText) || undefined;
+		return { theme, themeScripture };
+	}
+
 	private extractThemeScripture(dom: Document): Scripture | undefined {
 		// CA: <p class="themeScrp"><a href="jwpub://b/NWTR/...">
 		const a = dom.querySelector('p.themeScrp a[href]');
@@ -287,8 +310,9 @@ export class JwpubParser {
 	private parseDay(dom: Document, dayName: string): Day {
 		const bodyTxt = dom.querySelector('.bodyTxt');
 		const sessions: Session[] = [];
+		const { theme, themeScripture } = this.extractDayTheme(dom);
 
-		if (!bodyTxt) return { name: dayName, weekday: dayName, sessions };
+		if (!bodyTxt) return { name: dayName, weekday: dayName, theme, themeScripture, sessions };
 
 		// Split by <h2> session headers
 		const children = Array.from(bodyTxt.children);
@@ -318,7 +342,7 @@ export class JwpubParser {
 			sessions.push({ name: currentSessionName, items: currentItems });
 		}
 
-		return { name: dayName, weekday: dayName, sessions };
+		return { name: dayName, weekday: dayName, theme, themeScripture, sessions };
 	}
 
 	private parseLi(li: HTMLElement): ProgramItem | null {
@@ -395,7 +419,7 @@ export class JwpubParser {
 		// P1: series title (bold+italic)
 		// P2: episode subtitle + refs (italic)
 		const seriesTitle = paragraphs[1]?.textContent?.trim() ?? '';
-		const episodeText = paragraphs[2]?.textContent?.trim() ?? '';
+		const episodeText = this.stripScriptureCitation(paragraphs[2]?.textContent?.trim() ?? '');
 		const title    = seriesTitle || 'Bibeldrama';
 		const subtitle = episodeText || undefined;
 		const scriptures = this.extractScriptures(li);

@@ -72,7 +72,7 @@ export class ScriptureNormalizer {
 		const bookName = getBookName(s.book, lang);
 		const base = `${bookName} ${s.chapter}:${s.verseStart}`;
 		if (s.verseEnd !== undefined && s.verseEnd !== s.verseStart) {
-			return `${base}–${s.verseEnd}`;
+			return `${base}-${s.verseEnd}`;
 		}
 		return base;
 	}

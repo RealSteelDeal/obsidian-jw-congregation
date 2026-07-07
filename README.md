@@ -95,7 +95,7 @@ Für jeden Programmpunkt (außer Liedern) wird eine eigene, durchnummerierte Not
 ```markdown
 **Tag:** Freitag           ← nur bei Regionalen Kongressen (mehrtägig)
 **Uhrzeit:** 9:40
-**Bibeltexte:** [Psalm 16:11](jwlibrary:///finder?bible=19016011) · [Psalm 100:2](jwlibrary:///finder?bible=19100002)
+**Bibeltexte:** ([Psalm 16:11](jwlibrary:///finder?bible=19016011); [Psalm 100:2](jwlibrary:///finder?bible=19100002))
 **Redner:**
 
 
@@ -105,10 +105,10 @@ Vortragsreihen erhalten eine Notiz mit einer Überschrift je Teil (die Übersich
 
 ```markdown
 **Uhrzeit:** 11:15
-**Bibeltexte:** [Matthäus 8:16–17](jwlibrary:///finder?bible=40008016-40008017) · …
+**Bibeltexte:** ([Matthäus 8:16-17](jwlibrary:///finder?bible=40008016-40008017); …)
 
 ## 1. „Er hat unsere Krankheiten auf sich genommen"
-**Bibeltexte:** [Matthäus 8:16, 17](jwlibrary:///finder?bible=40008016-40008017) · …
+**Bibeltexte:** ([Matthäus 8:16, 17](jwlibrary:///finder?bible=40008016-40008017); …)
 **Redner:**
 
 
@@ -123,7 +123,7 @@ Die **Übersicht** (`00. Übersicht.md`) listet den kompletten Tag mit Links:
 
 ## Vormittag
 - **9:30** – [Lied 160](jwlibrary:///finder?pub=sjjm&issue=0&track=160)
-- **9:40** – [[01. Ist ewiges Glück möglich|Ist ewiges Glück möglich]] — [Psalm 16:11](jwlibrary:///finder?bible=19016011)
+- **9:40** – [[01. Ist ewiges Glück möglich|Ist ewiges Glück möglich]] ([Psalm 16:11](jwlibrary:///finder?bible=19016011))
 - **11:15** – [[03. Messianische Prophezeiungen erfüllt|Messianische Prophezeiungen erfüllt]]
   - [[03. Messianische Prophezeiungen erfüllt#1. „Er hat unsere Krankheiten auf sich genommen"|1. „Er hat unsere Krankheiten auf sich genommen"]]
   - …

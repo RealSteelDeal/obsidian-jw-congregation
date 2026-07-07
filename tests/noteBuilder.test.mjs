@@ -140,6 +140,43 @@ test('song link falls back to the songNumber formula when no songDocid is availa
 	));
 });
 
+test('per-item note links back to its day\'s overview, on the first content line', () => {
+	const result = builder().buildNotes(coCongress([coDay()]));
+	const itemNote = result.notes.find(n => n.filename !== '00. Übersicht.md');
+	const lines = itemNote.content.split('\n');
+	assert.equal(lines[0], '[[Samstag/00. Übersicht|↩ Zur Übersicht]]');
+});
+
+test('a song immediately following a programme item is mentioned and linked in that item\'s own note', () => {
+	const talk = coItem({ title: 'Ist ewiges Glück möglich?' });
+	const song = coItem({
+		itemType: 'song', title: 'Lied 12 und Gebet', scriptures: [], songNumber: 12, songDocid: 1102016812,
+	});
+	const result = builder().buildNotes(
+		coCongress([coDay({ sessions: [{ name: 'Vormittag', items: [talk, song] }] })]),
+	);
+	const itemNote = result.notes.find(n => n.filename !== '00. Übersicht.md');
+	assert.ok(itemNote.content.includes(
+		'**Anschließend:** [Lied 12](https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=1102016812) und Gebet',
+	));
+});
+
+test('a talk-series note also picks up its trailing song, after the last part', () => {
+	const series = coItem({
+		itemType: 'talk-series',
+		title: 'Symposium',
+		parts: [coItem({ title: 'Teil 1' }), coItem({ title: 'Teil 2' })],
+	});
+	const song = coItem({ itemType: 'song', title: 'Lied 5', scriptures: [], songNumber: 5, songDocid: 1102016805 });
+	const result = builder().buildNotes(
+		coCongress([coDay({ sessions: [{ name: 'Vormittag', items: [series, song] }] })]),
+	);
+	const itemNote = result.notes.find(n => n.filename !== '00. Übersicht.md');
+	assert.ok(itemNote.content.includes(
+		'**Anschließend:** [Lied 5](https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=1102016805)',
+	));
+});
+
 test('cover image is written as a separate Titelbild attachment, not inlined', () => {
 	const day = coDay({
 		coverImage: { data: new Uint8Array([1, 2, 3]), filename: 'foo.jpg', mimeType: 'image/jpeg' },

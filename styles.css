@@ -101,10 +101,60 @@ a.external-link[href*="jw.org/finder"]:not(#_)::after {
 	vertical-align: super;
 }
 
-.jw-bible-verse-text h3 {
-	font-size: var(--font-ui-medium);
+/* A chapter's first verse gets a visibly larger, non-superscript number (like
+   printed Bibles do) so it can't be mistaken for a regular verse number. Sized
+   relative to the surrounding text (not a UI font variable) so the size jump
+   stays clearly visible regardless of theme. */
+.jw-bible-chapter-number {
+	font-size: 1.8em;
+	line-height: 1;
+	font-weight: 800;
+	color: var(--text-accent);
+	margin-right: 0.15em;
+	vertical-align: baseline;
+}
+
+/* Inline footnote/cross-reference marker letters (a, b, c, …), shown at their
+   real position in the verse text instead of only being listed below it. */
+.jw-bible-inline-marker {
+	font-size: var(--font-smallest);
+	font-weight: 700;
+	vertical-align: super;
+	margin-left: 0.05em;
+}
+
+/* Deliberately not --text-accent (used by the verse/chapter number) or
+   --text-muted (too easily read as "just faded text") — a distinct warm tone
+   so the footnote letter can't be mistaken for a verse number at a glance. */
+.jw-bible-inline-footnote {
+	color: var(--text-warning);
+}
+
+.jw-bible-inline-crossref {
+	color: var(--text-accent);
+}
+
+/* Bible references embedded inside footnote/cross-reference/study-note text —
+   clickable, opening another verse popup (see BibleVerseModal.openScripturePopup()). */
+.jw-bible-inline-link {
+	color: var(--text-accent);
+	cursor: pointer;
+}
+
+.jw-bible-inline-link:hover {
+	text-decoration: underline;
+}
+
+/* Fußnoten/Querverweise/Studienanmerkungen: alle drei via <details> zugeklappt,
+   damit der Bibeltext selbst beim Öffnen des Popups im Vordergrund bleibt. */
+.jw-bible-collapsible {
 	margin-top: 1em;
-	margin-bottom: 0.4em;
+}
+
+.jw-bible-collapsible summary {
+	cursor: pointer;
+	font-size: var(--font-ui-medium);
+	font-weight: 600;
 	color: var(--text-muted);
 }
 

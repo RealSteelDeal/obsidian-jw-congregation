@@ -70,7 +70,8 @@ export class NoteBuilder {
 
 			let index = 0;
 			for (const session of day.sessions) {
-				for (const item of session.items) {
+				for (let i = 0; i < session.items.length; i++) {
+					const item = session.items[i]!;
 					// Songs and asides (Pause/Musikvideo) show up in the overview only —
 					// no dedicated, numbered note for either.
 					if (item.itemType === 'song' || item.itemType === 'aside') continue;
@@ -83,9 +84,16 @@ export class NoteBuilder {
 						questionsBaseName = baseName;
 					}
 
+					// A song (often with a trailing "und Gebet") that directly follows
+					// this item in the programme — mentioned and linked in the item's
+					// own note too, not just the overview, so it isn't only visible one
+					// note away.
+					const next = session.items[i + 1];
+					const trailingSong = next?.itemType === 'song' ? next : undefined;
+
 					const content = item.itemType === 'talk-series'
-						? this.renderSeriesNote(item, day, congress)
-						: this.renderSingleNote(item, day, congress);
+						? this.renderSeriesNote(item, day, congress, trailingSong)
+						: this.renderSingleNote(item, day, congress, trailingSong);
 					dayNotes.push({ filename: `${baseName}.md`, dayFolder, content });
 				}
 			}
@@ -201,22 +209,44 @@ export class NoteBuilder {
 		const time = item.time ? `**${item.time}** – ` : '';
 
 		if (item.itemType === 'song' && item.songNumber) {
-			// Only "Lied NNN" itself should be the clickable JW Library link — a
-			// trailing remark from the same programme line (e.g. "und Gebet",
-			// "(Bekanntmachungen)") is kept as plain text after it, not part of the link.
-			const { label, remark } = this.splitSongTitle(item.title);
-			const link = `[${label}](${this.songLink(item.songNumber, item.songDocid)})`;
-			return remark ? `${time}${link} ${remark}` : `${time}${link}`;
+			return `${time}${this.songLinkText(item)}`;
 		}
 
 		const titleLink = baseName ? `[[${baseName}|${item.title}]]` : item.title;
 		return `${time}${titleLink}${this.overviewScriptures(item.scriptures)}`;
 	}
 
+	// Only "Lied NNN" itself should be the clickable JW Library link — a trailing
+	// remark from the same programme line (e.g. "und Gebet", "(Bekanntmachungen)")
+	// is kept as plain text after it, not part of the link. Shared between the
+	// overview's song line and a programme item's own "trailing song" mention
+	// (see renderSingleNote()/renderSeriesNote()), so both link identically.
+	private songLinkText(item: ProgramItem): string {
+		const { label, remark } = this.splitSongTitle(item.title);
+		const link = `[${label}](${this.songLink(item.songNumber!, item.songDocid)})`;
+		return remark ? `${link} ${remark}` : link;
+	}
+
 	private splitSongTitle(title: string): { label: string; remark?: string } {
 		const match = /^((?:Lied|Song)\s+\d+)[.,:;\s-]*(.*)$/i.exec(title.trim());
 		if (!match || !match[1]) return { label: title };
 		return { label: match[1], remark: match[2]?.trim() || undefined };
+	}
+
+	// Every dedicated per-item note carries a link back to the day's overview —
+	// as close to "above the title" as Obsidian allows (content can't render
+	// above the inline title, so this is the first line of body content instead).
+	// Uses a folder-qualified link (not just "[[00. Übersicht]]") so multi-day
+	// congresses, which have one "00. Übersicht" per day folder, resolve
+	// unambiguously rather than relying on Obsidian's shortest-path guess.
+	private overviewLinkLine(day: Day, congress: Congress): string {
+		const folder = this.dayFolderName(day, congress);
+		const target = folder ? `${folder}/00. Übersicht` : '00. Übersicht';
+		return `[[${target}|↩ Zur Übersicht]]`;
+	}
+
+	private dayFolderName(day: Day, congress: Congress): string | undefined {
+		return congress.type === 'CO' ? day.weekday : undefined;
 	}
 
 	private overviewPartLine(part: ProgramItem, parentBaseName: string | undefined): string {
@@ -265,8 +295,11 @@ export class NoteBuilder {
 		return `https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=${docid}`;
 	}
 
-	private renderSingleNote(item: ProgramItem, day: Day, congress: Congress): string {
+	private renderSingleNote(item: ProgramItem, day: Day, congress: Congress, trailingSong?: ProgramItem): string {
 		const lines: string[] = [];
+
+		lines.push(this.overviewLinkLine(day, congress));
+		lines.push('');
 
 		if (item.subtitle) {
 			lines.push(`*${item.subtitle}*`);
@@ -293,13 +326,21 @@ export class NoteBuilder {
 			lines.push('');
 		}
 
+		if (trailingSong) {
+			lines.push(`**Anschließend:** ${this.songLinkText(trailingSong)}`);
+			lines.push('');
+		}
+
 		lines.push(this.noteSpace());
 
 		return lines.join('\n');
 	}
 
-	private renderSeriesNote(item: ProgramItem, day: Day, congress: Congress): string {
+	private renderSeriesNote(item: ProgramItem, day: Day, congress: Congress, trailingSong?: ProgramItem): string {
 		const lines: string[] = [];
+
+		lines.push(this.overviewLinkLine(day, congress));
+		lines.push('');
 
 		if (item.subtitle) {
 			lines.push(`*${item.subtitle}*`);
@@ -336,6 +377,11 @@ export class NoteBuilder {
 			}
 			this.pushExtraFields(lines);
 			lines.push(this.noteSpace());
+		}
+
+		if (trailingSong) {
+			lines.push(`**Anschließend:** ${this.songLinkText(trailingSong)}`);
+			lines.push('');
 		}
 
 		return lines.join('\n');

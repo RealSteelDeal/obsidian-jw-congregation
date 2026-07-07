@@ -1,6 +1,5 @@
 import { Notice, Plugin, TFile, TFolder, normalizePath } from 'obsidian';
 import { EditorView } from '@codemirror/view';
-import { Prec } from '@codemirror/state';
 import { DEFAULT_SETTINGS, JwPluginSettings, JwSettingTab } from './settings';
 import { SourceRouter } from './parser/SourceRouter';
 import { NoteBuilder } from './builder/NoteBuilder';
@@ -47,72 +46,61 @@ export default class JwCongregationPlugin extends Plugin {
 
 		this.addSettingTab(new JwSettingTab(this.app, this));
 
-		// Reading View renders real <a href> elements — capture phase so we run
-		// before Obsidian's own link-click handling (only intercepts our own
-		// jwlibrary:// scripture links; song links use a different
-		// https://www.jw.org scheme and are left alone).
-		this.registerDomEvent(document, 'click', this.onReadingViewClick.bind(this), true);
-
-		// Live Preview (the CodeMirror-based editing view) renders links as
-		// decoration spans (span.cm-underline inside span.cm-link) — there's no
-		// real <a href> to read there at all, so the Reading View handler above
-		// never matches. This editor extension gets the raw markdown source
-		// text at the click position instead, via CM6's own APIs.
-		//
-		// Prec.highest() is required, not optional: Obsidian's own built-in
-		// live-preview link handler is also a domEventHandlers 'click' extension,
-		// and it opens the external link itself directly (not via the DOM's
-		// default action, since there's no real <a> to begin with) — so it can't
-		// be stopped by preventDefault() after the fact. Returning `true` from a
-		// domEventHandlers callback only skips *lower-precedence* handlers for
-		// the same event; without forcing ours to the highest precedence,
-		// Obsidian's handler still runs first and the popup and JW Library both
-		// end up opening (confirmed by real-world testing).
-		this.registerEditorExtension(
-			Prec.highest(
-				EditorView.domEventHandlers({
-					click: (evt, view) => this.onLivePreviewClick(evt, view),
-				}),
-			),
-		);
+		// A single document-level, CAPTURE-phase click listener handles both
+		// Reading View (real <a href> elements) and Live Preview (links rendered
+		// as decoration spans, e.g. span.cm-underline inside span.cm-link — no
+		// real href to read there). Capture phase is the important part: it runs
+		// before ANY bubble-phase handler anywhere in the DOM tree, which is what
+		// actually guarantees we run before Obsidian's own link-click handling —
+		// unlike a CM6 `EditorView.domEventHandlers` extension (even wrapped in
+		// `Prec.highest()`), which is only guaranteed to win against *other*
+		// domEventHandlers-registered extensions, not against a handler Obsidian
+		// might attach directly to the link's DOM element. A previous version of
+		// this plugin used the Prec.highest()-wrapped extension approach for Live
+		// Preview and it still let JW Library open alongside the popup in some
+		// cases (confirmed by real-world testing) — this capture-phase listener
+		// is the actually-reliable fix.
+		this.registerDomEvent(document, 'click', this.onDocumentClick.bind(this), true);
 	}
 
 	onunload() {}
 
-	private onReadingViewClick(evt: MouseEvent): void {
+	private onDocumentClick(evt: MouseEvent): void {
 		if (!this.settings.bibleFileLoaded) return;
-		const target = evt.target as HTMLElement | null;
-		const link = target?.closest?.('a[href^="jwlibrary://"]') as HTMLAnchorElement | null;
-		if (!link) return;
+		const target = evt.target;
+		if (!target || !(target instanceof HTMLElement)) return;
 
-		const scripture = this.parseScriptureFromHref(link.href);
-		if (!scripture) return;
+		// Reading View: a real <a href="jwlibrary://...">.
+		const link = target.closest<HTMLAnchorElement>('a[href^="jwlibrary://"]');
+		if (link) {
+			const scripture = this.parseScriptureFromHref(link.href);
+			if (!scripture) return;
+			evt.preventDefault();
+			evt.stopPropagation(); // belt-and-braces: also stop any other click handler on this link/ancestor
+			this.showVersePopupOrFallback(scripture, link.href);
+			return;
+		}
 
-		evt.preventDefault();
-		evt.stopPropagation(); // belt-and-braces: also stop any other click handler on this link/ancestor
-		this.showVersePopupOrFallback(scripture, link.href);
-	}
-
-	private onLivePreviewClick(evt: MouseEvent, view: EditorView): boolean {
-		if (!this.settings.bibleFileLoaded) return false;
-		const target = evt.target as Node | null;
-		if (!target) return false;
+		// Live Preview: no real <a> to find — resolve the click position via the
+		// CM6 EditorView the click landed in (if any), then read the raw markdown
+		// source text at that position instead of the rendered (label-only) text.
+		const view = EditorView.findFromDOM(target);
+		if (!view) return;
 
 		let pos: number;
 		try {
 			pos = view.posAtDOM(target);
 		} catch {
-			return false;
+			return;
 		}
 
 		const line = view.state.doc.lineAt(pos);
-		const offsetInLine = pos - line.from;
-		const found = this.findScriptureLinkInText(line.text, offsetInLine);
-		if (!found) return false;
+		const found = this.findScriptureLinkInText(line.text, pos - line.from);
+		if (!found) return;
 
 		evt.preventDefault();
+		evt.stopPropagation();
 		this.showVersePopupOrFallback(found.scripture, found.href);
-		return true; // tells CM6 this event is handled — no further handlers/default action
 	}
 
 	/** Finds a jwlibrary:// scripture link (markdown or raw-HTML form) whose span covers `offset` within `text`. */

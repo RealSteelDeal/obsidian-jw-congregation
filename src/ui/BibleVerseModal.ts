@@ -1,8 +1,15 @@
 import { App, Modal, Setting } from 'obsidian';
-import { BibleReader, VerseDetail } from '../bible/BibleReader';
+import { BibleReader, VerseDetail, VerseSegment } from '../bible/BibleReader';
 import { Scripture } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 import { SupportedLang } from '../normalizer/bookNames';
+
+// The scheme used by embedded scripture links *inside* footnote/cross-reference/
+// study-note HTML (e.g. `<a href="jwpub://b/NWTR/43:5:7-43:5:7">Joh 5:7</a>`) —
+// distinct from the jwlibrary:// links used elsewhere in this plugin, but the
+// book:chapter:verse[-verse] payload after the prefix is the exact same shape
+// ScriptureNormalizer.fromJwpub() already parses for the main jwpub import path.
+const EMBEDDED_BIBLE_HREF_PREFIX = 'jwpub://b/NWTR/';
 
 export class BibleVerseModal extends Modal {
 	constructor(
@@ -28,15 +35,24 @@ export class BibleVerseModal extends Modal {
 		bodyEl.empty();
 		if (verses && verses.length > 0) {
 			this.renderVerseText(bodyEl, verses);
+			this.renderJwLibraryButton(bodyEl);
 			this.renderNotes(bodyEl, verses);
+			this.renderStudyNotes(bodyEl, verses);
 		} else {
 			bodyEl.createEl('p', {
 				text: 'Kein Vers-Text verfügbar (diese Stelle ist in der geladenen Bibel-Datei nicht indiziert).',
 				cls: 'jw-bible-verse-missing',
 			});
+			this.renderJwLibraryButton(bodyEl);
 		}
+	}
 
-		new Setting(contentEl).addButton(btn =>
+	// Placed directly beneath the verse text, before the (collapsed) footnotes/
+	// cross-references/study notes — the button belongs with the verse it acts
+	// on, not at the very bottom of a popup that can grow much longer once those
+	// sections are expanded.
+	private renderJwLibraryButton(container: HTMLElement): void {
+		new Setting(container).addButton(btn =>
 			btn
 				.setButtonText('In JW Library öffnen')
 				.setCta()
@@ -50,34 +66,59 @@ export class BibleVerseModal extends Modal {
 	// One continuous paragraph (like the printed Bible layout), with each
 	// verse's number as a small inline marker — not one paragraph per verse,
 	// which read as disconnected, unrelated sentences instead of one passage.
-	// Footnote/cross-reference markers (superscript letters in the source) are
-	// intentionally not shown inline here — they're listed below instead, since
-	// rendering them inline would need to reproduce the marker positions from
-	// raw HTML (innerHTML), which this project avoids (see renderNotes()).
+	// A chapter's first verse gets a visibly larger number (isChapterStart),
+	// matching how printed Bibles (and the jwpub chapter HTML itself) tell a
+	// chapter number apart from a regular verse number. Footnote/cross-reference
+	// markers are rendered inline at their real position (from `segments`,
+	// extracted from the chapter HTML) instead of only being listed below.
 	private renderVerseText(bodyEl: HTMLElement, verses: VerseDetail[]): void {
 		const p = bodyEl.createEl('p');
 		for (const verse of verses) {
 			const number = this.stripHtml(verse.number);
-			if (number) p.createEl('sup', { text: number, cls: 'jw-bible-verse-number' });
-			p.appendText(this.stripHtml(verse.html) + ' ');
+			if (number) {
+				const cls = verse.isChapterStart ? 'jw-bible-chapter-number' : 'jw-bible-verse-number';
+				p.createEl('sup', { text: number, cls });
+			}
+			this.appendSegments(p, verse.segments);
+			p.appendText(' ');
+		}
+	}
+
+	private appendSegments(container: HTMLElement, segments: VerseSegment[]): void {
+		for (const segment of segments) {
+			if (segment.kind === 'text') {
+				container.appendText(segment.text);
+				continue;
+			}
+			const cls = segment.kind === 'footnote' ? 'jw-bible-inline-footnote' : 'jw-bible-inline-crossref';
+			container.createEl('sup', { text: segment.symbol, cls: `jw-bible-inline-marker ${cls}` });
 		}
 	}
 
 	// Footnotes and cross-references, listed per verse (prefixed with the verse
 	// number whenever the popup spans more than one, since the marker letters
-	// a/b/c.. restart at each verse and would otherwise collide).
+	// a/b/c.. restart at each verse and would otherwise collide). Bible
+	// references embedded in the footnote text, and the cross-reference's own
+	// target scripture, both open another popup on click (see openScripturePopup())
+	// — kept in-app rather than bouncing out to JW Library, consistent with the
+	// whole point of this popup. Collapsed by default via <details>, same as
+	// renderStudyNotes() — keeps the verse text itself as the focal point when
+	// the popup is first opened.
 	private renderNotes(bodyEl: HTMLElement, verses: VerseDetail[]): void {
 		const multiVerse = verses.length > 1;
 
 		const footnoteLines = verses.flatMap(v =>
-			v.footnotes.map(fn => ({ verse: v.number, symbol: fn.symbol, text: this.stripHtml(fn.html) })),
+			v.footnotes.map(fn => ({ verse: v.number, symbol: fn.symbol, html: fn.html })),
 		);
 		if (footnoteLines.length > 0) {
-			bodyEl.createEl('h3', { text: 'Fußnoten' });
-			const list = bodyEl.createEl('ul', { cls: 'jw-bible-notes-list' });
+			const details = bodyEl.createEl('details', { cls: 'jw-bible-collapsible' });
+			details.createEl('summary', { text: `Fußnoten (${footnoteLines.length})` });
+			const list = details.createEl('ul', { cls: 'jw-bible-notes-list' });
 			for (const fn of footnoteLines) {
 				const prefix = multiVerse ? `Vers ${this.stripHtml(fn.verse)}, ` : '';
-				list.createEl('li', { text: `${prefix}${fn.symbol}) ${fn.text}` });
+				const li = list.createEl('li');
+				li.appendText(`${prefix}${fn.symbol}) `);
+				this.renderRichText(li, fn.html);
 			}
 		}
 
@@ -86,28 +127,108 @@ export class BibleVerseModal extends Modal {
 				verse: v.number,
 				symbol: cr.symbol,
 				label: cr.scripture ? ScriptureNormalizer.format(cr.scripture, this.lang) : undefined,
-				text: cr.html ? this.stripHtml(cr.html) : undefined,
+				scripture: cr.scripture,
+				html: cr.html,
 			})),
 		);
 		if (crossRefLines.length > 0) {
-			bodyEl.createEl('h3', { text: 'Querverweise' });
-			const list = bodyEl.createEl('ul', { cls: 'jw-bible-notes-list' });
+			const details = bodyEl.createEl('details', { cls: 'jw-bible-collapsible' });
+			details.createEl('summary', { text: `Querverweise (${crossRefLines.length})` });
+			const list = details.createEl('ul', { cls: 'jw-bible-notes-list' });
 			for (const cr of crossRefLines) {
 				const prefix = multiVerse ? `Vers ${this.stripHtml(cr.verse)}, ` : '';
 				const li = list.createEl('li');
 				li.appendText(`${prefix}${cr.symbol}) `);
-				if (cr.label) li.createEl('strong', { text: `${cr.label}: ` });
-				li.appendText(cr.text ?? '(kein Text verfügbar)');
+				if (cr.label && cr.scripture) {
+					const target = cr.scripture;
+					const labelEl = li.createEl('strong', { text: `${cr.label}: `, cls: 'jw-bible-inline-link' });
+					labelEl.addEventListener('click', () => this.openScripturePopup(target));
+				} else if (cr.label) {
+					li.createEl('strong', { text: `${cr.label}: ` });
+				}
+				if (cr.html) this.renderRichText(li, cr.html);
+				else li.appendText('(kein Text verfügbar)');
 			}
 		}
 	}
 
-	// The verse/footnote/cross-reference HTML carries formatting spans (verse-
-	// number superscripts, footnote/cross-reference markers) that would need
-	// safe, allow-listed DOM construction to render faithfully — reduced to
-	// plain text via DOMParser → textContent instead, since this project avoids
-	// innerHTML even for trusted, locally-decrypted content (also required by
-	// the Obsidian review guidelines).
+	// Study notes ("Studienanmerkungen") can be sizeable (up to ~3.5k characters
+	// each, several per verse for heavily annotated chapters) — collapsed by
+	// default via a native <details> element so a long scripture range doesn't
+	// turn the popup into a wall of text, while still being one click away.
+	private renderStudyNotes(bodyEl: HTMLElement, verses: VerseDetail[]): void {
+		const multiVerse = verses.length > 1;
+		const notes = verses.flatMap(v => v.studyNotes.map(sn => ({ verse: v.number, ...sn })));
+		if (notes.length === 0) return;
+
+		const details = bodyEl.createEl('details', { cls: 'jw-bible-collapsible' });
+		details.createEl('summary', { text: `Studienanmerkungen (${notes.length})` });
+		const list = details.createEl('ul', { cls: 'jw-bible-notes-list' });
+		for (const note of notes) {
+			const li = list.createEl('li');
+			const prefix = multiVerse ? `Vers ${this.stripHtml(note.verse)}, ` : '';
+			const label = this.stripHtml(note.label);
+			li.appendText(`${prefix}${label ? `${label}: ` : ''}`);
+			this.renderRichText(li, note.html);
+		}
+	}
+
+	// Renders a decrypted HTML fragment (footnote/cross-reference/study-note
+	// body) as safe DOM: plain text everywhere, except embedded scripture links
+	// (`<a href="jwpub://b/NWTR/...">`), which become clickable spans opening
+	// another verse popup. Other inline formatting (strong/em/…) is flattened to
+	// its text content — faithfully reproducing bold/italic would need
+	// allow-listed element cloning for marginal benefit here. This project
+	// avoids innerHTML entirely (see project convention), so the fragment is
+	// walked node-by-node instead of ever being assigned as markup.
+	private renderRichText(container: HTMLElement, html: string): void {
+		const doc = new DOMParser().parseFromString(html, 'text/html');
+		this.appendRichNodes(container, doc.body.childNodes);
+	}
+
+	private appendRichNodes(container: HTMLElement, nodes: ArrayLike<ChildNode>): void {
+		for (const node of Array.from(nodes)) {
+			if (node.nodeType === Node.TEXT_NODE) {
+				const text = node.textContent;
+				if (text) container.appendText(text);
+				continue;
+			}
+			if (!node.instanceOf(HTMLElement)) continue;
+
+			if (node.tagName === 'A') {
+				const scripture = this.parseEmbeddedScripture(node.getAttribute('href') ?? '');
+				if (scripture) {
+					const link = container.createSpan({ text: node.textContent ?? '', cls: 'jw-bible-inline-link' });
+					link.addEventListener('click', () => this.openScripturePopup(scripture));
+					continue;
+				}
+				// Non-Bible link (e.g. a link to another study note) — not something
+				// this popup can navigate to, so just keep its text.
+				container.appendText(node.textContent ?? '');
+				continue;
+			}
+			this.appendRichNodes(container, node.childNodes);
+		}
+	}
+
+	private parseEmbeddedScripture(href: string): Scripture | undefined {
+		if (!href.startsWith(EMBEDDED_BIBLE_HREF_PREFIX)) return undefined;
+		try {
+			return ScriptureNormalizer.fromJwpub(href.slice(EMBEDDED_BIBLE_HREF_PREFIX.length));
+		} catch {
+			return undefined;
+		}
+	}
+
+	// Opens another popup for `scripture` on top of this one (this modal is left
+	// open underneath) — lets the user drill into a footnote/cross-reference's
+	// own scripture citations without losing their place, per user request.
+	private openScripturePopup(scripture: Scripture): void {
+		new BibleVerseModal(this.app, scripture, this.lang, this.reader).open();
+	}
+
+	// Verse-number labels (BibleVerse.Label) are plain strings in practice but
+	// treated defensively like the rest of this project's HTML fields.
 	private stripHtml(html: string): string {
 		const doc = new DOMParser().parseFromString(html, 'text/html');
 		return doc.body.textContent?.trim() ?? '';

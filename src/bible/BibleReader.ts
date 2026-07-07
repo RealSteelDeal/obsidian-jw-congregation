@@ -23,11 +23,34 @@ export interface CrossReference {
 	html?: string;
 }
 
+export interface StudyNote {
+	/** e.g. "5:1" — VerseCommentary.Label, may itself carry markup. */
+	label: string;
+	html: string;
+}
+
+/**
+ * One piece of a verse's body text, in document order. `footnote`/`crossref`
+ * segments are the inline marker letters (a, b, c, …) from the chapter HTML —
+ * kept as their own segment type (rather than folded into the surrounding
+ * text) so the UI can render them as small superscripts at the exact position
+ * they appear in the source, instead of only listing them below the verse.
+ */
+export type VerseSegment =
+	| { kind: 'text'; text: string }
+	| { kind: 'footnote'; symbol: string }
+	| { kind: 'crossref'; symbol: string };
+
 export interface VerseDetail {
 	number: string;
-	html: string;
+	/** True when this verse is the first of a new chapter — printed Bibles (and
+	 *  the jwpub chapter HTML itself, via a "cl" vs "vl" span class) show a large
+	 *  chapter number instead of the usual small verse number in that case. */
+	isChapterStart: boolean;
+	segments: VerseSegment[];
 	footnotes: FootnoteRef[];
 	crossReferences: CrossReference[];
+	studyNotes: StudyNote[];
 }
 
 /**
@@ -193,8 +216,14 @@ export class BibleReader {
 			const ref = this.referenceByVerseId.get(verseId)
 				?? (i === 0 ? { book: scripture.book, chapter: scripture.chapter, verse: scripture.verseStart } : undefined);
 
+			let isChapterStart = false;
+			// Falls back to the (marker-free) BibleVerse.Content as a single text
+			// segment when the chapter HTML isn't reachable at all — better than
+			// showing nothing.
+			let segments: VerseSegment[] = [{ kind: 'text', text: BibleReader.htmlToPlainText(verse.html) }];
 			let footnotes: FootnoteRef[] = [];
 			let crossReferences: CrossReference[] = [];
+
 			if (ref) {
 				const chapterKey = `${ref.book}:${ref.chapter}`;
 				let dom = chapterDomCache.get(chapterKey);
@@ -203,16 +232,19 @@ export class BibleReader {
 					chapterDomCache.set(chapterKey, dom);
 				}
 				if (dom) {
-					const marks = this.findVerseMarkers(dom, ref.book, ref.chapter, ref.verse);
+					const extracted = this.extractVerseContent(dom, ref.book, ref.chapter, ref.verse);
+					isChapterStart = extracted.isChapterStart;
+					if (extracted.segments.length > 0) segments = extracted.segments;
 					const bookDocId = this.bookDocumentId.get(ref.book);
 					if (bookDocId !== undefined) {
-						footnotes = await this.resolveFootnotes(bookDocId, marks.footnotes);
+						footnotes = await this.resolveFootnotes(bookDocId, extracted.footnoteMarkers);
 					}
-					crossReferences = await this.resolveCrossReferences(verseId, marks.crossRefs);
+					crossReferences = await this.resolveCrossReferences(verseId, extracted.crossRefMarkers);
 				}
 			}
 
-			details.push({ number: verse.number, html: verse.html, footnotes, crossReferences });
+			const studyNotes = await this.resolveStudyNotes(verseId);
+			details.push({ number: verse.number, isChapterStart, segments, footnotes, crossReferences, studyNotes });
 		}
 		return details.length > 0 ? details : undefined;
 	}
@@ -236,28 +268,115 @@ export class BibleReader {
 		return new DOMParser().parseFromString(html, 'text/html');
 	}
 
-	/** Finds this verse's own span(s) in the chapter DOM and extracts its footnote/cross-reference markers, in document order. */
-	private findVerseMarkers(
+	/**
+	 * Finds this verse's own span(s) in the chapter DOM and walks their direct
+	 * children to rebuild the verse's body as an ordered list of text/marker
+	 * segments — this is the *only* source that has footnote/cross-reference
+	 * markers positioned correctly inline (BibleVerse.Content, used elsewhere as
+	 * a fallback, has neither the markers nor the chapter/verse-number span).
+	 *
+	 * A verse's first span (id suffix "-1") starts with a leading number span:
+	 * `<span class="cl"><strong>5</strong> <span class="tt cl" ...></span></span>`
+	 * for a chapter's first verse, or `<span class="vl">12 <span class="tt vl"
+	 * ...></span></span>` for a regular verse — confirmed against a real nwtsty
+	 * chapter dump. That leading span is skipped here (the verse number is
+	 * already shown separately from BibleVerse.Label); only its "cl" vs "vl"
+	 * class is used, to flag chapter starts for the caller. Continuation spans
+	 * of the same verse (e.g. "-2" when a verse's text resumes after a
+	 * paragraph break) have no leading number span at all.
+	 *
+	 * Marker spans (`data-fnid`/`data-mid`) each contain their visible symbol
+	 * plus an empty `.tt` tooltip child — subtracted out via markerSymbol()
+	 * rather than trusted to stay empty forever.
+	 */
+	private extractVerseContent(
 		dom: Document,
 		book: number,
 		chapter: number,
 		verse: number,
-	): { footnotes: { id: number; symbol: string }[]; crossRefs: { id: number; symbol: string }[] } {
+	): {
+		isChapterStart: boolean;
+		segments: VerseSegment[];
+		footnoteMarkers: { id: number; symbol: string }[];
+		crossRefMarkers: { id: number; symbol: string }[];
+	} {
 		const prefix = `v${book}-${chapter}-${verse}-`;
 		const spans = Array.from(dom.querySelectorAll(`span[id^="${prefix}"]`));
-		const footnotes: { id: number; symbol: string }[] = [];
-		const crossRefs: { id: number; symbol: string }[] = [];
+		let isChapterStart = false;
+		const segments: VerseSegment[] = [];
+		const footnoteMarkers: { id: number; symbol: string }[] = [];
+		const crossRefMarkers: { id: number; symbol: string }[] = [];
+
 		for (const span of spans) {
-			span.querySelectorAll('[data-fnid]').forEach(el => {
-				const id = Number(el.getAttribute('data-fnid'));
-				if (Number.isFinite(id)) footnotes.push({ id, symbol: (el.textContent ?? '').trim() });
-			});
-			span.querySelectorAll('[data-mid]').forEach(el => {
-				const id = Number(el.getAttribute('data-mid'));
-				if (Number.isFinite(id)) crossRefs.push({ id, symbol: (el.textContent ?? '').trim() });
-			});
+			for (const child of Array.from(span.childNodes)) {
+				if (child.nodeType === Node.TEXT_NODE) {
+					const text = child.textContent ?? '';
+					if (text) segments.push({ kind: 'text', text });
+					continue;
+				}
+				if (!child.instanceOf(HTMLElement)) continue;
+
+				if (child.classList.contains('cl') || child.classList.contains('vl')) {
+					if (child.classList.contains('cl')) isChapterStart = true;
+					continue;
+				}
+				if (child.hasAttribute('data-fnid')) {
+					const id = Number(child.getAttribute('data-fnid'));
+					const symbol = this.markerSymbol(child);
+					if (Number.isFinite(id)) {
+						footnoteMarkers.push({ id, symbol });
+						segments.push({ kind: 'footnote', symbol });
+					}
+					continue;
+				}
+				if (child.hasAttribute('data-mid')) {
+					const id = Number(child.getAttribute('data-mid'));
+					const symbol = this.markerSymbol(child);
+					if (Number.isFinite(id)) {
+						crossRefMarkers.push({ id, symbol });
+						segments.push({ kind: 'crossref', symbol });
+					}
+					continue;
+				}
+				// Unrecognised inline element — keep its text rather than silently
+				// dropping it.
+				const text = child.textContent ?? '';
+				if (text) segments.push({ kind: 'text', text });
+			}
 		}
-		return { footnotes, crossRefs };
+		return { isChapterStart, segments, footnoteMarkers, crossRefMarkers };
+	}
+
+	/** A marker span's visible symbol is its own text minus its empty `.tt` tooltip child's text. */
+	private markerSymbol(el: HTMLElement): string {
+		const ttText = el.querySelector('.tt')?.textContent ?? '';
+		const full = el.textContent ?? '';
+		return full.slice(0, full.length - ttText.length).trim();
+	}
+
+	private static htmlToPlainText(html: string): string {
+		return new DOMParser().parseFromString(html, 'text/html').body.textContent?.trim() ?? '';
+	}
+
+	/** Study notes ("Studienanmerkungen") attached directly to a verse — VerseCommentaryMap keys them by BibleVerseId, no chapter-DOM parsing needed. */
+	private async resolveStudyNotes(verseId: number): Promise<StudyNote[]> {
+		if (!this.db || !this.key || !this.iv) return [];
+		const res = this.db.exec(`
+			SELECT vc.Label AS Label, vc.Content AS Content
+			FROM VerseCommentaryMap m
+			JOIN VerseCommentary vc ON vc.VerseCommentaryId = m.VerseCommentaryId
+			WHERE m.BibleVerseId = ${verseId}
+		`);
+		if (!res[0]) return [];
+		const cols = res[0].columns;
+		const out: StudyNote[] = [];
+		for (const row of res[0].values) {
+			const label = String(row[cols.indexOf('Label')] ?? '');
+			const content = row[cols.indexOf('Content')] as Uint8Array | undefined;
+			if (!content) continue;
+			out.push({ label, html: await decryptBlob(content, this.key, this.iv) });
+		}
+		return out;
 	}
 
 	private async resolveFootnotes(

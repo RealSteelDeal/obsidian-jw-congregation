@@ -25,7 +25,7 @@ Ein Obsidian Community Plugin, das offizielle Programmdateien von Kongressen der
   - Lieder werden mit JW-Library-Deeplink angezeigt (ohne eigene Notiz)
   - Pausen und Musikvideos werden als Hinweis angezeigt (ohne eigene Notiz)
 - **Klickbare Bibelstellen** als JW-Library-Deeplinks in allen Notizen
-- **Bibeltext-Popup** (optional, Phase 1): mit einer eigenen Bibel-jwpub-Datei (siehe unten) zeigt ein Klick auf eine Bibelstelle den Vers-Text direkt in Obsidian, mit Button zum Öffnen in JW Library
+- **Bibeltext-Popup** (optional): mit einer eigenen Bibel-jwpub-Datei (siehe unten) zeigt ein Klick auf eine Bibelstelle den Vers-Text samt Fußnoten und Querverweisen direkt in Obsidian, mit Button zum Öffnen in JW Library
 - **„Beantworte die folgenden Fragen"** (Kreiskongress-Wiederholungsfragen) wird als eigene Notiz mit einer Überschrift pro Frage erzeugt und steht immer an letzter Stelle
 - **„Wiederholung"-Notiz** (optional, Standard: an) mit den drei Standard-Reflexionsfragen für die Kongress-Wiederholung in der Versammlung – bei Kreiskongressen mit Link zu den gedruckten Wiederholungsfragen, bei Regionalen Kongressen mit Hinweis auf das Highlights-Video
 
@@ -82,7 +82,7 @@ Mit einer selbst bereitgestellten Bibel-jwpub-Datei zeigt ein Klick auf eine Bib
 3. In den Plugin-Einstellungen unter „Bibel-Datei" → „Datei wählen …" die heruntergeladene `.jwpub`-Datei auswählen
 4. Die Datei wird lokal im Plugin-Ordner gespeichert (nicht ins Vault kopiert, nicht synchronisiert) – danach zeigt jeder Klick auf eine Bibelstelle den Vers-Text an
 
-**Phase 1** (aktueller Stand): reiner Vers-Text, keine Fußnoten oder Querverweise. Die technische Grundlage dafür ist vorhanden (siehe [AGENTS.md](AGENTS.md)) – als Ausbaustufe geplant.
+Das Popup zeigt neben dem Vers-Text auch **Fußnoten** und **Querverweise** an (jeweils mit Vers-Nummer, falls mehrere Verse zitiert werden). Bei Querverweisen wird die Zielstelle angezeigt, wenn sie in der Bibel-Datei selbst mit einem lesbaren Buch/Kapitel/Vers auflösbar ist – sonst nur der Vers-Text ohne Stellenangabe (technisch bedingt, siehe [AGENTS.md](AGENTS.md)).
 
 ## Ordner- & Notizstruktur
 

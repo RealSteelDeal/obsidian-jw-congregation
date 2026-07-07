@@ -45,7 +45,7 @@ src/
   builder/
     NoteBuilder.ts           # Congress → GeneratedNote[] (Ordnernamen, Nummerierung, Übersicht, Notiz-Rendering)
   bible/
-    BibleReader.ts           # Bibel-jwpub-Datei (nwt/nwtsty) → Vers-Text-Lookup (Bibeltext-Popup, Phase 1)
+    BibleReader.ts           # Bibel-jwpub-Datei (nwt/nwtsty) → Vers-Text/Fußnoten/Querverweise (Bibeltext-Popup)
   ui/
     ImportModal.ts           # Dateiauswahl, Zielordner-Dropdown, Vorschau, Import-Bestätigung
     BibleVerseModal.ts       # Popup mit Vers-Text + "In JW Library öffnen"-Button
@@ -294,11 +294,11 @@ Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohn
     der Link direkt im Standardbrowser geöffnet wird, nicht wenn Obsidian/Electron ihn per
     `shell.openExternal` weiterreicht – vor einer Codeänderung mit dem Nutzer verifizieren.
 
-### Bibeltext-Popup (BibleReader, Phase 1)
+### Bibeltext-Popup (BibleReader, Phase 1–3 abgeschlossen)
 
-Klick auf eine Bibelstelle zeigt (falls eine Bibel-Datei geladen ist) den Vers-Text in einem
-Obsidian-Modal statt direkt extern zu öffnen — per echten Testdateien (`nwt_X.jwpub`,
-`nwtsty_X.jwpub`) verifiziert.
+Klick auf eine Bibelstelle zeigt (falls eine Bibel-Datei geladen ist) den Vers-Text samt
+Fußnoten und Querverweisen in einem Obsidian-Modal statt direkt extern zu öffnen — per echten
+Testdateien (`nwt_X.jwpub`, `nwtsty_X.jwpub`) verifiziert.
 
 - **Zwei getrennte Klick-Pfade nötig, nicht einer:**
   - **Reading View** rendert echte `<a href="jwlibrary://…">`-Elemente → `onReadingViewClick()`,
@@ -369,12 +369,26 @@ Obsidian-Modal statt direkt extern zu öffnen — per echten Testdateien (`nwt_X
 - **Modal-Rendering, kein `innerHTML`**: `BibleVerseModal` baut **einen** durchgehenden Absatz für
   den ganzen Zitatbereich (nicht einen Absatz pro Vers, das wirkte wie unzusammenhängende
   Einzelsätze), mit der Versnummer (`BibleVerse.Label`) als kleines `<sup>`-Element vor jedem
-  Vers-Text. Jeder Vers-Text selbst wird über `DOMParser` → `textContent` auf Klartext reduziert
-  und per `appendText()` angehängt — bewusst kein `innerHTML`, obwohl der Inhalt vertrauenswürdig
-  ist (Nutzer-eigene, lokal entschlüsselte Datei), da das Projekt `innerHTML` grundsätzlich
-  vermeidet (auch von der Obsidian-Review-Guideline verlangt). Fußnoten/Querverweise darzustellen
-  bräuchte sicheres DOM-Bauen aus den erlaubten Tags statt `innerHTML` — Phase 2/3, noch nicht
-  umgesetzt.
+  Vers-Text. Jeder Vers-Text/Fußnoten-/Querverweistext wird über `DOMParser` → `textContent` auf
+  Klartext reduziert und per `appendText()`/`createEl()` angehängt — bewusst kein `innerHTML`,
+  obwohl der Inhalt vertrauenswürdig ist (Nutzer-eigene, lokal entschlüsselte Datei), da das
+  Projekt `innerHTML` grundsätzlich vermeidet (auch von der Obsidian-Review-Guideline verlangt).
+- **Fußnoten (Phase 2)**: `BibleReader.findVerseMarkers()` parst `BibleChapter.Content` (per
+  `DOMParser`) und findet den Verses eigenen `<span id="v{Buch}-{Kapitel}-{Vers}-…">`-Abschnitt,
+  darin alle `[data-fnid]`-Marker samt ihres Anzeigesymbols (`a`, `b`, …, aus dem Element-Text).
+  `data-fnid` = `Footnote.FootnoteIndex`, gescoped auf `Footnote.DocumentId` = das Buch-Dokument
+  (`BibleBook.BookDocumentId` für den jeweiligen Buch-Nummer, in `buildBookDocumentIndex()`
+  vorab indiziert – `BibleBookId` entspricht direkt der kanonischen Buchnummer 1–66).
+- **Querverweise (Phase 3)**: `[data-mid]`-Marker analog, aber `data-mid` = `BibleCitation.BlockNumber`,
+  gescoped auf `BibleCitation.BibleVerseId` = die **zitierende** (nicht zitierte) Vers-ID – per
+  echtem Test bestätigt (1. Mose 1,1 hat `BlockNumber=1` mit 7 `ElementNumber`n für seinen
+  einzelnen „a"-Marker, der auf 7 verschiedene Stellen verweist; 1. Mose 1,2 hat `BlockNumber=2,3,4`
+  für seine drei „b"/„c"/„d"-Marker, exakt in Reihenfolge der `data-mid`-Werte). Das Ziel
+  (`BibleCitation.FirstBibleVerseId`) wird direkt aus `BibleVerse` gelesen (Text immer verfügbar);
+  ein lesbares Buch/Kapitel/Vers-Label dafür gibt's nur, wenn die Ziel-`BibleVerseId` selbst im
+  Rückwärts-Index (`referenceByVerseId`, aus derselben `BibleCitation`/`Hyperlink`-Quelle wie
+  `verseIdByReference` aufgebaut) vorkommt – bei einem echten Test waren das ca. 28 % der Fälle;
+  der Rest zeigt nur den Zieltext ohne Stellenangabe (`CrossReference.scripture` bleibt `undefined`).
 - **Geteilte Krypto-Logik**: `src/util/jwpubCrypto.ts` (`openJwpubDatabase()`, `readPublication()`,
   `deriveKey()`, `decryptBlob()`) wurde aus `JwpubParser.ts` herausgezogen, damit `BibleReader`
   dieselbe AES-128-CBC+zlib-Entschlüsselung nutzt, ohne sie zu duplizieren — jedes jwpub-Format

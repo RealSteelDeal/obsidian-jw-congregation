@@ -101,6 +101,24 @@ a.external-link[href*="jw.org/finder"]:not(#_)::after {
 	vertical-align: super;
 }
 
+.jw-bible-verse-text h3 {
+	font-size: var(--font-ui-medium);
+	margin-top: 1em;
+	margin-bottom: 0.4em;
+	color: var(--text-muted);
+}
+
+.jw-bible-notes-list {
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+	padding-left: 1.2em;
+	margin: 0;
+}
+
+.jw-bible-notes-list li {
+	margin-bottom: 0.4em;
+}
+
 .jw-bible-verse-missing {
 	color: var(--text-muted);
 	font-style: italic;

@@ -231,12 +231,20 @@ Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohn
   JW-Library-Installation (bekannte Kategorie von Windows-JW-Library-Bugs), keine
   Format-/Code-Frage. Erster Trouble­shooting-Schritt bei erneuten Meldungen: JW Library
   neu installieren bzw. App-Cache leeren, bevor am Code weitergesucht wird.
-- Lieder: `jwlibrary:///finder?pub=sjjm&issue=0&track=NNN` ist unverifiziert (Annahme aus
-  v0.2.0). Ein Format, das nachweislich zum richtigen Lied navigiert (`lank=pub-sjjm_NNN_VIDEO`),
-  öffnet die Video- statt der Textansicht – aber auch dieser Test lief auf der oben erwähnten
-  potenziell kaputten JW-Library-Installation und ist daher mit Vorsicht zu genießen. Vor einer
-  Änderung an `NoteBuilder.songLink()` erst mit einer nachweislich intakten JW-Library-Installation
-  neu verifizieren.
+- **Lieder-Link-Historie:**
+  - v0.2.0–1.3.0 nutzte `jwlibrary:///finder?pub=sjjm&issue=0&track=NNN` (reine Annahme,
+    nie verifiziert). Echter Nutzertest (Smartphone) zeigte: JW Library öffnet kurz, erkennt
+    die Anfrage aber nicht und leitet auf eine kaputte Web-Fallback-URL um
+    (`https://finder/?pub=sjjm&issue=0&track=160#suppress_app_links`) – das Format war also nachweislich falsch.
+  - Aus echten RTF-Kongressdateien (siehe `scripts/out/`) extrahierte Original-jw.org-Links
+    für Lieder nutzen stattdessen `lank=` (Link-Anchor-ID): z. B.
+    `https://www.jw.org/finder?srcid=share&wtlocale=X&lank=pub-sjjm_611_VIDEO` für Lied 111 –
+    **`611 = 500 + 111`**, ein über 7 verschiedene Lieder (14, 17, 23, 76, 89, 111, 155, 160)
+    exakt bestätigtes Offset-Muster.
+  - Seit dieser Erkenntnis nutzt `NoteBuilder.songLink()` `jwlibrary:///finder?lank=pub-sjjm_${songNumber + 500}`
+    (ohne `_VIDEO`-Suffix, in der Annahme, dass das zur Textansicht statt zur Video-Variante führt).
+    **Weiterhin nicht auf einem echten Gerät verifiziert** – vor einer erneuten Änderung an
+    `songLink()` unbedingt mit echtem Test (nicht nur Windows-Ausführen-Dialog, siehe oben) prüfen.
 
 ### Notiz- & Ordnerbenennung (NoteBuilder)
 

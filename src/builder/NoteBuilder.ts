@@ -186,8 +186,15 @@ export class NoteBuilder {
 		return `<a href="${ScriptureNormalizer.toJwLibraryLink(s)}">${label}</a>`;
 	}
 
+	// The pub/issue/track query JW Library doesn't recognize for songs (it falls
+	// back to a broken web redirect instead of opening the song). Real jw.org
+	// exports instead use a "lank" (link anchor) id — confirmed from actual RTF
+	// congress files this session as `lank=pub-sjjm_${songNumber + 500}_VIDEO`,
+	// which reliably opens the video. Dropping "_VIDEO" is the hypothesis here:
+	// it should resolve to the song's primary page (the lyrics) instead of the
+	// video-specific one. Unverified on a real device — please test after this change.
 	private songLink(songNumber: number): string {
-		return `jwlibrary:///finder?pub=sjjm&issue=0&track=${songNumber}`;
+		return `jwlibrary:///finder?lank=pub-sjjm_${songNumber + 500}`;
 	}
 
 	private renderSingleNote(item: ProgramItem, day: Day, congress: Congress): string {

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Neue Funktionen
+
+- **„Wiederholung"-Notiz**: legt zusätzlich `Wiederholung.md` mit den drei Standard-Reflexionsfragen für die Kongress-Wiederholung in der Versammlung an. Bei Kreiskongressen mit Link zur bereits vorhandenen Notiz „Beantworte die folgenden Fragen", bei Regionalen Kongressen mit Hinweis auf das Highlights-Video (dafür gibt's keine auswertbaren Daten in der Programmdatei). Über die neue Einstellung „Wiederholungs-Notiz erstellen" abschaltbar (Standard: an).
+
 ## 1.4.0
 
 ### Neue Funktionen

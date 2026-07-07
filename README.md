@@ -26,6 +26,7 @@ Ein Obsidian Community Plugin, das offizielle Programmdateien von Kongressen der
   - Pausen und Musikvideos werden als Hinweis angezeigt (ohne eigene Notiz)
 - **Klickbare Bibelstellen** als JW-Library-Deeplinks in allen Notizen
 - **„Beantworte die folgenden Fragen"** (Kreiskongress-Wiederholungsfragen) wird als eigene Notiz mit einer Überschrift pro Frage erzeugt und steht immer an letzter Stelle
+- **„Wiederholung"-Notiz** (optional, Standard: an) mit den drei Standard-Reflexionsfragen für die Kongress-Wiederholung in der Versammlung – bei Kreiskongressen mit Link zu den gedruckten Wiederholungsfragen, bei Regionalen Kongressen mit Hinweis auf das Highlights-Video
 
 ## Voraussetzungen
 
@@ -64,6 +65,7 @@ Ein Obsidian Community Plugin, das offizielle Programmdateien von Kongressen der
 | Zielordner | *(Vault-Wurzel)* | Übergeordneter Ordner, in dem der Kongressordner angelegt wird (pro Import überschreibbar); leer = kein Wrapper-Ordner, Kongress landet direkt in der Vault-Wurzel |
 | Sprache | `Deutsch` | Bibelbuch-Namen (DE / EN) |
 | Bibelstellen verlinken | An | Erzeugt klickbare `jwlibrary://`-Links |
+| Wiederholungs-Notiz erstellen | An | Legt zusätzlich `Wiederholung.md` mit den drei Standard-Reflexionsfragen an |
 
 ## Ordner- & Notizstruktur
 
@@ -81,13 +83,15 @@ Regionaler Kongress 2026 – Ewiges Glück/
     ...
   Sonntag/
     ...
+  Wiederholung.md
 Kreiskongressprogramm 2026-2027 – mit dem Kreisaufseher – „Titel"/
   Titelbild.jpg
   00. Übersicht.md
   01. Warum sollten wir mit ganzem Herzen auf Jehova vertrauen.md
   02. Uns die zum Vorbild nehmen, die auf Jehova vertraut haben.md
   ...
-  09. Beantworte die folgenden Fragen.md   ← immer die höchste Nummer (letzte Notiz)
+  09. Beantworte die folgenden Fragen.md   ← immer die höchste Nummer unter den Tages-Notizen
+  Wiederholung.md
 ```
 
 Bei einem gewählten Zielordner (z. B. „Kongress") entsteht darunter genau dieselbe Struktur, nur um eine Ebene eingerückt.

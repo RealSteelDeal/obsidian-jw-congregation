@@ -302,6 +302,12 @@ Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohn
   zurückgegeben (`BuildResult.attachments`, getrennt von `notes`, da Binärdaten statt Markdown)
   und in der Übersicht per `![[Titelbild.<ext>]]` als erste Zeile eingebettet. `main.ts` schreibt
   Attachments über `vault.createBinary()` und zählt sie zum selben Rollback-Tracking wie Notizen
+- **`Wiederholung.md`** (opt-out über `settings.reviewNote`): eine Notiz **pro Kongress** (nicht
+  pro Tag, kein `dayFolder`), mit den drei festen Reflexionsfragen. `NoteBuilder.buildNotes()`
+  merkt sich beim Durchlauf der Programmpunkte den Basisdateinamen des Items mit
+  `title === 'Beantworte die folgenden Fragen'` (`questionsBaseName`) und verlinkt bei CA direkt
+  dorthin; bei CO gibt's stattdessen nur den Hinweistext auf das Highlights-Video (jwpub enthält
+  dafür keine auswertbaren Daten – das Video wird separat abgespielt, nicht Teil der Programmdatei)
 - **Zeichen-Ersetzung statt Löschung**: für Windows verbotene Zeichen (`< > : " / \ | * ?`)
   werden durch optisch ähnliche Unicode-Zeichen ersetzt (`FS_CHAR_MAP` in `NoteBuilder`),
   damit z. B. ein Fragezeichen am Titelende nicht verschwindet

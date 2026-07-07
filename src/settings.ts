@@ -6,12 +6,14 @@ export interface JwPluginSettings {
 	targetFolder: string;
 	lang: SupportedLang;
 	scriptureLinks: boolean;
+	reviewNote: boolean;
 }
 
 export const DEFAULT_SETTINGS: JwPluginSettings = {
 	targetFolder: '', // '' = vault root; each import creates its own top-level congress folder
 	lang: 'de',
 	scriptureLinks: true,
+	reviewNote: true,
 };
 
 export class JwSettingTab extends PluginSettingTab {
@@ -57,6 +59,18 @@ export class JwSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.scriptureLinks)
 					.onChange(async value => {
 						this.plugin.settings.scriptureLinks = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName('Wiederholungs-Notiz erstellen')
+			.setDesc('Legt zusätzlich eine "Wiederholung"-Notiz mit den drei Standard-Reflexionsfragen an (bei Kreiskongressen mit Link zu den gedruckten Wiederholungsfragen, bei Regionalen Kongressen mit Hinweis auf das Video).')
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.reviewNote)
+					.onChange(async value => {
+						this.plugin.settings.reviewNote = value;
 						await this.plugin.saveSettings();
 					}),
 			);

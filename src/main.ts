@@ -46,6 +46,7 @@ export default class JwCongregationPlugin extends Plugin {
 		const builder = new NoteBuilder({
 			lang: this.settings.lang,
 			scriptureLinks: this.settings.scriptureLinks,
+			reviewNote: this.settings.reviewNote,
 		});
 
 		let result;

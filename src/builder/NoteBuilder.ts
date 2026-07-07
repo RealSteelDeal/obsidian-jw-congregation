@@ -5,6 +5,7 @@ import { SupportedLang } from '../normalizer/bookNames';
 export interface NoteBuilderOptions {
 	lang: SupportedLang;
 	scriptureLinks: boolean;
+	reviewNote: boolean;
 }
 
 export interface GeneratedNote {
@@ -45,6 +46,11 @@ export class NoteBuilder {
 		const attachments: GeneratedAttachment[] = [];
 		const isMultiDay = congress.type === 'CO';
 
+		// Base name of the printed "Beantworte die folgenden Fragen" note (circuit
+		// assemblies only) — the review note links straight to it instead of
+		// duplicating its content.
+		let questionsBaseName: string | undefined;
+
 		for (const day of congress.days) {
 			const dayFolder = isMultiDay ? day.weekday : undefined;
 			const noteBaseNames = new Map<ProgramItem, string>();
@@ -61,6 +67,9 @@ export class NoteBuilder {
 
 					const baseName = `${number}. ${this.slugify(item.title)}`;
 					noteBaseNames.set(item, baseName);
+					if (item.title === 'Beantworte die folgenden Fragen') {
+						questionsBaseName = baseName;
+					}
 
 					const content = item.itemType === 'talk-series'
 						? this.renderSeriesNote(item, day, congress)
@@ -83,7 +92,44 @@ export class NoteBuilder {
 			notes.push(...dayNotes);
 		}
 
+		if (this.opts.reviewNote) {
+			notes.push({
+				filename: 'Wiederholung.md',
+				content: this.renderReviewNote(congress, questionsBaseName),
+			});
+		}
+
 		return { congressFolder: this.congressFolderName(congress), notes, attachments };
+	}
+
+	// The congress-wide "review" meeting held the following week: the three
+	// standard reflection questions always apply, plus a type-specific pointer —
+	// circuit assemblies repeat the printed review questions from the programme
+	// (which we already generated a note for), regional conventions instead play
+	// a highlights video (not something we can extract from the programme file).
+	private renderReviewNote(congress: Congress, questionsBaseName: string | undefined): string {
+		const lines: string[] = [];
+		lines.push('# Kongress-Wiederholung');
+		lines.push('');
+		lines.push('**Welche Gedanken haben dich Jehova nähergebracht?**');
+		lines.push('');
+		lines.push('');
+		lines.push('**Welche Gedanken kannst du im Predigtdienst anwenden?**');
+		lines.push('');
+		lines.push('');
+		lines.push('**Welche Gedanken kannst du in deinem persönlichen Leben anwenden?**');
+		lines.push('');
+		lines.push('');
+
+		const isCA = congress.type === 'CA-copgm' || congress.type === 'CA-brpgm';
+		if (isCA && questionsBaseName) {
+			lines.push(`Der Versammlungsleiter stellt außerdem die gedruckten Wiederholungsfragen: [[${questionsBaseName}|Beantworte die folgenden Fragen]]`);
+		} else if (!isCA) {
+			lines.push('Der Bruder lässt das Video mit Auszügen aus dem Kongressprogramm abspielen.');
+		}
+		lines.push('');
+
+		return lines.join('\n').trim() + '\n';
 	}
 
 	private extensionFor(mimeType: string, originalFilename: string): string {

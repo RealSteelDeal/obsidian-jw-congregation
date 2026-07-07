@@ -25,7 +25,7 @@ function listAllFolders(app: App): TFolder[] {
 }
 
 export class ImportModal extends Modal {
-	private fileData: Buffer | null = null;
+	private fileData: Uint8Array | null = null;
 	private filename = '';
 	private preview: Congress | null = null;
 	private previewEl: HTMLElement | null = null;
@@ -52,7 +52,7 @@ export class ImportModal extends Modal {
 						const file = input.files?.[0];
 						if (!file) return;
 						this.filename = file.name;
-						this.fileData = Buffer.from(await file.arrayBuffer());
+						this.fileData = new Uint8Array(await file.arrayBuffer());
 						await this.loadPreview();
 					};
 					input.click();

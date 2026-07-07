@@ -68,19 +68,21 @@
 
 /* Scripture and song links point at the jwlibrary:// custom protocol, which
    Obsidian treats as an external link and decorates with a small icon —
-   drop it here so the reference text itself stays clean. !important because
-   Obsidian's own external-link rule otherwise wins on specificity. */
-a.external-link[href^="jwlibrary://"] {
-	background-image: none !important;
-	padding-right: 0 !important;
+   drop it here so the reference text itself stays clean. The trailing
+   `:not(#_)` doesn't match any real element (no id="_") — it's purely there
+   to add ID-level specificity so this reliably outranks Obsidian's own
+   external-link rule without resorting to !important. */
+a.external-link[href^="jwlibrary://"]:not(#_) {
+	background-image: none;
+	padding-right: 0;
 }
 
-a.external-link[href^="jwlibrary://"]::after {
-	content: none !important;
-	display: none !important;
-	background-image: none !important;
-	padding-right: 0 !important;
-	margin: 0 !important;
+a.external-link[href^="jwlibrary://"]:not(#_)::after {
+	content: none;
+	display: none;
+	background-image: none;
+	padding-right: 0;
+	margin: 0;
 }
 
 /* Live Preview (editing view) renders the external-link icon as its own
@@ -90,9 +92,9 @@ a.external-link[href^="jwlibrary://"]::after {
    applies to every external link's icon while editing, vault-wide, not just
    this plugin's scripture/song links (accepted trade-off, chosen explicitly
    over leaving the icon in place). */
-.cm-formatting-link-string.external-link {
-	background-image: none !important;
-	width: 0 !important;
-	padding: 0 !important;
-	margin: 0 !important;
+.cm-formatting-link-string.external-link:not(#_) {
+	background-image: none;
+	width: 0;
+	padding: 0;
+	margin: 0;
 }

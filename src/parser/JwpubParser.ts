@@ -1,16 +1,12 @@
-import AdmZip from 'adm-zip';
+import { unzipSync, type Unzipped } from 'fflate';
+import * as pako from 'pako';
 import initSqlJs, { Database } from 'sql.js';
-import * as crypto from 'crypto';
-import * as zlib from 'zlib';
-import { promisify } from 'util';
 import { Congress, CongressType, CoverImage, Day, ItemType, ProgramItem, Scripture, Session } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
+import { hexToBytes } from '../util/bytes';
 
-const inflate = promisify(zlib.inflate);
-
-const XOR_CONSTANT = Buffer.from(
+const XOR_CONSTANT = hexToBytes(
 	'11cbb5587e32846d4c26790c633da289f66fe5842a3a585ce1bc3a294af5ada7',
-	'hex',
 );
 
 // Matches jwpub://b/NWTR/book:chapter:verse[-book:chapter:verse]
@@ -40,10 +36,11 @@ export class JwpubParser {
 	 */
 	constructor(private readonly sqlWasmBinary: Uint8Array) {}
 
-	async parse(fileBuffer: Buffer): Promise<Congress> {
+	async parse(fileBuffer: Uint8Array): Promise<Congress> {
+		this.assertPlatformSupport();
 		const { db, innerZip } = await this.openContents(fileBuffer);
 		const pub = this.readPublication(db);
-		const keyIv = this.deriveKey(pub);
+		const keyIv = await this.deriveKey(pub);
 		const docs = this.readDocuments(db);
 		const meta = this.readMetadata(db);
 
@@ -52,25 +49,48 @@ export class JwpubParser {
 		return congress;
 	}
 
+	/**
+	 * Fails fast with a clear, actionable message if the host environment is
+	 * missing an API this parser needs (WebCrypto for AES/SHA-256, WebAssembly
+	 * for sql.js) — both are expected to be present on every platform Obsidian
+	 * itself supports (desktop Electron and the mobile apps), but a clear error
+	 * here beats a cryptic low-level failure several calls deep if that's ever
+	 * not the case (e.g. an unusually old OS/WebView).
+	 */
+	private assertPlatformSupport(): void {
+		if (typeof crypto === 'undefined' || !crypto.subtle) {
+			throw new Error(
+				'Dieses Gerät unterstützt die Web-Crypto-API (crypto.subtle) nicht, die für die ' +
+				'jwpub-Entschlüsselung benötigt wird. Bitte Obsidian aktualisieren oder den RTF-ZIP-Import verwenden.',
+			);
+		}
+		if (typeof WebAssembly === 'undefined') {
+			throw new Error(
+				'Dieses Gerät unterstützt WebAssembly nicht, das sql.js für das Lesen der jwpub-Datenbank ' +
+				'benötigt. Bitte Obsidian aktualisieren oder den RTF-ZIP-Import verwenden.',
+			);
+		}
+	}
+
 	// ──────────────────────────────────────────────────────────────────────────
 	// DB access
 	// ──────────────────────────────────────────────────────────────────────────
 
-	private async openContents(fileBuffer: Buffer): Promise<{ db: Database; innerZip: AdmZip }> {
-		const outerZip = new AdmZip(fileBuffer);
-		const contentsEntry = outerZip.getEntry('contents');
-		if (!contentsEntry) throw new Error('jwpub: missing "contents" entry');
+	private async openContents(fileBuffer: Uint8Array): Promise<{ db: Database; innerZip: Unzipped }> {
+		const outerZip = unzipSync(fileBuffer);
+		const contentsData = outerZip['contents'];
+		if (!contentsData) throw new Error('jwpub: missing "contents" entry');
 
-		const innerZip = new AdmZip(contentsEntry.getData());
-		const dbEntry = innerZip.getEntries().find(e => e.entryName.endsWith('.db'));
-		if (!dbEntry) throw new Error('jwpub: no .db file in contents');
+		const innerZip = unzipSync(contentsData);
+		const dbFileName = Object.keys(innerZip).find(name => name.endsWith('.db'));
+		if (!dbFileName) throw new Error('jwpub: no .db file in contents');
 
 		const wasmBinary = this.sqlWasmBinary.buffer.slice(
 			this.sqlWasmBinary.byteOffset,
 			this.sqlWasmBinary.byteOffset + this.sqlWasmBinary.byteLength,
 		) as ArrayBuffer;
 		const SQL = await initSqlJs({ wasmBinary });
-		return { db: new SQL.Database(dbEntry.getData()), innerZip };
+		return { db: new SQL.Database(innerZip[dbFileName]), innerZip };
 	}
 
 	private readPublication(db: Database): DbRow {
@@ -106,7 +126,7 @@ export class JwpubParser {
 	// Key derivation (spec §4.3)
 	// ──────────────────────────────────────────────────────────────────────────
 
-	private deriveKey(pub: DbRow): { key: Buffer; iv: Buffer } {
+	private async deriveKey(pub: DbRow): Promise<{ key: Uint8Array; iv: Uint8Array }> {
 		const mepsLang      = Number(pub['MepsLanguageIndex']);
 		const symbol        = String(pub['Symbol']);
 		const year          = Number(pub['Year']);
@@ -115,8 +135,9 @@ export class JwpubParser {
 		let cardString = `${mepsLang}_${symbol}_${year}`;
 		if (issueTag !== 0) cardString += `_${issueTag}`;
 
-		const hash  = crypto.createHash('sha256').update(cardString).digest();
-		const xored = Buffer.alloc(32);
+		const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(cardString));
+		const hash  = new Uint8Array(hashBuffer);
+		const xored = new Uint8Array(32);
 		for (let i = 0; i < 32; i++) xored[i] = (hash[i] ?? 0) ^ (XOR_CONSTANT[i] ?? 0);
 		return { key: xored.subarray(0, 16), iv: xored.subarray(16, 32) };
 	}
@@ -125,11 +146,22 @@ export class JwpubParser {
 	// Decryption
 	// ──────────────────────────────────────────────────────────────────────────
 
-	private async decrypt(content: Buffer, key: Buffer, iv: Buffer): Promise<string> {
-		const decipher  = crypto.createDecipheriv('aes-128-cbc', key, iv);
-		const decrypted = Buffer.concat([decipher.update(content), decipher.final()]);
-		const inflated  = await inflate(decrypted);
-		return inflated.toString('utf-8');
+	private async decrypt(content: Uint8Array, key: Uint8Array, iv: Uint8Array): Promise<string> {
+		// TS's lib.dom types BufferSource views as generic over ArrayBuffer
+		// specifically (excluding SharedArrayBuffer); our views are always plain
+		// ArrayBuffer-backed, so this cast just papers over that type-level
+		// distinction, not a real runtime concern.
+		const cryptoKey = await crypto.subtle.importKey('raw', key as BufferSource, 'AES-CBC', false, ['decrypt']);
+		// WebCrypto's AES-CBC decrypt returns the fully-assembled plaintext (with
+		// PKCS#7 padding already removed) in one call — no separate update()/final()
+		// step like Node's streaming Decipher API.
+		const decryptedBuffer = await crypto.subtle.decrypt(
+			{ name: 'AES-CBC', iv: iv as BufferSource },
+			cryptoKey,
+			content as BufferSource,
+		);
+		const inflated = pako.inflate(new Uint8Array(decryptedBuffer));
+		return new TextDecoder('utf-8').decode(inflated);
 	}
 
 	// ──────────────────────────────────────────────────────────────────────────
@@ -139,10 +171,10 @@ export class JwpubParser {
 	private async buildCongress(
 		docs: DbRow[],
 		meta: Map<number, Map<string, string>>,
-		keyIv: { key: Buffer; iv: Buffer },
+		keyIv: { key: Uint8Array; iv: Uint8Array },
 		pub: DbRow,
 		db: Database,
-		innerZip: AdmZip,
+		innerZip: Unzipped,
 	): Promise<Congress> {
 		const symbol = String(pub['Symbol']);
 		const year   = Number(pub['Year']);
@@ -165,7 +197,7 @@ export class JwpubParser {
 
 		for (const doc of docs) {
 			const docId = Number(doc['DocumentId']);
-			const raw   = Buffer.from(doc['Content'] as Uint8Array);
+			const raw   = doc['Content'] as Uint8Array;
 
 			let html: string;
 			try {
@@ -264,7 +296,7 @@ export class JwpubParser {
 	 * the document, as opposed to CategoryType 9, a square thumbnail used elsewhere)
 	 * and reads the actual image bytes from the inner zip.
 	 */
-	private extractCoverImage(db: Database, innerZip: AdmZip, docId: number): CoverImage | undefined {
+	private extractCoverImage(db: Database, innerZip: Unzipped, docId: number): CoverImage | undefined {
 		const res = db.exec(
 			`SELECT m.FilePath AS FilePath, m.MimeType AS MimeType
 			 FROM DocumentMultimedia dm
@@ -280,11 +312,11 @@ export class JwpubParser {
 		const filePath = String(row['FilePath'] ?? '');
 		if (!filePath) return undefined;
 
-		const entry = innerZip.getEntry(filePath);
+		const entry = innerZip[filePath];
 		if (!entry) return undefined;
 
 		return {
-			data: entry.getData(),
+			data: entry,
 			filename: filePath,
 			mimeType: String(row['MimeType'] ?? 'image/jpeg'),
 		};

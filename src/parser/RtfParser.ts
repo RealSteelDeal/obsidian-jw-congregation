@@ -1,6 +1,7 @@
-import AdmZip from 'adm-zip';
+import { unzipSync } from 'fflate';
 import { Congress, CongressType, Day, ItemType, ProgramItem, Scripture, Session } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
+import { latin1Decode } from '../util/bytes';
 
 // RTF HYPERLINK field: field text contains the URL between quotes
 const HYPERLINK_RE = /HYPERLINK\s+"([^"]+)"/g;
@@ -48,7 +49,7 @@ interface Paragraph {
 
 export class RtfParser {
 
-	async parse(fileBuffer: Buffer): Promise<Congress> {
+	async parse(fileBuffer: Uint8Array): Promise<Congress> {
 		const rtfSources = this.collectRtfSources(fileBuffer);
 		if (rtfSources.length === 0) throw new Error('RTF-ZIP: keine .rtf-Dateien gefunden');
 
@@ -91,19 +92,19 @@ export class RtfParser {
 	}
 
 	/** Accepts either a single raw .rtf file or a .zip containing one or more .rtf files. */
-	private collectRtfSources(fileBuffer: Buffer): string[] {
+	private collectRtfSources(fileBuffer: Uint8Array): string[] {
 		if (this.isRawRtf(fileBuffer)) {
-			return [fileBuffer.toString('latin1')];
+			return [latin1Decode(fileBuffer)];
 		}
 
-		const zip = new AdmZip(fileBuffer);
-		return zip.getEntries()
-			.filter(e => e.entryName.toLowerCase().endsWith('.rtf'))
-			.map(e => e.getData().toString('latin1')); // RTF is latin-1 encoded
+		const zip = unzipSync(fileBuffer);
+		return Object.keys(zip)
+			.filter(name => name.toLowerCase().endsWith('.rtf'))
+			.map(name => latin1Decode(zip[name]!)); // RTF is latin-1 encoded
 	}
 
-	private isRawRtf(buf: Buffer): boolean {
-		return buf.subarray(0, 5).toString('latin1') === '{\\rtf';
+	private isRawRtf(buf: Uint8Array): boolean {
+		return latin1Decode(buf.subarray(0, 5)) === '{\\rtf';
 	}
 
 	/**

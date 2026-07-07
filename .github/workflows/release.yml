@@ -34,11 +34,15 @@ jobs:
                       manifest.json
                       styles.css
 
+            - name: Extract changelog section for this version
+              run: node scripts/extract-changelog.mjs "${{ github.ref_name }}" > /tmp/release-notes.md
+
             - name: Create release
               uses: softprops/action-gh-release@v2
               with:
                   tag_name: ${{ github.ref_name }}
                   name: ${{ github.ref_name }}
+                  body_path: /tmp/release-notes.md
                   files: |
                       main.js
                       manifest.json

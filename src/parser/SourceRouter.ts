@@ -15,7 +15,7 @@ export class SourceRouter {
 		this.jwpub = new JwpubParser(sqlWasmBinary);
 	}
 
-	async route(filename: string, data: Buffer): Promise<ParseResult> {
+	async route(filename: string, data: Uint8Array): Promise<ParseResult> {
 		if (this.isJwpub(filename, data)) {
 			try {
 				const congress = await this.jwpub.parse(data);
@@ -34,11 +34,11 @@ export class SourceRouter {
 		throw new Error(`Unbekanntes Dateiformat: ${filename}`);
 	}
 
-	private isJwpub(filename: string, data: Buffer): boolean {
+	private isJwpub(filename: string, data: Uint8Array): boolean {
 		return filename.toLowerCase().endsWith('.jwpub') || this.hasPkZipSignature(data);
 	}
 
-	private isRtfZip(filename: string, data: Buffer): boolean {
+	private isRtfZip(filename: string, data: Uint8Array): boolean {
 		return (
 			filename.toLowerCase().endsWith('.zip') ||
 			filename.toLowerCase().endsWith('.rtf') ||
@@ -46,7 +46,7 @@ export class SourceRouter {
 		);
 	}
 
-	private hasPkZipSignature(data: Buffer): boolean {
+	private hasPkZipSignature(data: Uint8Array): boolean {
 		return data.length >= 4 && data[0] === 0x50 && data[1] === 0x4b;
 	}
 }

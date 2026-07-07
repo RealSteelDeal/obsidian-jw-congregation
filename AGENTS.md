@@ -36,7 +36,7 @@ src/
     bookNames.ts             # Buchnamenstabelle 1–66, DE + EN
     ScriptureNormalizer.ts   # fromJwpub(), fromRtf(), toJwLibraryLink(), toMarkdownLink()
   parser/
-    JwpubParser.ts           # .jwpub → Congress (primär, AES+zlib+DOMParser)
+    JwpubParser.ts           # .jwpub → Congress (primär, WebCrypto AES + pako inflate + fflate zip + DOMParser)
     RtfParser.ts             # RTF-ZIP → Congress (Fallback)
     SourceRouter.ts          # Dateiformat erkennen, Router jwpub → rtf
   builder/
@@ -55,7 +55,7 @@ scripts/
 
 ## Wichtige Implementierungsdetails
 
-### jwpub-Entschlüsselung
+### jwpub-Entschlüsselung (mobil-kompatibel: WebCrypto statt Node-crypto/zlib/adm-zip)
 
 Schlüsselableitung aus `Publication`-Tabelle der SQLite-DB:
 
@@ -67,6 +67,36 @@ Content    = AES-128-CBC decrypt → zlib inflate → UTF-8 HTML
 ```
 
 **Achtung:** `sql.js` gibt `IssueTagNumber` als String zurück → immer `Number()` casten.
+
+Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohne Node-APIs:
+
+- **SHA-256 + AES-128-CBC**: `crypto.subtle` (WebCrypto, globaler Browser-Standard – **kein**
+  `import ... from 'crypto'`!) statt Node's `crypto`-Modul. `deriveKey()` ist dadurch `async`
+  (`crypto.subtle.digest()` liefert ein Promise, anders als Node's synchrones
+  `createHash()...digest()`). `crypto.subtle.decrypt()` mit `AES-CBC` liefert den fertigen
+  Klartext (PKCS#7-Padding bereits entfernt) in einem Aufruf zurück – kein separates
+  `update()`/`final()` wie bei Node's `Decipher`-Stream-API.
+  TS-Typen: neuere `lib.dom.d.ts`-Versionen unterscheiden `BufferSource` streng zwischen
+  `ArrayBuffer`- und `SharedArrayBuffer`-gestützten TypedArrays; unsere `Uint8Array`s sind
+  immer `ArrayBuffer`-gestützt, daher harmlose `as BufferSource`-Casts an den
+  `crypto.subtle`-Aufrufstellen.
+- **zlib inflate**: `pako.inflate()` (reines JS, kompatibel zum zlib-Format/RFC1950 –
+  identisch zu Node's `zlib.inflate`, **nicht** `inflateRaw`) statt Node's `zlib`-Modul.
+- **ZIP-Handling**: `fflate`s `unzipSync()` (reines JS, liefert `Record<string, Uint8Array>`)
+  statt `adm-zip` – letzteres requiret unconditional Node's `fs`/`path`/`zlib` bereits beim
+  Modul-Import, unabhängig davon, ob nur der reine In-Memory-Buffer-Modus genutzt wird
+  (kein `browser`-Feld in seinem `package.json`, explizit "for nodejs" beschrieben).
+- **Hex-Decode für die XOR-Konstante** und **Latin-1-Decode für RTF** (`src/util/bytes.ts`):
+  `hexToBytes()`/`latin1Decode()` ersetzen `Buffer.from(hex, 'hex')`/`buf.toString('latin1')`.
+  `latin1Decode()` implementiert die 1:1-Byte→Codepoint-Abbildung selbst (nicht über
+  `TextDecoder('iso-8859-1')`), da die WHATWG-Encoding-Spec dieses Label auf windows-1252
+  aliast, was sich im Bereich 0x80–0x9F von echtem Latin-1 unterscheidet (Node's
+  `Buffer.toString('latin1')` macht eine echte 1:1-Abbildung).
+- **Verifiziert**: die neue `decrypt()`-Implementierung wurde gegen die unabhängige
+  Referenz-Implementierung in `scripts/analyze-jwpub.mjs` (eigenständiges, Node-`crypto`-
+  basiertes Decrypt, absichtlich **nicht** umgestellt – reines Dev-Tool, läuft nie im Plugin
+  selbst) auf Byte-Identität der entschlüsselten HTML-Dokumente getestet – alle 5 Dokumente
+  einer echten `.jwpub`-Datei stimmten exakt überein.
 
 ### sql.js WASM-Ladung (kritisch für Obsidian/Electron)
 
@@ -92,7 +122,8 @@ Content    = AES-128-CBC decrypt → zlib inflate → UTF-8 HTML
 
 ### HTML-Parsing (JwpubParser)
 
-- Nutzt `DOMParser` (nativ in Electron; für Tests: `linkedom`)
+- Nutzt `DOMParser` (Web-Standard-API, im Electron-Renderer **und** in der mobilen WebView
+  verfügbar; für Node-Tests/-Skripte: `linkedom`)
 - Programmpunkte in `<ul class="noMarker noIndent"> > li`
 - Sessions durch `<h2>Vormittag</h2>` / `<h2>Nachmittag</h2>` getrennt
 - **Lieder** (`itemType: 'song'`): `<li>` hat `a[href^="jwpub://p/X:"]` aber kein
@@ -230,7 +261,13 @@ Content    = AES-128-CBC decrypt → zlib inflate → UTF-8 HTML
 
 ## Manifest-Regeln
 
-- `isDesktopOnly: true` (zwingend – Node crypto/zlib; sql.js-WASM ist in `main.js` eingebettet)
+- `isDesktopOnly: false` – Entschlüsselung läuft über WebCrypto/pako/fflate statt
+  Node-crypto/zlib/adm-zip, funktioniert daher auch auf iOS/Android; sql.js-WASM ist in
+  `main.js` eingebettet. **Keine** Node-Built-ins (`fs`, `path`, `crypto`, `zlib`, `util`, …)
+  mehr in `src/` verwenden – `esbuild.config.mjs` externalisiert sie absichtlich nicht mehr
+  (`platform: 'browser'`, kein `builtinModules`-Spread in `external`), sodass ein
+  versehentlicher Node-Import den Build hart fehlschlagen lässt statt erst auf Mobile zur
+  Laufzeit
 - `id` niemals nach Release ändern
 - `minAppVersion` aktuell halten – aktuell `1.6.6` wegen `FileManager.trashFile()` (Rollback
   bei fehlgeschlagenem Import in `main.ts`); jede API, die eine höhere Version verlangt,

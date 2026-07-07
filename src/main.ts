@@ -41,7 +41,7 @@ export default class JwCongregationPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	async importFile(filename: string, data: Buffer, targetFolder?: string): Promise<void> {
+	async importFile(filename: string, data: Uint8Array, targetFolder?: string): Promise<void> {
 		const router = new SourceRouter(this.sqlWasmBinary);
 		const builder = new NoteBuilder({
 			lang: this.settings.lang,

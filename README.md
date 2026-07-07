@@ -30,7 +30,7 @@ Ein Obsidian Community Plugin, das offizielle Programmdateien von Kongressen der
 ## Voraussetzungen
 
 - Obsidian ≥ 1.6.6
-- **Nur Desktop** (Node-Crypto & zlib sind Electron-APIs)
+- Läuft auf Desktop und Mobile (iOS/Android) – Entschlüsselung nutzt WebCrypto (`crypto.subtle`) statt Node-`crypto`, `pako` statt Node-`zlib`, `fflate` statt `adm-zip`
 
 ## Installation
 
@@ -132,9 +132,11 @@ Die **Übersicht** (`00. Übersicht.md`) listet den kompletten Tag mit Links:
 
 ## Technische Details
 
-- **Entschlüsselung:** `sha256(cardString)` XOR Konstante → AES-128-CBC-Key + IV
+- **Entschlüsselung:** `sha256(cardString)` XOR Konstante → AES-128-CBC-Key + IV, via `crypto.subtle` (WebCrypto) statt Node-`crypto` – läuft identisch auf Desktop und Mobile
+- **Dekomprimierung:** `pako` (reines JS, kompatibel zu Node-`zlib`s `inflate`) statt Node-`zlib`
+- **ZIP-Handling:** `fflate` (reines JS) statt `adm-zip`, das zwingend Node-`fs`/`path`/`zlib` voraussetzt
 - **sql.js läuft mit eingebettetem WASM-Binary**: die `.wasm`-Datei wird beim Build per esbuild-`binary`-Loader als Base64 direkt in `main.js` eingebettet (kein Netzwerkzugriff, keine separate Datei nötig – wichtig, da der Community-Plugin-Installer aus einem Release nur `main.js`, `manifest.json` und `styles.css` lädt)
-- **Parser-Strategie:** DOMParser (nativ in Electron) über den entschlüsselten HTML-Content
+- **Parser-Strategie:** `DOMParser` (Web-Standard-API, sowohl im Electron-Renderer als auch in der mobilen WebView verfügbar) über den entschlüsselten HTML-Content
 - **Bibelstellen:** direkt aus `<a href="jwpub://b/NWTR/...">` Links im HTML
 - **Lieder:** erkannt über `<a href="jwpub://p/X:...">` ohne begleitenden Bibel-Link; Liednummer aus dem Linktext (`Lied NNN`)
 - **Titelbilder:** pro Tagesdokument über die `Multimedia`/`DocumentMultimedia`-Tabellen der jwpub-Datenbank aufgelöst (`CategoryType 8`, die am Dokumentanfang eingebettete Bannervariante) und als `Titelbild.<ext>` neben die Notizen des Tages geschrieben; Kreiskongresse haben nur ein Bild auf dem Kongress-Deckblatt, das für den einzigen Tag übernommen wird

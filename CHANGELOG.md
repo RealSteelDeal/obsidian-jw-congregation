@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.0
+
+### Fehlerbehebungen
+
+- **RTF-Fallback grundlegend repariert**: Der Import über RTF-ZIP erkannte bei echten Kongressdateien bisher keinen einzigen Tag/Programmpunkt (falsches Zeitformat-Muster, durchsickernde Hyperlink-URLs/Metadaten im Text). RTF funktioniert jetzt gleichwertig zum jwpub-Import:
+  - Zeitformat „H Uhr [MM]" (z. B. „9 Uhr 20", volle Stunde nur „11 Uhr") statt des nicht vorkommenden „H:MM"
+  - Neuer klammer-bewusster RTF-Decoder statt flachem Regex-Strip
+  - Lieder, Musikvideos und Pausen werden jetzt als Programmpunkte erkannt (vorher komplett verworfen)
+  - Bibeldrama-Untertitel und Vortragsreihen-Teile (mit eigenen Bibelstellen pro Teil) werden korrekt zusammengesetzt
+  - Tagesmotto samt Bibeltext sowie Kongress-Motto und -Jahr werden jetzt auch aus RTF-Dateien gelesen
+  - Mehrfach gezählte Bibelstellen (durch über mehrere Textläufe verteilte Zitate) werden dedupliziert
+
 ## 1.1.0
 
 ### Neu

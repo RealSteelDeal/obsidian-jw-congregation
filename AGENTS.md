@@ -263,15 +263,30 @@ Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohn
     des Share-Links) und 1.3.4: dieselbe URL **mit** vollem `srcid`/`wtlocale`/`prefer`-Satz –
     **beide auf einem echten iPhone getestet und beide fehlgeschlagen.** Widerlegt damit die
     Hypothese oben; `jwlibrary://` scheint für `docid=` grundsätzlich nicht zu funktionieren.
-  - **Seit 1.3.5:** zurück zu `https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=${1102016800 + songNumber}`
-    (identisch zu 1.3.2) – die einzige Variante, die je (außerhalb von Obsidian) nachweislich
-    funktioniert hat. Noch nicht erneut *innerhalb* Obsidians auf einem echten Gerät bestätigt,
-    da 1.3.2 dort fehlschlug – falls das weiterhin so ist, liegt das Problem vermutlich nicht am
-    Linkformat selbst, sondern daran, wie Obsidian externe Links auf diesem Gerät überhaupt öffnet
-    (z. B. eine App-Einstellung "Externe Links im System-Browser öffnen" prüfen, falls vorhanden).
-    `docid`-Formel nur an zwei Liedern (54, 94) verifiziert; bei Bedarf mit einem dritten, weit
-    entfernten Lied (z. B. Nr. 1 oder > 140) gegenprüfen, um sie über den gesamten
-    Nummernbereich zu bestätigen.
+  - **1.3.5:** zurück zu `https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=${1102016800 + songNumber}`
+    (identisch zu 1.3.2) – funktioniert seither nachweislich auf einem echten iPhone **aus
+    Obsidian heraus** (der 1.3.2-Fehlschlag war also kein grundsätzliches Problem des Linkformats).
+  - **Formel widerlegt (nach 1.3.5):** Lied 14 (`docid=1102016814`) und die Bibeltexte 54/94
+    passen zur Formel `1102016800 + songNumber`, aber Lied 160 hat laut JW Library Windows
+    „Teilen" die echte `docid=1102022960` – die Formel sagt `1102016960` voraus, eine Abweichung
+    von genau `6000`. Die `docid`-Nummerierung ist also **keine lineare Funktion der Liednummer**;
+    sie liegt nur stückweise in zusammenhängenden Blöcken, die zufällig mit der Formel
+    übereinstimmen.
+  - **Fix:** Die echte `docid` steht bereits in der jwpub-Datei selbst, in genau dem
+    `<a href="jwpub://p/X:NNNNNNNNN/">`-Link, aus dem `JwpubParser.parseSongLine()` bisher nur
+    den sichtbaren Text (`Lied NNN`) gelesen und die Zahl im Href verworfen hat. Nachweis: In der
+    Hyperlink-Tabelle einer echten Kongressdatei dieser Session stand
+    `{"HyperlinkId":2,"Link":"jwpub://p/X:1102022960/"}` direkt vor den Bibelstellen des ersten
+    Programmpunkts nach Lied 160 (Freitag, 9:30 Uhr) – exakt die vom Nutzer bestätigte echte
+    `docid`. `ProgramItem.songDocid` wird jetzt aus diesem Href extrahiert (`JwpubParser.ts`,
+    `SONG_DOCID_HREF_RE`) und von `NoteBuilder.songLink()` bevorzugt verwendet; die Formel dient
+    nur noch als Fallback für den RTF-Importpfad, der keinen Href mit `docid` besitzt und es
+    prinzipbedingt nicht besser als raten kann.
+  - **Offen:** Nutzerbericht, dass Lieder-Links am Smartphone funktionieren, aber nicht am PC
+    (Windows-Desktop) – noch nicht diagnostiziert. Naheliegende Hypothese (nicht verifiziert):
+    JW Library Desktop registriert sich unter Windows möglicherweise nur als Link-Handler, wenn
+    der Link direkt im Standardbrowser geöffnet wird, nicht wenn Obsidian/Electron ihn per
+    `shell.openExternal` weiterreicht – vor einer Codeänderung mit dem Nutzer verifizieren.
 
 ### Notiz- & Ordnerbenennung (NoteBuilder)
 
@@ -293,6 +308,15 @@ Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohn
 - **CO**: Tagesordner (Freitag/Samstag/Sonntag) unterhalb des Kongressordners
 - **CA**: keine Tagesordner, Notizen direkt im Kongressordner
 - Ordner-/Dateinamen dürfen **keinen** `/` enthalten (z. B. Saison als `2026-2027`, nicht `2026/2027` – sonst legt Obsidian ungewollt einen Unterordner an)
+- **Zielordner-Auflösung (`main.ts.importFile()`)**: `settings.targetFolder` (Standard: `''`)
+  ist der *übergeordnete* Ordner, in dem `NoteBuilder.congressFolderName()` seinen eigenen
+  Unterordner anlegt – `''` bedeutet Vault-Wurzel, also **kein** Wrapper-Ordner: der Kongress
+  wird direkt zum Top-Level-Ordner. Wichtig beim Auflösen: `(targetFolder ?? settings.targetFolder)`
+  (nicht `||`!), da ein explizit leerer String (bewusst "Vault-Wurzel" im Import-Dialog gewählt)
+  sonst fälschlich durch den gespeicherten Standard überschrieben würde; `ensureFolder()` wird
+  bei leerem `baseFolder` übersprungen (Vault-Root existiert immer). `ImportModal` bietet dafür
+  im Zielordner-Dropdown einen expliziten Eintrag „Vault-Wurzel (kein Unterordner)" (`ROOT_VALUE`)
+  neben bestehenden Ordnern und „➕ Neuer Ordner …".
 
 ## Manifest-Regeln
 

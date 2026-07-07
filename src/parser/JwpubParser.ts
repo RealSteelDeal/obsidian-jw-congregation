@@ -11,6 +11,11 @@ const XOR_CONSTANT = hexToBytes(
 
 // Matches jwpub://b/NWTR/book:chapter:verse[-book:chapter:verse]
 const BIBLE_HREF_RE = /^jwpub:\/\/b\/NWTR\/([\d:]+(?:-[\d:]+)?)$/;
+// Matches jwpub://p/X:<docid>/ — the real jw.org/finder docid for a song, embedded
+// directly in the jwpub file. Not a linear function of the song number (confirmed:
+// docid jumps by +6000 for at least one song vs. the naive songNumber-based guess),
+// so this is the only reliable source and must be read rather than computed.
+const SONG_DOCID_HREF_RE = /^jwpub:\/\/p\/X:(\d+)\/?$/;
 // Time at start of paragraph text
 const TIME_RE = /^\s*(\d{1,2}:\d{2})/;
 // Standalone "Musik"/"Musikvideo" line (no song link, no talk) — shown in the
@@ -435,6 +440,8 @@ export class JwpubParser {
 		const numMatch = /(\d+)/.exec(linkText);
 		if (!numMatch) return null;
 		const songNumber = Number(numMatch[1]);
+		const docidMatch = SONG_DOCID_HREF_RE.exec(songLink.getAttribute('href') ?? '');
+		const songDocid = docidMatch?.[1] ? Number(docidMatch[1]) : undefined;
 		return {
 			time,
 			itemType: 'song',
@@ -442,6 +449,7 @@ export class JwpubParser {
 			scriptures: [],
 			bulletPoints: [],
 			songNumber,
+			songDocid,
 		};
 	}
 

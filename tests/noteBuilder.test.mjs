@@ -81,7 +81,7 @@ test('overview scripture references are wrapped in one parenthesis, semicolon-se
 	const overview = result.notes.find(n => n.filename === '00. Übersicht.md');
 	assert.ok(overview.content.includes(
 		'(<a href="jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=40005001-40005002&pub=nwtsty">Matthäus 5:1-2</a>; ' +
-		'<a href="jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19100002&pub=nwtsty">Psalmen 100:2</a>)',
+		'<a href="jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19100002&pub=nwtsty">Psalm 100:2</a>)',
 	));
 });
 
@@ -95,8 +95,8 @@ test('note "Bibeltexte:" block wraps scriptures in one parenthesis with a label'
 	const result = builder().buildNotes(coCongress([coDay({ sessions: [{ name: 'Vormittag', items: [item] }] })]));
 	const itemNote = result.notes.find(n => n.filename !== '00. Übersicht.md');
 	assert.ok(itemNote.content.includes(
-		'**Bibeltexte:** ([Psalmen 16:11](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19016011&pub=nwtsty); ' +
-		'[Psalmen 100:2](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19100002&pub=nwtsty))',
+		'**Bibeltexte:** ([Psalm 16:11](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19016011&pub=nwtsty); ' +
+		'[Psalm 100:2](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19100002&pub=nwtsty))',
 	));
 });
 
@@ -106,7 +106,28 @@ test('scriptureLinks: false renders plain text instead of markdown links', () =>
 		coCongress([coDay({ sessions: [{ name: 'Vormittag', items: [item] }] })]),
 	);
 	const itemNote = result.notes.find(n => n.filename !== '00. Übersicht.md');
-	assert.ok(itemNote.content.includes('**Bibeltexte:** (Psalmen 16:11)'));
+	assert.ok(itemNote.content.includes('**Bibeltexte:** (Psalm 16:11)'));
+});
+
+test('song link uses the real songDocid from the source file when available', () => {
+	const item = coItem({
+		itemType: 'song', title: 'Lied 160', scriptures: [], songNumber: 160, songDocid: 1102022960,
+	});
+	const result = builder().buildNotes(coCongress([coDay({ sessions: [{ name: 'Vormittag', items: [item] }] })]));
+	const overview = result.notes.find(n => n.filename === '00. Übersicht.md');
+	// Real docid (1102022960), NOT the naive songNumber-based formula (which would predict 1102016960).
+	assert.ok(overview.content.includes(
+		'[Lied 160](https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=1102022960)',
+	));
+});
+
+test('song link falls back to the songNumber formula when no songDocid is available (RTF import)', () => {
+	const item = coItem({ itemType: 'song', title: 'Lied 14', scriptures: [], songNumber: 14 });
+	const result = builder().buildNotes(coCongress([coDay({ sessions: [{ name: 'Vormittag', items: [item] }] })]));
+	const overview = result.notes.find(n => n.filename === '00. Übersicht.md');
+	assert.ok(overview.content.includes(
+		'[Lied 14](https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=1102016814)',
+	));
 });
 
 test('cover image is written as a separate Titelbild attachment, not inlined', () => {

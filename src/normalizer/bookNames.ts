@@ -25,7 +25,7 @@ const BOOK_NAMES: BookEntry[] = [
 	{ de: 'Nehemia',         en: 'Nehemiah' },
 	{ de: 'Ester',           en: 'Esther' },
 	{ de: 'Hiob',            en: 'Job' },
-	{ de: 'Psalmen',         en: 'Psalms' },
+	{ de: 'Psalm',           en: 'Psalm' },
 	{ de: 'Sprüche',         en: 'Proverbs' },
 	{ de: 'Prediger',        en: 'Ecclesiastes' },
 	{ de: 'Hoheslied',       en: 'Song of Solomon' },

@@ -10,6 +10,7 @@ const TYPE_LABELS: Record<CongressType, string> = {
 };
 
 const NEW_FOLDER_VALUE = '__new__';
+const ROOT_VALUE = '__root__';
 
 function listAllFolders(app: App): TFolder[] {
 	const folders: TFolder[] = [];
@@ -60,35 +61,40 @@ export class ImportModal extends Modal {
 			);
 
 		const folders = listAllFolders(this.app);
-		const existingMatch = folders.some(f => f.path === this.targetFolder);
+		const isRoot = this.targetFolder === '';
+		const existingMatch = !isRoot && folders.some(f => f.path === this.targetFolder);
 		let newFolderText: TextComponent | undefined;
 
 		const newFolderSetting = new Setting(contentEl)
 			.setName('Name des neuen Ordners')
 			.addText(text => {
 				text
-					.setPlaceholder('Kongress')
-					.setValue(existingMatch ? '' : this.targetFolder)
+					.setPlaceholder('z. B. Kongress')
+					.setValue(existingMatch || isRoot ? '' : this.targetFolder)
 					.onChange(value => {
 						this.targetFolder = value.trim();
 					});
 				newFolderText = text;
 			});
-		if (existingMatch) newFolderSetting.settingEl.hide();
+		if (existingMatch || isRoot) newFolderSetting.settingEl.hide();
 
 		const folderDropdownSetting = new Setting(contentEl)
 			.setName('Zielordner')
-			.setDesc('Bestehenden Ordner wählen oder einen neuen anlegen.')
+			.setDesc('Standard: Vault-Wurzel – der Kongress wird direkt als eigener Ordner angelegt, ohne Wrapper-Ordner. Alternativ einen bestehenden Ordner wählen oder einen neuen anlegen.')
 			.addDropdown(drop => {
+				drop.addOption(ROOT_VALUE, 'Vault-Wurzel (kein Unterordner)');
 				for (const folder of folders) {
 					drop.addOption(folder.path, folder.path);
 				}
 				drop.addOption(NEW_FOLDER_VALUE, '➕ Neuer Ordner …');
-				drop.setValue(existingMatch ? this.targetFolder : NEW_FOLDER_VALUE);
+				drop.setValue(isRoot ? ROOT_VALUE : existingMatch ? this.targetFolder : NEW_FOLDER_VALUE);
 				drop.onChange(value => {
 					if (value === NEW_FOLDER_VALUE) {
 						newFolderSetting.settingEl.show();
 						this.targetFolder = newFolderText?.getValue().trim() || '';
+					} else if (value === ROOT_VALUE) {
+						newFolderSetting.settingEl.hide();
+						this.targetFolder = '';
 					} else {
 						newFolderSetting.settingEl.hide();
 						this.targetFolder = value;

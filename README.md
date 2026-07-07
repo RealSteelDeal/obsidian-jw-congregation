@@ -10,10 +10,10 @@ Ein Obsidian Community Plugin, das offizielle Programmdateien von Kongressen der
   - `CA-brpgm` – Kreiskongress mit Zweigbüro-Vertreter (eintägig)
 - **Primärquelle: `.jwpub`** – vollständige Entschlüsselung (AES-128-CBC + zlib) und HTML-Parsing
 - **Fallback: RTF-ZIP** – automatisch, wenn kein jwpub vorliegt
-- **Ein eigener Ordner pro Kongress**, benannt nach Kongresstyp, Jahr/Saison und Motto
+- **Ein eigener Ordner pro Kongress**, benannt nach Kongresstyp, Jahr/Saison und Motto – standardmäßig direkt in der Vault-Wurzel, ohne zusätzlichen Wrapper-Ordner
   - Regionale Kongresse bekommen zusätzlich einen Unterordner je Tag (Freitag/Samstag/Sonntag)
   - Kreiskongresse (eintägig) legen die Notizen direkt im Kongressordner ab
-- **Zielordner frei wählbar** beim Import – bestehenden Vault-Ordner auswählen oder neuen anlegen
+- **Zielordner frei wählbar** beim Import – Vault-Wurzel (Standard), bestehenden Ordner auswählen oder neuen anlegen
 - **Eine Notiz pro Programmpunkt**, durchnummeriert in Programmreihenfolge (`01.`, `02.`, …)
   - Vortragsreihen erhalten eine Notiz mit einer Überschrift pro Teil
 - **„Übersicht"-Notiz pro Tag** (`00. Übersicht.md`) mit dem kompletten Tagesprogramm:
@@ -53,7 +53,7 @@ Ein Obsidian Community Plugin, das offizielle Programmdateien von Kongressen der
 
 1. **Ribbon-Icon** (Buchsymbol) oder **Befehlspalette** → „Kongressprogramm importieren"
 2. Programmdatei auswählen (`.jwpub` oder RTF-ZIP)
-3. Zielordner wählen (bestehenden Ordner aus dem Dropdown oder „➕ Neuer Ordner …")
+3. Zielordner wählen („Vault-Wurzel" (Standard), bestehenden Ordner aus dem Dropdown oder „➕ Neuer Ordner …")
 4. Vorschau prüfen (Kongresstyp, Motto, erkannte Tage/Programmpunkte)
 5. **Importieren** – der Kongressordner samt Notizen wird angelegt
 
@@ -61,33 +61,36 @@ Ein Obsidian Community Plugin, das offizielle Programmdateien von Kongressen der
 
 | Einstellung | Standard | Beschreibung |
 |---|---|---|
-| Zielordner | `Kongress` | Vorbelegter Vault-Ordner, in dem der Kongressordner angelegt wird (pro Import überschreibbar) |
+| Zielordner | *(Vault-Wurzel)* | Übergeordneter Ordner, in dem der Kongressordner angelegt wird (pro Import überschreibbar); leer = kein Wrapper-Ordner, Kongress landet direkt in der Vault-Wurzel |
 | Sprache | `Deutsch` | Bibelbuch-Namen (DE / EN) |
 | Bibelstellen verlinken | An | Erzeugt klickbare `jwlibrary://`-Links |
 
 ## Ordner- & Notizstruktur
 
+Standardmäßig (Zielordner = Vault-Wurzel) direkt als eigene Top-Level-Ordner:
+
 ```
-Kongress/
-  Regionaler Kongress 2026 – Ewiges Glück/
-    Freitag/
-      Titelbild.jpg
-      00. Übersicht.md
-      01. Ist ewiges Glück möglich.md
-      02. Die gute Botschaft von Jesus.md
-      ...
-    Samstag/
-      ...
-    Sonntag/
-      ...
-  Kreiskongressprogramm 2026-2027 – mit dem Kreisaufseher – „Titel"/
+Regionaler Kongress 2026 – Ewiges Glück/
+  Freitag/
     Titelbild.jpg
     00. Übersicht.md
-    01. Warum sollten wir mit ganzem Herzen auf Jehova vertrauen.md
-    02. Uns die zum Vorbild nehmen, die auf Jehova vertraut haben.md
+    01. Ist ewiges Glück möglich.md
+    02. Die gute Botschaft von Jesus.md
     ...
-    09. Beantworte die folgenden Fragen.md   ← immer die höchste Nummer (letzte Notiz)
+  Samstag/
+    ...
+  Sonntag/
+    ...
+Kreiskongressprogramm 2026-2027 – mit dem Kreisaufseher – „Titel"/
+  Titelbild.jpg
+  00. Übersicht.md
+  01. Warum sollten wir mit ganzem Herzen auf Jehova vertrauen.md
+  02. Uns die zum Vorbild nehmen, die auf Jehova vertraut haben.md
+  ...
+  09. Beantworte die folgenden Fragen.md   ← immer die höchste Nummer (letzte Notiz)
 ```
+
+Bei einem gewählten Zielordner (z. B. „Kongress") entsteht darunter genau dieselbe Struktur, nur um eine Ebene eingerückt.
 
 ## Notiz-Format
 
@@ -123,7 +126,7 @@ Die **Übersicht** (`00. Übersicht.md`) listet den kompletten Tag mit Links:
 ![[Titelbild.jpg]]
 
 ## Vormittag
-- **9:30** – [Lied 160](https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=1102016960)
+- **9:30** – [Lied 160](https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=1102022960)
 - **9:40** – [[01. Ist ewiges Glück möglich|Ist ewiges Glück möglich]] ([Psalm 16:11](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19016011&pub=nwtsty))
 - **11:15** – [[03. Messianische Prophezeiungen erfüllt|Messianische Prophezeiungen erfüllt]]
   - [[03. Messianische Prophezeiungen erfüllt#1. „Er hat unsere Krankheiten auf sich genommen"|1. „Er hat unsere Krankheiten auf sich genommen"]]
@@ -138,7 +141,7 @@ Die **Übersicht** (`00. Übersicht.md`) listet den kompletten Tag mit Links:
 - **sql.js läuft mit eingebettetem WASM-Binary**: die `.wasm`-Datei wird beim Build per esbuild-`binary`-Loader als Base64 direkt in `main.js` eingebettet (kein Netzwerkzugriff, keine separate Datei nötig – wichtig, da der Community-Plugin-Installer aus einem Release nur `main.js`, `manifest.json` und `styles.css` lädt)
 - **Parser-Strategie:** `DOMParser` (Web-Standard-API, sowohl im Electron-Renderer als auch in der mobilen WebView verfügbar) über den entschlüsselten HTML-Content
 - **Bibelstellen:** direkt aus `<a href="jwpub://b/NWTR/...">` Links im HTML
-- **Lieder:** erkannt über `<a href="jwpub://p/X:...">` ohne begleitenden Bibel-Link; Liednummer aus dem Linktext (`Lied NNN`)
+- **Lieder:** erkannt über `<a href="jwpub://p/X:...">` ohne begleitenden Bibel-Link; Liednummer aus dem Linktext (`Lied NNN`), echte jw.org-`docid` direkt aus der Zahl in diesem Href gelesen (nicht berechnet – die docid ist keine lineare Funktion der Liednummer, siehe `AGENTS.md`)
 - **Titelbilder:** pro Tagesdokument über die `Multimedia`/`DocumentMultimedia`-Tabellen der jwpub-Datenbank aufgelöst (`CategoryType 8`, die am Dokumentanfang eingebettete Bannervariante) und als `Titelbild.<ext>` neben die Notizen des Tages geschrieben; Kreiskongresse haben nur ein Bild auf dem Kongress-Deckblatt, das für den einzigen Tag übernommen wird
 - **„Beantworte die folgenden Fragen"** ist im jwpub ein eigenständiges Dokument (kein Listenpunkt) und wird separat erkannt und der zugehörigen Tages-Session zugeordnet
 - **Dateinamen:** für Windows verbotene Zeichen (`? " : / \ | * < >`) werden durch optisch ähnliche Unicode-Zeichen ersetzt statt gelöscht, damit z. B. Fragezeichen im Titel erhalten bleiben

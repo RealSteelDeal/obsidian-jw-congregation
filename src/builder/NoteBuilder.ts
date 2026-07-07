@@ -146,7 +146,7 @@ export class NoteBuilder {
 			// trailing remark from the same programme line (e.g. "und Gebet",
 			// "(Bekanntmachungen)") is kept as plain text after it, not part of the link.
 			const { label, remark } = this.splitSongTitle(item.title);
-			const link = `[${label}](${this.songLink(item.songNumber)})`;
+			const link = `[${label}](${this.songLink(item.songNumber, item.songDocid)})`;
 			return remark ? `${time}${link} ${remark}` : `${time}${link}`;
 		}
 
@@ -191,13 +191,19 @@ export class NoteBuilder {
 	// `docid=` content id failed both as a jwlibrary:// link (with and without the
 	// full srcid/wtlocale/prefer param set) and, earlier, as a https://www.jw.org
 	// link when tapped from within Obsidian. The one thing confirmed to work is
-	// this exact URL, copied byte-for-byte from JW Library's own "Share" feature
-	// (verified against Lied 54 → docid=1102016854 and Lied 94 → docid=1102016894,
-	// both giving the same base offset 1102016800, i.e. docid = 1102016800 + songNumber).
+	// this exact URL shape, copied byte-for-byte from JW Library's own "Share" feature.
 	// Deliberately NOT jwlibrary:// here, unlike scripture links — per user testing,
 	// this exact https://www.jw.org form is the only one that has ever worked.
-	private songLink(songNumber: number): string {
-		return `https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=${1102016800 + songNumber}`;
+	//
+	// The docid itself is NOT a linear function of the song number — Lied 14/54/94
+	// happen to sit in a contiguous block (docid = 1102016800 + songNumber), but Lied
+	// 160's real docid is 1102022960, not the predicted 1102016960. So `songDocid`
+	// (read straight out of the jwpub file's own song link, see JwpubParser) is used
+	// whenever available; the formula is only a fallback for the RTF import path,
+	// which has no docid to read and can't do better than a guess.
+	private songLink(songNumber: number, songDocid?: number): string {
+		const docid = songDocid ?? 1102016800 + songNumber;
+		return `https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=${docid}`;
 	}
 
 	private renderSingleNote(item: ProgramItem, day: Day, congress: Congress): string {

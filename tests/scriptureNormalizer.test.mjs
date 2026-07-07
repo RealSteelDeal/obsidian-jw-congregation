@@ -59,6 +59,6 @@ test('toMarkdownLink combines the readable label and the deeplink', () => {
 	const s = { book: 19, chapter: 16, verseStart: 11 };
 	assert.equal(
 		ScriptureNormalizer.toMarkdownLink(s, 'de'),
-		'[Psalmen 16:11](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19016011&pub=nwtsty)',
+		'[Psalm 16:11](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19016011&pub=nwtsty)',
 	);
 });

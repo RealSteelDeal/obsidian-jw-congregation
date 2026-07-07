@@ -26,6 +26,11 @@ export interface ProgramItem {
 	bulletPoints: string[];
 	parts?: ProgramItem[];  // only for talk-series
 	songNumber?: number;    // only for itemType 'song'
+	songDocid?: number;     // only for itemType 'song', jwpub source only — the real
+	                        // jw.org/finder docid for this exact song, read straight out of
+	                        // the jwpub file's own "jwpub://p/X:<docid>/" link. Not derivable
+	                        // from songNumber by formula (docid isn't a linear function of
+	                        // song number), so this is the only reliable source.
 }
 
 export interface Session {

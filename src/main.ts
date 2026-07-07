@@ -61,8 +61,13 @@ export default class JwCongregationPlugin extends Plugin {
 		}
 
 		const { congressFolder, notes, attachments } = builder.buildNotes(result.congress);
-		const baseFolder = normalizePath(targetFolder?.trim() || this.settings.targetFolder);
-		const congressPath = normalizePath(`${baseFolder}/${congressFolder}`);
+		// '' means vault root — no wrapper folder, the congress gets its own
+		// top-level folder directly. `??` (not `||`) so an explicit empty string
+		// (root, chosen deliberately in the modal) isn't overridden by the saved
+		// default.
+		const rawBase = (targetFolder ?? this.settings.targetFolder).trim();
+		const baseFolder = rawBase ? normalizePath(rawBase) : '';
+		const congressPath = baseFolder ? normalizePath(`${baseFolder}/${congressFolder}`) : normalizePath(congressFolder);
 
 		// Track only the notes/attachments actually created in this run, so a failure
 		// partway through can be rolled back without touching folders/files that
@@ -70,7 +75,7 @@ export default class JwCongregationPlugin extends Plugin {
 		const createdPaths: string[] = [];
 
 		try {
-			await this.ensureFolder(baseFolder);
+			if (baseFolder) await this.ensureFolder(baseFolder);
 			await this.ensureFolder(congressPath);
 
 			for (const note of notes) {

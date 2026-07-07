@@ -9,7 +9,7 @@ export interface JwPluginSettings {
 }
 
 export const DEFAULT_SETTINGS: JwPluginSettings = {
-	targetFolder: 'Kongress',
+	targetFolder: '', // '' = vault root; each import creates its own top-level congress folder
 	lang: 'de',
 	scriptureLinks: true,
 };
@@ -25,13 +25,13 @@ export class JwSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Zielordner')
-			.setDesc('Ordner im Vault, in dem die Notizen abgelegt werden.')
+			.setDesc('Übergeordneter Ordner, in dem der Kongressordner angelegt wird. Leer lassen, damit jeder Kongress direkt als eigener Ordner in der Vault-Wurzel entsteht (kein zusätzlicher Wrapper-Ordner).')
 			.addText(text =>
 				text
-					.setPlaceholder('Kongress')
+					.setPlaceholder('(Vault-Wurzel)')
 					.setValue(this.plugin.settings.targetFolder)
 					.onChange(async value => {
-						this.plugin.settings.targetFolder = value.trim() || 'Kongress';
+						this.plugin.settings.targetFolder = value.trim();
 						await this.plugin.saveSettings();
 					}),
 			);

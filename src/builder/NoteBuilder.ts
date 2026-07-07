@@ -341,15 +341,21 @@ export class NoteBuilder {
 		return lines.join('\n');
 	}
 
-	// User-defined extra fields (settings.extraFields), one per line, appended
-	// right after the standard fields — e.g. a custom "**Notizen:**" line.
+	// User-defined extra fields (settings.extraFields, one per line — e.g. a custom
+	// "**Notizen:**" line), appended right after the standard fields. Each field
+	// gets its own dedicated blank writing space directly beneath it (like
+	// noteSpace() does for the note as a whole), so it reads as a genuine extra
+	// field rather than just an inserted label sharing the note's bottom space.
 	private pushExtraFields(lines: string[]): void {
 		const extra = this.opts.extraFields.trim();
 		if (!extra) return;
 		for (const line of extra.split('\n')) {
-			lines.push(line.trim());
+			const trimmed = line.trim();
+			if (!trimmed) continue;
+			lines.push(trimmed);
+			lines.push('');
+			lines.push('');
 		}
-		lines.push('');
 	}
 
 	private scriptureBlock(scriptures: Scripture[]): string {

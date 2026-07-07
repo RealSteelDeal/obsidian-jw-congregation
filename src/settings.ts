@@ -134,7 +134,7 @@ export class JwSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Zusätzliche Felder')
-			.setDesc('Wird an jede Programmpunkt-Notiz angehängt (z. B. eine eigene "**Notizen:**"-Zeile). Eine Zeile pro Feld.')
+			.setDesc('Jede Zeile wird als eigenes Feld mit eigenem Schreibplatz an jede Programmpunkt-Notiz angehängt (z. B. "**Notizen:**").')
 			.addTextArea(text =>
 				text
 					.setPlaceholder('**Notizen:**')

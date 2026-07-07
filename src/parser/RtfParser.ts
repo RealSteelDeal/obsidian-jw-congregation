@@ -47,6 +47,13 @@ export class RtfParser {
 			if (items.length === 0) continue;
 
 			const sessions = this.splitIntoSessions(items);
+			// Deliberately no per-day theme/themeScripture here (unlike JwpubParser's
+			// extractDayTheme): RTF gives us flattened whole-document text with no HTML
+			// structure to anchor on, so there's no reliable way to tell "the day's
+			// motto paragraph" apart from any other line. A regex guess would risk
+			// silently grabbing the wrong sentence — worse than not showing it at all.
+			// This is the emergency fallback path (jwpub decryption failed); the
+			// feature is only worth the risk where the source actually supports it.
 			days.push({ name: weekday, weekday, sessions });
 
 			if (!theme) theme = this.extractTheme(wholeText);

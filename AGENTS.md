@@ -154,6 +154,10 @@ Content    = AES-128-CBC decrypt → zlib inflate → UTF-8 HTML
   gesamte Dokument gesucht werden
 - `decodeWholeDocument()` (kollabiert weiterhin auf eine Zeile) wird nur noch für
   Wochentag-/Motto-/Skip-Erkennung verwendet, nicht für die Programmpunkt-Extraktion
+- **Bewusst nicht implementiert:** `Day.theme`/`Day.themeScripture` (siehe
+  `JwpubParser.extractDayTheme()`) werden im RTF-Fallback nicht befüllt – ohne HTML-Struktur
+  gibt es keine zuverlässige Möglichkeit, den Motto-Absatz von anderem Fließtext zu
+  unterscheiden; eine Regex-Rate hätte ein hohes Risiko, die falsche Zeile zu erwischen
 
 ### Bibelstellen-Format
 

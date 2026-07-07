@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.5
+
+### Fehlerbehebungen
+
+- **Lieder-Link erneut korrigiert**: `jwlibrary://` funktionierte für Lieder auf einem echten iPhone nicht (weder mit noch ohne vollen Parametersatz). Lieder-Links nutzen jetzt wieder `https://www.jw.org/finder?...&docid=...` – die einzige Variante, die je nachweislich funktioniert hat. Bibeltexte bleiben unverändert bei `jwlibrary://`.
+
 ## 1.3.4
 
 ### Fehlerbehebungen

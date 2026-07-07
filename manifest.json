@@ -1,7 +1,7 @@
 {
 	"id": "jw-congregation-program",
 	"name": "JW Kongressprogramm",
-	"version": "1.3.4",
+	"version": "1.3.5",
 	"minAppVersion": "1.6.6",
 	"description": "Importiert JW-Kongressprogramme (.jwpub / RTF-ZIP) und erstellt strukturierte Notizen im Vault.",
 	"author": "Lukas Schütter",

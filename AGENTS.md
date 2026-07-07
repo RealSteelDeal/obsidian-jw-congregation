@@ -317,6 +317,11 @@ Obsidian-Modal statt direkt extern zu öffnen — per echten Testdateien (`nwt_X
   - `@codemirror/view`/`@codemirror/state` sind in `esbuild.config.mjs` als `external` gelistet
     (von Obsidian selbst zur Laufzeit bereitgestellt) — direkter Import in Plugin-Code ist der
     übliche Weg, um CM6-Internas anzusprechen.
+  - **`Prec.highest()` ist zwingend, nicht optional**: Obsidians eigener Live-Preview-Link-Handler
+    ist ebenfalls eine `domEventHandlers`-`click`-Extension und öffnet den externen Link direkt
+    selbst (nicht über die DOM-Standardaktion, da es kein echtes `<a>` gibt) — `preventDefault()`
+    danach kommt zu spät. Ohne `Prec.highest()` liefen Popup **und** JW Library gleichzeitig auf
+    (per echtem Test bestätigt); mit `Prec.highest()` läuft unsere Extension zuerst.
 
 - **Der Bibeltext liegt NICHT in der `Document`-Tabelle** (die enthält nur Intro-Seiten wie
   „Frage 1: Wer ist Gott?"). Eigene Tabellen: `BibleVerse` (~31.000 Zeilen, ein `Content`-Blob
@@ -347,19 +352,29 @@ Obsidian-Modal statt direkt extern zu öffnen — per echten Testdateien (`nwt_X
   Klick auf eine Bibelstelle (nicht beim Plugin-Start) und cached die `BibleReader`-Instanz danach
   für die Session — Laden + Index-Aufbau dauert bei der 126-MB-Studienbibel unter 700ms, aber das
   bei jedem Plugin-Start zu tun wäre unnötig.
-- **Klick-Interception**: `main.ts` registriert einen `document`-Click-Listener in der
-  **Capture-Phase** (`registerDomEvent(document, 'click', handler, true)`), damit er vor Obsidians
-  eigener Link-Behandlung feuert. Reagiert nur auf `a[href^="jwlibrary://"]` (Bibelstellen-Links;
-  Lieder-Links nutzen bewusst `https://www.jw.org/finder`, siehe oben, und bleiben unangetastet).
-  `evt.preventDefault()` läuft **synchron** im Handler (zuverlässig), die eigentliche
-  Bibel-Datei-Ladung danach asynchron; schlägt das Laden fehl, wird der ursprüngliche Link per
-  `window.open(href)` als Fallback nachträglich geöffnet, statt den Klick ins Leere laufen zu lassen.
-- **Kein `innerHTML`**: `BibleVerseModal` rendert den entschlüsselten Vers-HTML-Blob aktuell nur
-  als Klartext (`DOMParser` → `textContent`, nie in den DOM eingesetzt) — bewusst kein
-  `innerHTML`, obwohl der Inhalt vertrauenswürdig ist (Nutzer-eigene, lokal entschlüsselte Datei),
-  da das Projekt `innerHTML` grundsätzlich vermeidet (auch von der Obsidian-Review-Guideline
-  verlangt). Fußnoten/Querverweise darzustellen bräuchte sicheres DOM-Bauen aus den erlaubten
-  Tags statt `innerHTML` — Phase 2/3, noch nicht umgesetzt.
+- **Nur `jwlibrary://`-Links reagieren** (Bibelstellen-Links; Lieder-Links nutzen bewusst
+  `https://www.jw.org/finder`, siehe oben, und bleiben unangetastet). `evt.preventDefault()`
+  läuft **synchron** im Handler, die eigentliche Bibel-Datei-Ladung danach asynchron; schlägt das
+  Laden fehl, wird der ursprüngliche Link per `window.open(href)` als Fallback nachträglich
+  geöffnet, statt den Klick ins Leere laufen zu lassen.
+- **`resolveStartId()` sucht auch benachbarte Verse**: nicht jeder einzelne Vers ist im
+  `BibleCitation`-Index vertreten (z. B. wird Matthäus 13:34 in `nwtsty` nirgends zitiert, der
+  direkte Nachbar 13:35 aber schon — per echtem Test bestätigt). Da `BibleVerseId` innerhalb
+  eines Kapitels fortlaufend ist, reicht **ein** indizierter Vers irgendwo im angefragten Bereich,
+  um den Start per konstantem Offset zurückzurechnen — nicht zwingend `verseStart` selbst.
+- **Zitierstil**: `ScriptureNormalizer.format()` trennt genau zwei aufeinanderfolgende Verse mit
+  Komma („34, 35"), ab drei Versen mit Bindestrich („34-38") — entspricht der offiziellen
+  Zitierkonvention, betrifft alle Ausgabestellen (Notizen, Übersicht, Popup-Titel), nicht nur
+  das Bibeltext-Popup.
+- **Modal-Rendering, kein `innerHTML`**: `BibleVerseModal` baut **einen** durchgehenden Absatz für
+  den ganzen Zitatbereich (nicht einen Absatz pro Vers, das wirkte wie unzusammenhängende
+  Einzelsätze), mit der Versnummer (`BibleVerse.Label`) als kleines `<sup>`-Element vor jedem
+  Vers-Text. Jeder Vers-Text selbst wird über `DOMParser` → `textContent` auf Klartext reduziert
+  und per `appendText()` angehängt — bewusst kein `innerHTML`, obwohl der Inhalt vertrauenswürdig
+  ist (Nutzer-eigene, lokal entschlüsselte Datei), da das Projekt `innerHTML` grundsätzlich
+  vermeidet (auch von der Obsidian-Review-Guideline verlangt). Fußnoten/Querverweise darzustellen
+  bräuchte sicheres DOM-Bauen aus den erlaubten Tags statt `innerHTML` — Phase 2/3, noch nicht
+  umgesetzt.
 - **Geteilte Krypto-Logik**: `src/util/jwpubCrypto.ts` (`openJwpubDatabase()`, `readPublication()`,
   `deriveKey()`, `decryptBlob()`) wurde aus `JwpubParser.ts` herausgezogen, damit `BibleReader`
   dieselbe AES-128-CBC+zlib-Entschlüsselung nutzt, ohne sie zu duplizieren — jedes jwpub-Format

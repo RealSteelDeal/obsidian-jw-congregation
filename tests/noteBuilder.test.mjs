@@ -90,7 +90,7 @@ test('overview scripture references are wrapped in one parenthesis, semicolon-se
 	const result = builder().buildNotes(coCongress([coDay({ sessions: [{ name: 'Vormittag', items: [item] }] })]));
 	const overview = result.notes.find(n => n.filename === '00. Übersicht.md');
 	assert.ok(overview.content.includes(
-		'(<a href="jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=40005001-40005002&pub=nwtsty">Matthäus 5:1-2</a>; ' +
+		'(<a href="jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=40005001-40005002&pub=nwtsty">Matthäus 5:1, 2</a>; ' +
 		'<a href="jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19100002&pub=nwtsty">Psalm 100:2</a>)',
 	));
 });

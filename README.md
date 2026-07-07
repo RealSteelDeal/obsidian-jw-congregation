@@ -130,7 +130,7 @@ Vortragsreihen erhalten eine Notiz mit einer Überschrift je Teil (die Übersich
 
 ```markdown
 **Uhrzeit:** 11:15
-**Bibeltexte:** ([Matthäus 8:16-17](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=40008016-40008017&pub=nwtsty); …)
+**Bibeltexte:** ([Matthäus 8:16, 17](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=40008016-40008017&pub=nwtsty); …)
 
 ## 1. „Er hat unsere Krankheiten auf sich genommen"
 **Bibeltexte:** ([Matthäus 8:16, 17](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=40008016-40008017&pub=nwtsty); …)

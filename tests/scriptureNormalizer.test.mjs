@@ -29,9 +29,14 @@ test('format renders a single verse', () => {
 	assert.equal(ScriptureNormalizer.format(s, 'de'), 'Matthäus 5:1');
 });
 
-test('format renders a verse range with a plain hyphen (not an en dash)', () => {
+test('format renders exactly two consecutive verses with a comma, not a hyphen', () => {
 	const s = { book: 44, chapter: 20, verseStart: 34, verseEnd: 35 };
-	assert.equal(ScriptureNormalizer.format(s, 'de'), 'Apostelgeschichte 20:34-35');
+	assert.equal(ScriptureNormalizer.format(s, 'de'), 'Apostelgeschichte 20:34, 35');
+});
+
+test('format renders a range of three or more verses with a plain hyphen (not an en dash)', () => {
+	const s = { book: 44, chapter: 20, verseStart: 34, verseEnd: 36 };
+	assert.equal(ScriptureNormalizer.format(s, 'de'), 'Apostelgeschichte 20:34-36');
 });
 
 test('format respects the requested language', () => {

@@ -93,6 +93,14 @@ a.external-link[href*="jw.org/finder"]:not(#_)::after {
 	margin-bottom: 0.75em;
 }
 
+.jw-bible-verse-number {
+	font-size: var(--font-smallest);
+	font-weight: 700;
+	color: var(--text-accent);
+	margin-right: 0.15em;
+	vertical-align: super;
+}
+
 .jw-bible-verse-missing {
 	color: var(--text-muted);
 	font-style: italic;

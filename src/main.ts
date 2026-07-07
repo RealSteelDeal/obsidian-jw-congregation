@@ -1,5 +1,6 @@
 import { Notice, Plugin, TFile, TFolder, normalizePath } from 'obsidian';
 import { EditorView } from '@codemirror/view';
+import { Prec } from '@codemirror/state';
 import { DEFAULT_SETTINGS, JwPluginSettings, JwSettingTab } from './settings';
 import { SourceRouter } from './parser/SourceRouter';
 import { NoteBuilder } from './builder/NoteBuilder';
@@ -57,10 +58,22 @@ export default class JwCongregationPlugin extends Plugin {
 		// real <a href> to read there at all, so the Reading View handler above
 		// never matches. This editor extension gets the raw markdown source
 		// text at the click position instead, via CM6's own APIs.
+		//
+		// Prec.highest() is required, not optional: Obsidian's own built-in
+		// live-preview link handler is also a domEventHandlers 'click' extension,
+		// and it opens the external link itself directly (not via the DOM's
+		// default action, since there's no real <a> to begin with) — so it can't
+		// be stopped by preventDefault() after the fact. Returning `true` from a
+		// domEventHandlers callback only skips *lower-precedence* handlers for
+		// the same event; without forcing ours to the highest precedence,
+		// Obsidian's handler still runs first and the popup and JW Library both
+		// end up opening (confirmed by real-world testing).
 		this.registerEditorExtension(
-			EditorView.domEventHandlers({
-				click: (evt, view) => this.onLivePreviewClick(evt, view),
-			}),
+			Prec.highest(
+				EditorView.domEventHandlers({
+					click: (evt, view) => this.onLivePreviewClick(evt, view),
+				}),
+			),
 		);
 	}
 
@@ -76,6 +89,7 @@ export default class JwCongregationPlugin extends Plugin {
 		if (!scripture) return;
 
 		evt.preventDefault();
+		evt.stopPropagation(); // belt-and-braces: also stop any other click handler on this link/ancestor
 		this.showVersePopupOrFallback(scripture, link.href);
 	}
 

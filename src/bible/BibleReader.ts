@@ -71,29 +71,54 @@ export class BibleReader {
 	}
 
 	/**
-	 * Returns the decrypted verse HTML for each verse in the reference (one
-	 * string per verse, in order), or undefined if the starting verse isn't in
-	 * the index (e.g. a verse never cited anywhere in this particular Bible
-	 * edition) or no Bible file has been loaded.
+	 * Resolves the BibleVerseId of `scripture`'s first verse. Not every single
+	 * verse is directly indexed (only verses that happen to be cited somewhere
+	 * in this particular Bible edition are) — e.g. Matthew 13:34 isn't cited
+	 * anywhere in a real nwtsty file, even though its neighbour 13:35 is. Since
+	 * BibleVerseId is sequential within a chapter, any indexed verse inside the
+	 * requested range (or immediately adjacent to it) is enough to derive the
+	 * range's actual start id by a constant offset — no need for every verse to
+	 * be indexed individually.
 	 */
-	async getVerseHtml(scripture: Scripture): Promise<string[] | undefined> {
+	private resolveStartId(scripture: Scripture): number | undefined {
+		const { book, chapter, verseStart, verseEnd } = scripture;
+		const direct = this.verseIdByReference.get(`${book}:${chapter}:${verseStart}`);
+		if (direct !== undefined) return direct;
+
+		for (let v = verseStart + 1; v <= (verseEnd ?? verseStart); v++) {
+			const id = this.verseIdByReference.get(`${book}:${chapter}:${v}`);
+			if (id !== undefined) return id - (v - verseStart);
+		}
+		return undefined;
+	}
+
+	/**
+	 * Returns each verse in the reference as `{ number, html }` (`number` is the
+	 * verse-number label, e.g. "15"; `html` is the still-marked-up, decrypted
+	 * verse text), in order — or undefined if the range can't be resolved at
+	 * all (see resolveStartId()) or no Bible file has been loaded.
+	 */
+	async getVerses(scripture: Scripture): Promise<{ number: string; html: string }[] | undefined> {
 		if (!this.db || !this.key || !this.iv) return undefined;
 
-		const startId = this.verseIdByReference.get(
-			`${scripture.book}:${scripture.chapter}:${scripture.verseStart}`,
-		);
+		const startId = this.resolveStartId(scripture);
 		if (startId === undefined) return undefined;
 
 		// BibleVerseId is sequential across the whole canon, so a verse range
 		// (even spanning a chapter/book boundary) is just a run of consecutive ids.
 		const verseCount = (scripture.verseEnd ?? scripture.verseStart) - scripture.verseStart + 1;
-		const html: string[] = [];
+		const verses: { number: string; html: string }[] = [];
 		for (let i = 0; i < verseCount; i++) {
-			const res = this.db.exec(`SELECT Content FROM BibleVerse WHERE BibleVerseId = ${startId + i}`);
-			const content = res[0]?.values[0]?.[0] as Uint8Array | undefined;
+			const res = this.db.exec(`SELECT Label, Content FROM BibleVerse WHERE BibleVerseId = ${startId + i}`);
+			const row = res[0]?.values[0];
+			if (!row) continue;
+			const content = row[1] as Uint8Array | undefined;
 			if (!content) continue;
-			html.push(await decryptBlob(content, this.key, this.iv));
+			verses.push({
+				number: String(row[0] ?? ''),
+				html: await decryptBlob(content, this.key, this.iv),
+			});
 		}
-		return html.length > 0 ? html : undefined;
+		return verses.length > 0 ? verses : undefined;
 	}
 }

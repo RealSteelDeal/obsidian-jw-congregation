@@ -24,11 +24,18 @@ export class BibleVerseModal extends Modal {
 		const bodyEl = contentEl.createDiv('jw-bible-verse-text');
 		bodyEl.setText('Lade Bibeltext …');
 
-		const verses = await this.reader.getVerseHtml(this.scripture);
+		const verses = await this.reader.getVerses(this.scripture);
 		bodyEl.empty();
 		if (verses && verses.length > 0) {
-			for (const verseHtml of verses) {
-				bodyEl.createEl('p', { text: this.stripHtml(verseHtml) });
+			// One continuous paragraph (like the printed Bible layout), with each
+			// verse's number as a small inline marker — not one paragraph per
+			// verse, which read as disconnected, unrelated sentences instead of
+			// one passage.
+			const p = bodyEl.createEl('p');
+			for (const verse of verses) {
+				const number = this.stripHtml(verse.number);
+				if (number) p.createEl('sup', { text: number, cls: 'jw-bible-verse-number' });
+				p.appendText(this.stripHtml(verse.html) + ' ');
 			}
 		} else {
 			bodyEl.createEl('p', {

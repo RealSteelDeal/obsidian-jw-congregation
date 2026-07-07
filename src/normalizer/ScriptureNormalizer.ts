@@ -74,12 +74,18 @@ export class ScriptureNormalizer {
 		return `jwlibrary:///finder?${params}&bible=${start}&pub=nwtsty`;
 	}
 
-	/** Formats a Scripture as human-readable string, e.g. "Sprüche 16:20" or "Mt 5:1-12". */
+	/**
+	 * Formats a Scripture as human-readable string, e.g. "Sprüche 16:20" or
+	 * "Mt 5:1-12". Matches the official citation convention: exactly two
+	 * consecutive verses are separated by a comma ("34, 35"), a range of three
+	 * or more uses a hyphen ("34-38").
+	 */
 	static format(s: Scripture, lang: SupportedLang): string {
 		const bookName = getBookName(s.book, lang);
 		const base = `${bookName} ${s.chapter}:${s.verseStart}`;
 		if (s.verseEnd !== undefined && s.verseEnd !== s.verseStart) {
-			return `${base}-${s.verseEnd}`;
+			const separator = s.verseEnd - s.verseStart === 1 ? ', ' : '-';
+			return `${base}${separator}${s.verseEnd}`;
 		}
 		return base;
 	}

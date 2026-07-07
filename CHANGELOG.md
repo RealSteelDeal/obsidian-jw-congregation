@@ -10,6 +10,13 @@
 - **Erneuter Import aktualisiert bestehende Kongresse**: rein abgeleitete Dateien ohne Schreibplatz (`00. Übersicht.md`, `Titelbild.<ext>`) werden bei erneutem Import jetzt automatisch aktualisiert, statt stillschweigend übersprungen zu werden – Plugin-Updates (neue Felder, Titelbild-Support, …) erreichen so auch bereits importierte Kongresse, ohne dass der Ordner gelöscht werden muss. Notizen mit Platz für eigene Einträge (Redner-Notizen, Wiederholungsfragen, `Wiederholung.md`) bleiben davon unberührt.
 - **Bibeltext-Popup (Phase 1)**: mit einer selbst bereitgestellten Bibel-jwpub-Datei (`nwt`/`nwtsty`, Einstellung „Bibel-Datei") öffnet ein Klick auf eine Bibelstelle jetzt ein Popup mit dem Vers-Text direkt in Obsidian (plus Button „In JW Library öffnen"), statt nur extern zu JW Library zu springen. Empfehlung: die Studienbibel (`nwtsty`) statt der einfachen Ausgabe – deutlich mehr Bibelstellen sind darüber auflösbar. Funktioniert sowohl in der Lesen-Ansicht als auch im Live-Preview-Bearbeiten-Modus (dort werden Links als CodeMirror-Deko-Elemente statt echter Links gerendert und brauchten einen eigenen Erkennungsweg). Fußnoten und Querverweise sind als Ausbaustufe geplant (Phase 2/3).
 
+### Fehlerbehebungen (Bibeltext-Popup)
+
+- **Popup öffnete zusätzlich JW Library**: Obsidians eigener Live-Preview-Link-Handler öffnete den Link weiterhin selbst, parallel zu unserem Popup. Behoben, indem unsere CodeMirror-Extension über `Prec.highest()` mit höchster Priorität registriert wird, sodass sie vor Obsidians eigenem Handler läuft.
+- **Bibelstellen wie Matthäus 13:34-35 lieferten „kein Vers-Text verfügbar"**: die Vers-Auflösung prüfte bisher nur den ersten Vers eines Zitatbereichs im internen Index; war ausgerechnet dieser (nicht aber ein Nachbarvers) nirgends zitiert, schlug alles fehl. Die Suche berücksichtigt jetzt auch benachbarte, indizierte Verse im selben Bereich.
+- **Zitierstil korrigiert**: genau zwei aufeinanderfolgende Verse werden jetzt mit Komma dargestellt („34, 35" statt „34-35"), ein Bindestrich nur noch ab drei Versen („34-38") – entspricht der offiziellen Zitierkonvention und wirkt sich auf alle Notizen, die Übersicht und den Popup-Titel aus.
+- **Popup-Darstellung überarbeitet**: mehrere Verse erscheinen jetzt als ein zusammenhängender Absatz (vorher: ein Absatz pro Vers, wirkte wie unzusammenhängende Einzelsätze) mit der Versnummer als kleine hochgestellte Zahl vor jedem Vers – wie im gedruckten Bibeltext.
+
 ## 1.4.0
 
 ### Neue Funktionen

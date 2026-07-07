@@ -58,19 +58,20 @@ export class ScriptureNormalizer {
 	 * installation rather than an issue with this URL — reinstalling JW Library or
 	 * clearing its app cache is the first thing to try.
 	 *
-	 * `&pub=nwtsty` (the bible translation to display) matches exactly what JW
-	 * Library's own "Share" feature produces for a verse (confirmed against a
-	 * real share from the Windows desktop app) — added here for the same reason
-	 * the song link needed a specific confirmed content id: closest match to
-	 * what the app itself generates is the most reliable bet.
+	 * The full query (`srcid`/`wtlocale`/`prefer`/`pub=nwtsty`, not just `bible=`)
+	 * matches exactly what JW Library's own "Share" feature produces for a verse
+	 * (confirmed against a real share from the Windows desktop app) — only the
+	 * scheme+host are swapped for jwlibrary://. Closest match to what the app
+	 * itself generates is the most reliable bet (same reasoning as the song link).
 	 */
 	static toJwLibraryLink(s: Scripture): string {
 		const start = ScriptureNormalizer.toRtfCode(s.book, s.chapter, s.verseStart);
+		const params = 'srcid=jwlshare&wtlocale=X&prefer=lang';
 		if (s.verseEnd !== undefined && s.verseEnd !== s.verseStart) {
 			const end = ScriptureNormalizer.toRtfCode(s.book, s.chapter, s.verseEnd);
-			return `jwlibrary:///finder?bible=${start}-${end}&pub=nwtsty`;
+			return `jwlibrary:///finder?${params}&bible=${start}-${end}&pub=nwtsty`;
 		}
-		return `jwlibrary:///finder?bible=${start}&pub=nwtsty`;
+		return `jwlibrary:///finder?${params}&bible=${start}&pub=nwtsty`;
 	}
 
 	/** Formats a Scripture as human-readable string, e.g. "Sprüche 16:20" or "Mt 5:1-12". */

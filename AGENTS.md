@@ -220,13 +220,14 @@ Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohn
 
 - jwpub: `jwpub://b/NWTR/book:chapter:verse[-book:chapter:verse]`
 - RTF: `BBCCCVVV[-BBCCCVVV]` (z. B. `40005001`)
-- Ausgabe: `[Matthäus 5:1](jwlibrary:///finder?bible=40005001&pub=nwtsty)`
+- Ausgabe: `[Matthäus 5:1](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=40005001&pub=nwtsty)`
 - `ScriptureNormalizer.toJwLibraryLink()` nutzt das rohe `jwlibrary://`-Custom-Protokoll – das
   ist das Standardformat, das auch andere JW-Library-Linking-Tools nutzen (z. B.
   obsidian-library-linker) und funktioniert bei einer intakten JW-Library-Installation korrekt.
-  Seit 1.3.3 mit `&pub=nwtsty` (welche Bibelübersetzung), passend zu dem, was JW Library
-  Desktop selbst beim Teilen einer Bibelstelle erzeugt (per echtem Nutzertest bestätigt) –
-  siehe **Wichtige Erkenntnis zu jwlibrary:// vs. https://www.jw.org** unten.
+  Seit 1.3.4 mit der vollen Query (`srcid=jwlshare&wtlocale=X&prefer=lang&...&pub=nwtsty`,
+  nicht nur `bible=`), passend zu dem, was JW Library Desktop selbst beim Teilen einer
+  Bibelstelle erzeugt (per echtem Nutzertest bestätigt) – siehe **Wichtige Erkenntnis zu
+  jwlibrary:// vs. https://www.jw.org** unten.
   **Bekanntes Nutzer-Problem (vor 1.3.3):** Auf einer bestimmten Windows-Installation navigierte
   der Link per Direkttest nicht zur Bibelstelle – möglicherweise durch das fehlende `pub=`
   bereits erklärt, siehe Lieder-Link-Historie; nicht erneut nachgetestet.
@@ -255,12 +256,18 @@ Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohn
     Obsidian heraus nur `www.jw.org` (Bounce durch die In-App-Browser-Falle oben), obwohl derselbe
     Link außerhalb von Obsidian (Safari) nachweislich funktionierte. Das trennte die zwei
     Fehlerquellen sauber: Formel richtig, Scheme falsch.
-  - **Seit 1.3.3:** `jwlibrary:///finder?docid=${1102016800 + songNumber}` – dieselbe verifizierte
-    `docid`-Formel, jetzt über das `jwlibrary://`-Scheme statt `https://www.jw.org`. Noch nicht auf
-    einem echten Gerät bestätigt (nur die Formel selbst, nicht diese exakte Scheme-Kombination) –
-    bei erneuten Problemmeldungen zuerst hier ansetzen. Nur an zwei Liedern (54, 94) verifiziert;
-    bei Bedarf mit einem dritten, weit entfernten Lied (z. B. Nr. 1 oder > 140) gegenprüfen, um die
-    lineare Formel über den gesamten Nummernbereich zu bestätigen.
+  - 1.3.3: `jwlibrary:///finder?docid=${1102016800 + songNumber}` – dieselbe verifizierte
+    `docid`-Formel, jetzt über das `jwlibrary://`-Scheme statt `https://www.jw.org`, aber **ohne**
+    die übrigen Parameter (`srcid`/`wtlocale`/`prefer`) des echten, bestätigten Share-Links.
+    Vom Nutzer noch vor einem Gerätetest als vermutlich unvollständig erkannt (Link entspricht
+    nicht dem Muster des funktionierenden Lied-54-Links) – daher direkt in 1.3.4 korrigiert,
+    ohne dass 1.3.3 überhaupt live getestet wurde.
+  - **Seit 1.3.4:** `jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=${1102016800 + songNumber}`
+    – exakt derselbe Parametersatz wie der über die App-eigene „Teilen"-Funktion bestätigte
+    Share-Link (nur Schema+Host auf `jwlibrary://` umgestellt). Noch nicht auf einem echten
+    Gerät bestätigt – bei erneuten Problemmeldungen zuerst hier ansetzen. `docid`-Formel nur an
+    zwei Liedern (54, 94) verifiziert; bei Bedarf mit einem dritten, weit entfernten Lied
+    (z. B. Nr. 1 oder > 140) gegenprüfen, um sie über den gesamten Nummernbereich zu bestätigen.
 
 ### Notiz- & Ordnerbenennung (NoteBuilder)
 

@@ -201,8 +201,11 @@ export class NoteBuilder {
 	// in-app browser can't render it as a page, so Obsidian is forced to hand it
 	// to the OS directly — which is why every jwlibrary:// attempt so far has at
 	// least opened the app (just previously with a query it didn't understand).
+	// `srcid`/`wtlocale`/`prefer` are also part of the app's own confirmed share
+	// link (only the scheme+host were swapped here) — carried over in case the
+	// jwlibrary:// finder handler needs them too, not just the bare docid.
 	private songLink(songNumber: number): string {
-		return `jwlibrary:///finder?docid=${1102016800 + songNumber}`;
+		return `jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=${1102016800 + songNumber}`;
 	}
 
 	private renderSingleNote(item: ProgramItem, day: Day, congress: Congress): string {

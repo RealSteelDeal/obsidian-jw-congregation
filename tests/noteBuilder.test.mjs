@@ -59,7 +59,7 @@ test('overview note shows the day theme quote with its linked scripture in paren
 	const overview = result.notes.find(n => n.filename === '00. Übersicht.md');
 	assert.ok(
 		overview.content.includes(
-			'„Geben macht glücklicher als Empfangen“ ([Apostelgeschichte 20:35](jwlibrary:///finder?bible=44020035&pub=nwtsty))',
+			'„Geben macht glücklicher als Empfangen“ ([Apostelgeschichte 20:35](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=44020035&pub=nwtsty))',
 		),
 	);
 });
@@ -80,8 +80,8 @@ test('overview scripture references are wrapped in one parenthesis, semicolon-se
 	const result = builder().buildNotes(coCongress([coDay({ sessions: [{ name: 'Vormittag', items: [item] }] })]));
 	const overview = result.notes.find(n => n.filename === '00. Übersicht.md');
 	assert.ok(overview.content.includes(
-		'(<a href="jwlibrary:///finder?bible=40005001-40005002&pub=nwtsty">Matthäus 5:1-2</a>; ' +
-		'<a href="jwlibrary:///finder?bible=19100002&pub=nwtsty">Psalmen 100:2</a>)',
+		'(<a href="jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=40005001-40005002&pub=nwtsty">Matthäus 5:1-2</a>; ' +
+		'<a href="jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19100002&pub=nwtsty">Psalmen 100:2</a>)',
 	));
 });
 
@@ -95,8 +95,8 @@ test('note "Bibeltexte:" block wraps scriptures in one parenthesis with a label'
 	const result = builder().buildNotes(coCongress([coDay({ sessions: [{ name: 'Vormittag', items: [item] }] })]));
 	const itemNote = result.notes.find(n => n.filename !== '00. Übersicht.md');
 	assert.ok(itemNote.content.includes(
-		'**Bibeltexte:** ([Psalmen 16:11](jwlibrary:///finder?bible=19016011&pub=nwtsty); ' +
-		'[Psalmen 100:2](jwlibrary:///finder?bible=19100002&pub=nwtsty))',
+		'**Bibeltexte:** ([Psalmen 16:11](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19016011&pub=nwtsty); ' +
+		'[Psalmen 100:2](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19100002&pub=nwtsty))',
 	));
 });
 

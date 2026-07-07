@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0
+
+### Sonstiges
+
+- **Release-Workflow korrigiert**: GitHub-Releases werden jetzt direkt veröffentlicht statt als Draft angelegt. Der Draft-Status verhinderte, dass Obsidians automatische Release-Prüfung das Release validieren konnte.
+
 ## 0.2.0
 
 ### Neu

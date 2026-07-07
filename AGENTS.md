@@ -231,16 +231,19 @@ Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohn
   **Bekanntes Nutzer-Problem (vor 1.3.3):** Auf einer bestimmten Windows-Installation navigierte
   der Link per Direkttest nicht zur Bibelstelle – möglicherweise durch das fehlende `pub=`
   bereits erklärt, siehe Lieder-Link-Historie; nicht erneut nachgetestet.
-- **Wichtige Erkenntnis zu `jwlibrary://` vs. `https://www.jw.org/finder` (aus der Lieder-Link-Odyssee unten):**
-  Obsidian öffnet externe `https://`-Links auf Mobile über einen eingebauten In-App-Browser statt
-  über echten System-Handoff – und Universal Links (der Mechanismus, über den iOS/Android eine
-  `https://www.jw.org/...`-URL an JW Library statt an den Browser weiterreichen) funktionieren
-  bekanntermaßen **nicht**, wenn die URL innerhalb einer eingebetteten WebView geladen wird statt
-  vom System selbst (Safari, Mail, Nachrichten, `UIApplication.open`). Ein `jwlibrary://`-Custom-
-  Scheme-Link hat diese Falle nicht: Obsidians eigene WebView kann ein Custom-Scheme gar nicht als
-  Seite darstellen und **muss** es zwingend ans Betriebssystem weiterreichen. Deshalb: **immer**
-  `jwlibrary://` verwenden, nie `https://www.jw.org/...`, auch wenn Letzteres außerhalb von
-  Obsidian (z. B. in Safari) nachweislich funktioniert.
+- **Widerlegte Hypothese zu `jwlibrary://` vs. `https://www.jw.org/finder`:** Eine Zeit lang
+  stand hier die These, Obsidian öffne externe `https://`-Links auf Mobile über eine eingebaute
+  WebView, in der Universal Links nicht griffen, während ein `jwlibrary://`-Custom-Scheme-Link
+  diese Falle umgehe (die WebView könne das Scheme nicht rendern und müsse es ans Betriebssystem
+  weiterreichen). **Das wurde durch einen echten iPhone-Test widerlegt:** `jwlibrary:///finder?docid=...`
+  (mit und ohne vollen `srcid`/`wtlocale`/`prefer`-Parametersatz) funktionierte ebenfalls nicht.
+  Die tatsächliche Ursache ist damit weiterhin unklar – möglicherweise unterstützt der
+  `jwlibrary://`-Finder-Handler `docid=` als Parameter schlicht nicht (nur `bible=` ist als
+  Bibelstellen-Format bekanntermaßen unterstützt). **Konsequenz:** Lieder-Links nutzen bewusst
+  `https://www.jw.org/finder` (nicht `jwlibrary://`), da das die einzige Variante ist, die je
+  funktioniert hat (siehe Historie unten) – Bibeltexte bleiben bei `jwlibrary://`, da dort nie
+  ein Fehlschlag gemeldet wurde. Bei künftigen Problemmeldungen **nicht** erneut zu `jwlibrary://`
+  für Lieder wechseln, ohne vorher neue Evidenz zu haben.
 - **Lieder-Link-Historie** (`NoteBuilder.songLink()`):
   - v0.2.0–1.3.0: `jwlibrary:///finder?pub=sjjm&issue=0&track=NNN` (reine Annahme, nie
     verifiziert). Echter Nutzertest (iPhone): JW Library öffnet kurz, erkennt die Anfrage nicht,
@@ -253,21 +256,22 @@ Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohn
     – der `docid=`-Offset wurde über JW Librarys eigene „Teilen"-Funktion an zwei echten Liedern
     verifiziert (Lied 54 → `docid=1102016854`, Lied 94 → `docid=1102016894`, beide Basiswert
     `1102016800`) und ist **korrekt** – aber als `https://`-Link öffnete er auf dem iPhone aus
-    Obsidian heraus nur `www.jw.org` (Bounce durch die In-App-Browser-Falle oben), obwohl derselbe
-    Link außerhalb von Obsidian (Safari) nachweislich funktionierte. Das trennte die zwei
-    Fehlerquellen sauber: Formel richtig, Scheme falsch.
-  - 1.3.3: `jwlibrary:///finder?docid=${1102016800 + songNumber}` – dieselbe verifizierte
-    `docid`-Formel, jetzt über das `jwlibrary://`-Scheme statt `https://www.jw.org`, aber **ohne**
-    die übrigen Parameter (`srcid`/`wtlocale`/`prefer`) des echten, bestätigten Share-Links.
-    Vom Nutzer noch vor einem Gerätetest als vermutlich unvollständig erkannt (Link entspricht
-    nicht dem Muster des funktionierenden Lied-54-Links) – daher direkt in 1.3.4 korrigiert,
-    ohne dass 1.3.3 überhaupt live getestet wurde.
-  - **Seit 1.3.4:** `jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=${1102016800 + songNumber}`
-    – exakt derselbe Parametersatz wie der über die App-eigene „Teilen"-Funktion bestätigte
-    Share-Link (nur Schema+Host auf `jwlibrary://` umgestellt). Noch nicht auf einem echten
-    Gerät bestätigt – bei erneuten Problemmeldungen zuerst hier ansetzen. `docid`-Formel nur an
-    zwei Liedern (54, 94) verifiziert; bei Bedarf mit einem dritten, weit entfernten Lied
-    (z. B. Nr. 1 oder > 140) gegenprüfen, um sie über den gesamten Nummernbereich zu bestätigen.
+    Obsidian heraus nur `www.jw.org`, obwohl derselbe Link außerhalb von Obsidian (Safari)
+    nachweislich funktionierte. Das trennte die zwei Fehlerquellen sauber: Formel richtig,
+    irgendetwas am Öffnen aus Obsidian heraus falsch.
+  - 1.3.3: `jwlibrary:///finder?docid=${1102016800 + songNumber}` (ohne die übrigen Parameter
+    des Share-Links) und 1.3.4: dieselbe URL **mit** vollem `srcid`/`wtlocale`/`prefer`-Satz –
+    **beide auf einem echten iPhone getestet und beide fehlgeschlagen.** Widerlegt damit die
+    Hypothese oben; `jwlibrary://` scheint für `docid=` grundsätzlich nicht zu funktionieren.
+  - **Seit 1.3.5:** zurück zu `https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=${1102016800 + songNumber}`
+    (identisch zu 1.3.2) – die einzige Variante, die je (außerhalb von Obsidian) nachweislich
+    funktioniert hat. Noch nicht erneut *innerhalb* Obsidians auf einem echten Gerät bestätigt,
+    da 1.3.2 dort fehlschlug – falls das weiterhin so ist, liegt das Problem vermutlich nicht am
+    Linkformat selbst, sondern daran, wie Obsidian externe Links auf diesem Gerät überhaupt öffnet
+    (z. B. eine App-Einstellung "Externe Links im System-Browser öffnen" prüfen, falls vorhanden).
+    `docid`-Formel nur an zwei Liedern (54, 94) verifiziert; bei Bedarf mit einem dritten, weit
+    entfernten Lied (z. B. Nr. 1 oder > 140) gegenprüfen, um sie über den gesamten
+    Nummernbereich zu bestätigen.
 
 ### Notiz- & Ordnerbenennung (NoteBuilder)
 

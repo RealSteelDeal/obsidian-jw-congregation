@@ -187,25 +187,17 @@ export class NoteBuilder {
 	}
 
 	// Neither `pub=sjjm&issue=0&track=N` nor `lank=pub-sjjm_${N+500}` worked on a
-	// real iPhone (JW Library opened, didn't recognize the query, and bounced to
-	// a broken web fallback both times). The correct content id — confirmed via
-	// JW Library's own "Share" feature for two real songs from "Singt voller
-	// Freude für Jehova" (Lied 54 → docid=1102016854, Lied 94 → docid=1102016894,
-	// both giving the same base offset 1102016800, i.e. docid = 1102016800 + songNumber) —
-	// is `docid=`. That confirmation came via the https://www.jw.org universal
-	// link, which itself worked fine when tapped outside Obsidian but bounced
-	// back to jw.org's bare homepage when tapped from within a note: Obsidian's
-	// mobile in-app browser can render http(s) content itself, so the tap never
-	// reaches the OS-level Universal Link handoff that would hand it to JW
-	// Library. A jwlibrary:// custom-scheme link has no such escape hatch — the
-	// in-app browser can't render it as a page, so Obsidian is forced to hand it
-	// to the OS directly — which is why every jwlibrary:// attempt so far has at
-	// least opened the app (just previously with a query it didn't understand).
-	// `srcid`/`wtlocale`/`prefer` are also part of the app's own confirmed share
-	// link (only the scheme+host were swapped here) — carried over in case the
-	// jwlibrary:// finder handler needs them too, not just the bare docid.
+	// real iPhone (bounced to a broken web fallback), and even the confirmed-correct
+	// `docid=` content id failed both as a jwlibrary:// link (with and without the
+	// full srcid/wtlocale/prefer param set) and, earlier, as a https://www.jw.org
+	// link when tapped from within Obsidian. The one thing confirmed to work is
+	// this exact URL, copied byte-for-byte from JW Library's own "Share" feature
+	// (verified against Lied 54 → docid=1102016854 and Lied 94 → docid=1102016894,
+	// both giving the same base offset 1102016800, i.e. docid = 1102016800 + songNumber).
+	// Deliberately NOT jwlibrary:// here, unlike scripture links — per user testing,
+	// this exact https://www.jw.org form is the only one that has ever worked.
 	private songLink(songNumber: number): string {
-		return `jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=${1102016800 + songNumber}`;
+		return `https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=${1102016800 + songNumber}`;
 	}
 
 	private renderSingleNote(item: ProgramItem, day: Day, congress: Congress): string {

@@ -18,6 +18,7 @@ Ein Obsidian Community Plugin, das offizielle Programmdateien von Kongressen der
   - Vortragsreihen erhalten eine Notiz mit einer Überschrift pro Teil
 - **„Übersicht"-Notiz pro Tag** (`00. Übersicht.md`) mit dem kompletten Tagesprogramm:
   - Titelbild des Tages (bei Regionalen Kongressen) bzw. des Kongresses (bei Kreiskongressen) oben in der Notiz
+  - Wochentag als große Überschrift, darunter das Tagesmotto mit verlinkter Bibelstelle (bei Regionalen Kongressen)
   - jeder Programmpunkt verlinkt auf seine Notiz
   - Vortragsreihen-Teile verlinken direkt auf den passenden Abschnitt in der Notiz
   - Bibeltexte sind inline verlinkt

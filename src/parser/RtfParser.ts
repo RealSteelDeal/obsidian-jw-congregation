@@ -4,8 +4,6 @@ import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 
 // RTF HYPERLINK field: field text contains the URL between quotes
 const HYPERLINK_RE = /HYPERLINK\s+"([^"]+)"/g;
-// Unicode escape in RTF: \uNNNN (followed by replacement char)
-const UNICODE_RE = /\\u(\d+)\??/g;
 // Bible finder URL pattern: bible=BBCCCVVV[-BBCCCVVV]
 const BIBLE_CODE_RE = /bible=([\d]+-?[\d]*)/i;
 // RTF paragraph/line/page breaks — the only control words that carry structural
@@ -13,10 +11,33 @@ const BIBLE_CODE_RE = /bible=([\d]+-?[\d]*)/i;
 const BREAK_RE = /\\(?:par|line|page)\b\s?/gi;
 
 const WEEKDAY_PATTERN = /\b(Freitag|Samstag|Sonntag)\b/i;
-// Time pattern
-const TIME_RE = /\b(\d{1,2}:\d{2})\b/;
-// Lines that are only cover/info pages (skip them)
-const SKIP_SECTION_RE = /\b(Informationen|Deckblatt|Programm\b)/i;
+const WEEKDAY_ONLY_RE = /^(Freitag|Samstag|Sonntag)$/i;
+// German congress exports write "9 Uhr 20" rather than "9:20"; the minute is
+// omitted entirely on the hour ("11 Uhr" == 11:00).
+const TIME_RE = /\b(\d{1,2})\s+Uhr(?:\s+(\d{1,2}))?\b/;
+// A trailing scripture citation in the decoded visible text reads e.g.
+// "(Matthäus 5 Vers 3 bis 7 Vers 29; Lukas 6 Vers 17 bis 49)" — "Vers" is a
+// reliable anchor since every citation in this export format includes it,
+// unlike jwpub's colon-based "5:3" which doesn't appear here at all.
+const CITATION_RE = /\s*\([^()]*\bVers\b[^()]*\)\s*$/i;
+// Strips a leading "TYPE: " marker so the remaining text matches the clean
+// title jwpub would produce (which strips the equivalent <strong>TYPE:</strong>).
+const TYPE_PREFIX_RE = /^(?:Vortragsreihe|Symposium|Bibeldrama|Taufe|Interview|(?:Öffentlicher\s+)?Vortrag(?:\s+des\s+Vorsitzenden)?)\s*:\s*/i;
+const SONG_RE = /^Lied\s*(\d+)/i;
+const ASIDE_RE = /^(?:Musik(?:video)?|Pause\b.*)$/i;
+const BIBLE_DRAMA_MARKER_RE = /^Bibeldrama\s*:?$/i;
+const SERIES_MARKER_RE = /^(?:Vortragsreihe|Symposium)\s*:\s*(.+)$/i;
+const SERIES_TITLE_EPISODE_RE = /^(.*?):\s*(Folge\s*\d+)$/i;
+const BULLET_RE = /^(?:[•-]|\d+\.)\s*(.+)$/;
+const CONGRESS_THEME_YEAR_RE = /^(.+?)\s+Kongress von Jehovas Zeugen\s+(\d{4})\b/i;
+
+// RTF destination groups whose contents must never surface as visible text:
+// font/color/style tables, document metadata, and a hyperlink field's
+// invisible \fldinst half (the visible half is \fldrslt, not listed here).
+const IGNORABLE_DESTINATIONS = new Set([
+	'fonttbl', 'colortbl', 'stylesheet', 'info', 'generator', 'fldinst',
+	'filetbl', 'themedata', 'colorschememapping', 'listtable', 'listoverridetable',
+]);
 
 interface Paragraph {
 	/** Decoded, human-readable text of this paragraph. */
@@ -33,37 +54,38 @@ export class RtfParser {
 
 		const days: Day[] = [];
 		let theme = '';
+		let year = new Date().getFullYear(); // overwritten below when the cover page's own year is found
 
 		for (const rawRtf of rtfSources) {
-			const wholeText = this.decodeWholeDocument(rawRtf);
-
-			if (SKIP_SECTION_RE.test(wholeText.slice(0, 300))) continue;
+			const paragraphs = this.splitParagraphs(rawRtf);
+			const wholeText = paragraphs.map(p => p.text).join(' ');
 
 			const weekdayMatch = WEEKDAY_PATTERN.exec(wholeText);
 			if (!weekdayMatch) continue;
-
 			const weekday = weekdayMatch[1] ?? '';
-			const items = this.extractItems(rawRtf);
+
+			if (!theme) {
+				const congressInfo = this.extractCongressThemeYear(paragraphs);
+				if (congressInfo) {
+					theme = congressInfo.theme;
+					year = congressInfo.year;
+				} else {
+					theme = this.extractTheme(paragraphs);
+				}
+			}
+
+			const items = this.extractItems(paragraphs);
 			if (items.length === 0) continue;
 
 			const sessions = this.splitIntoSessions(items);
-			// Deliberately no per-day theme/themeScripture here (unlike JwpubParser's
-			// extractDayTheme): RTF gives us flattened whole-document text with no HTML
-			// structure to anchor on, so there's no reliable way to tell "the day's
-			// motto paragraph" apart from any other line. A regex guess would risk
-			// silently grabbing the wrong sentence — worse than not showing it at all.
-			// This is the emergency fallback path (jwpub decryption failed); the
-			// feature is only worth the risk where the source actually supports it.
-			days.push({ name: weekday, weekday, sessions });
-
-			if (!theme) theme = this.extractTheme(wholeText);
+			const { theme: dayTheme, themeScripture } = this.extractDayTheme(paragraphs);
+			days.push({ name: weekday, weekday, theme: dayTheme, themeScripture, sessions });
 		}
 
 		// Sort days canonically: Freitag → Samstag → Sonntag
 		days.sort((a, b) => this.dayOrder(a.weekday) - this.dayOrder(b.weekday));
 
 		const type = this.detectType(days);
-		const year = new Date().getFullYear(); // RTF has no year metadata; use current
 
 		return { type, theme, year, days };
 	}
@@ -84,24 +106,104 @@ export class RtfParser {
 		return buf.subarray(0, 5).toString('latin1') === '{\\rtf';
 	}
 
-	/** Whole-document decode (paragraph breaks collapsed) — used for weekday/theme/skip detection only. */
-	private decodeWholeDocument(rtf: string): string {
-		return rtf
-			.replace(UNICODE_RE, (_, code) => String.fromCharCode(Number(code)))
-			.replace(/\\[a-z]+-?\d*\s?/gi, ' ')
-			.replace(/[{}]/g, '')
-			.replace(/\s+/g, ' ')
-			.trim();
-	}
+	/**
+	 * Minimal brace-aware RTF-to-plain-text conversion. Unlike a flat
+	 * "strip control words, drop braces" regex pass, this tracks group
+	 * nesting so ignorable destination groups (marked with \* or a name in
+	 * IGNORABLE_DESTINATIONS) never leak their contents into the output —
+	 * which a flat regex pass can't distinguish from real body text.
+	 */
+	private rtfToText(rtf: string): string {
+		let out = '';
+		// One skip-flag per open brace depth; children inherit the parent's flag.
+		const skipStack: boolean[] = [false];
+		const len = rtf.length;
+		let i = 0;
+		let ucSkip = 1; // \ucN: number of fallback chars following each \u escape
 
-	/** Decodes a single already-isolated paragraph (no BREAK_RE inside, so nothing to collapse). */
-	private decodeParagraph(rawParagraph: string): string {
-		return rawParagraph
-			.replace(UNICODE_RE, (_, code) => String.fromCharCode(Number(code)))
-			.replace(/\\[a-z]+-?\d*\s?/gi, ' ')
-			.replace(/[{}]/g, '')
-			.replace(/\s+/g, ' ')
-			.trim();
+		const isAlpha = (ch: string) => (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
+		const isDigit = (ch: string) => ch >= '0' && ch <= '9';
+
+		while (i < len) {
+			const ch = rtf[i];
+			const skipped = skipStack[skipStack.length - 1];
+
+			if (ch === '{') {
+				skipStack.push(skipped ?? false);
+				i++;
+				continue;
+			}
+			if (ch === '}') {
+				if (skipStack.length > 1) skipStack.pop();
+				i++;
+				continue;
+			}
+
+			if (ch === '\\') {
+				const next = rtf[i + 1];
+				if (next === undefined) { i++; continue; }
+
+				if (!isAlpha(next)) {
+					// Control symbol: \{, \}, \\, \~, \_, \-, \*, \'xx, ...
+					if (next === "'") {
+						const hex = rtf.slice(i + 2, i + 4);
+						i += 4;
+						if (!skipped && /^[0-9a-f]{2}$/i.test(hex)) out += String.fromCharCode(parseInt(hex, 16));
+						continue;
+					}
+					i += 2;
+					if (next === '*') { skipStack[skipStack.length - 1] = true; continue; }
+					if (skipped) continue;
+					if (next === '{' || next === '}' || next === '\\') { out += next; continue; }
+					if (next === '~') { out += ' '; continue; }
+					continue;
+				}
+
+				// Control word: letters, optional signed numeric parameter, one optional
+				// space delimiter (which is consumed as syntax, not printed).
+				let j = i + 1;
+				let word = '';
+				while (j < len && isAlpha(rtf[j] ?? '')) { word += rtf[j]; j++; }
+				let param = '';
+				if (rtf[j] === '-') { param += '-'; j++; }
+				while (j < len && isDigit(rtf[j] ?? '')) { param += rtf[j]; j++; }
+				if (rtf[j] === ' ') j++;
+
+				if (word === 'par' || word === 'line' || word === 'page' || word === 'tab') {
+					i = j;
+					if (!skipped) out += ' ';
+					continue;
+				}
+				if (word === 'uc') {
+					ucSkip = param ? Number(param) : 1;
+					i = j;
+					continue;
+				}
+				if (word === 'u') {
+					i = j;
+					if (!skipped && param !== '') {
+						let code = Number(param);
+						if (code < 0) code += 65536;
+						out += String.fromCharCode(code);
+					}
+					// Skip the fallback "alternative representation" character(s) that
+					// follow \uN per \ucN (our sources always use a single literal "?").
+					for (let k = 0; k < ucSkip && rtf[i] === '?'; k++) i++;
+					continue;
+				}
+				if (IGNORABLE_DESTINATIONS.has(word)) {
+					skipStack[skipStack.length - 1] = true;
+				}
+				i = j;
+				continue;
+			}
+
+			// Plain character
+			i++;
+			if (!skipped) out += ch;
+		}
+
+		return out.replace(/\s+/g, ' ').trim();
 	}
 
 	/**
@@ -112,44 +214,177 @@ export class RtfParser {
 	private splitParagraphs(rawRtf: string): Paragraph[] {
 		return rawRtf
 			.split(BREAK_RE)
-			.map(raw => ({ raw, text: this.decodeParagraph(raw) }))
+			.map(raw => ({ raw, text: this.rtfToText(raw) }))
 			.filter(p => p.text.length > 0);
 	}
 
-	private extractItems(rawRtf: string): ProgramItem[] {
-		const items: ProgramItem[] = [];
-		const paragraphs = this.splitParagraphs(rawRtf);
+	private matchTime(text: string): { time: string; raw: string } | null {
+		const m = TIME_RE.exec(text);
+		if (!m || !m[1]) return null;
+		const minute = (m[2] ?? '0').padStart(2, '0');
+		return { time: `${m[1]}:${minute}`, raw: m[0] };
+	}
 
+	private stripRtfCitation(text: string): string {
+		return text.replace(CITATION_RE, '').trim();
+	}
+
+	private extractItems(paragraphs: Paragraph[]): ProgramItem[] {
+		const items: ProgramItem[] = [];
 		let i = 0;
+
 		while (i < paragraphs.length) {
 			const paragraph = paragraphs[i];
 			if (!paragraph) { i++; continue; }
 
-			const timeMatch = TIME_RE.exec(paragraph.text);
+			const timeMatch = this.matchTime(paragraph.text);
 			if (!timeMatch) { i++; continue; }
 
-			const time = timeMatch[1] ?? '';
-			// Skip songs and pauses
-			if (/\b(Lied|Pause)\b/i.test(paragraph.text)) { i++; continue; }
+			const afterTime = paragraph.text.replace(timeMatch.raw, '').trim();
 
-			const title = this.cleanTitle(paragraph.text, time);
+			const songMatch = SONG_RE.exec(afterTime);
+			if (songMatch && songMatch[1]) {
+				items.push({
+					time: timeMatch.time, itemType: 'song', title: afterTime,
+					scriptures: [], bulletPoints: [], songNumber: Number(songMatch[1]),
+				});
+				i++;
+				continue;
+			}
+
+			if (ASIDE_RE.test(afterTime)) {
+				items.push({ time: timeMatch.time, itemType: 'aside', title: afterTime, scriptures: [], bulletPoints: [] });
+				i++;
+				continue;
+			}
+
+			if (BIBLE_DRAMA_MARKER_RE.test(afterTime)) {
+				const drama = this.extractBibleDrama(paragraphs, i, timeMatch.time);
+				if (drama) { items.push(drama.item); i = drama.nextIndex; continue; }
+				i++;
+				continue;
+			}
+
+			const seriesMatch = SERIES_MARKER_RE.exec(afterTime);
+			if (seriesMatch) {
+				const title = seriesMatch[1]?.trim() ?? afterTime;
+				const { parts, nextIndex } = this.extractSeriesParts(paragraphs, i + 1);
+				items.push({ time: timeMatch.time, itemType: 'talk-series', title, scriptures: [], bulletPoints: [], parts });
+				i = nextIndex;
+				continue;
+			}
+
+			const title = this.cleanTitle(afterTime);
 			if (!title) { i++; continue; }
-
 			const itemType = this.detectItemType(paragraph.text);
 			const scriptures = this.matchScriptures(paragraph.raw);
-			const bulletPoints = this.collectBullets(paragraphs, i + 1);
-
-			items.push({ time, itemType, title, scriptures, bulletPoints });
+			items.push({ time: timeMatch.time, itemType, title, scriptures, bulletPoints: [] });
 			i++;
 		}
 		return items;
 	}
 
+	/** Bibeldrama spans 3 paragraphs: the "Bibeldrama:" marker (with time), the
+	 *  series title (as "Series: Folge N"), and the episode quote + citation. */
+	private extractBibleDrama(
+		paragraphs: Paragraph[], index: number, time: string,
+	): { item: ProgramItem; nextIndex: number } | null {
+		const seriesPara = paragraphs[index + 1];
+		const episodePara = paragraphs[index + 2];
+		if (!seriesPara || !episodePara) return null;
+
+		const seriesRaw = seriesPara.text.trim();
+		const episodeMatch = SERIES_TITLE_EPISODE_RE.exec(seriesRaw);
+		const title = (episodeMatch?.[1] ?? seriesRaw).trim() || 'Bibeldrama';
+		const folgeLabel = episodeMatch?.[2]?.trim();
+
+		const quote = this.stripRtfCitation(episodePara.text);
+		const subtitle = folgeLabel ? `${folgeLabel}: ${quote}`.trim() : (quote || undefined);
+		const scriptures = this.matchScriptures(episodePara.raw);
+
+		return {
+			item: { time, itemType: 'bible-drama', title, subtitle, scriptures, bulletPoints: [] },
+			nextIndex: index + 3,
+		};
+	}
+
+	/** Vortragsreihe/Symposium bullet points, each becoming its own titled + linked part. */
+	private extractSeriesParts(paragraphs: Paragraph[], startIndex: number): { parts: ProgramItem[]; nextIndex: number } {
+		const parts: ProgramItem[] = [];
+		let j = startIndex;
+
+		while (j < paragraphs.length) {
+			const p = paragraphs[j];
+			if (!p) break;
+			if (this.matchTime(p.text)) break; // next timed item begins
+
+			const bulletMatch = BULLET_RE.exec(p.text);
+			if (!bulletMatch) { j++; continue; }
+
+			const title = this.stripRtfCitation(bulletMatch[1] ?? '').trim();
+			if (title) {
+				const scriptures = this.matchScriptures(p.raw);
+				parts.push({ time: '', itemType: 'talk', title, scriptures, bulletPoints: [] });
+			}
+			j++;
+		}
+		return { parts, nextIndex: j };
+	}
+
+	/**
+	 * Mirrors JwpubParser.extractDayTheme(): the day's motto quote + scripture
+	 * sits in the paragraph right after the standalone weekday-title paragraph
+	 * (e.g. "Freitag"), e.g. „Geben macht glücklicher als Empfangen“ (Apostel­geschichte
+	 * 20 Vers 35). Requires a scripture link to be present, same as the jwpub
+	 * path, so an unrelated paragraph is never mistaken for the motto.
+	 */
+	private extractDayTheme(paragraphs: Paragraph[]): { theme?: string; themeScripture?: Scripture } {
+		const weekdayIndex = paragraphs.findIndex(p => WEEKDAY_ONLY_RE.test(p.text.trim()));
+		if (weekdayIndex === -1) return {};
+
+		const next = paragraphs[weekdayIndex + 1];
+		if (!next) return {};
+
+		const scriptures = this.matchScriptures(next.raw);
+		if (scriptures.length === 0) return {};
+
+		const theme = this.stripRtfCitation(next.text) || undefined;
+		return { theme, themeScripture: scriptures[0] };
+	}
+
+	/** Congress-level theme + year, e.g. "Ewiges Glück Kongress von Jehovas Zeugen 2026". */
+	private extractCongressThemeYear(paragraphs: Paragraph[]): { theme: string; year: number } | null {
+		for (const p of paragraphs) {
+			const m = CONGRESS_THEME_YEAR_RE.exec(p.text.trim());
+			if (m && m[1] && m[2]) return { theme: m[1].trim(), year: Number(m[2]) };
+		}
+		return null;
+	}
+
+	/** Best-effort congress theme fallback for sources where extractCongressThemeYear finds nothing. */
+	private extractTheme(paragraphs: Paragraph[]): string {
+		for (const p of paragraphs) {
+			const trimmed = p.text.trim();
+			if (trimmed.length > 10 && !this.matchTime(trimmed) && !WEEKDAY_PATTERN.test(trimmed)) {
+				return this.stripRtfCitation(trimmed).substring(0, 120);
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * A single citation's display text is often split across several bold/plain
+	 * formatting runs (e.g. "Matthäus " / "5 Vers 1" / ",2"), each wrapped in its
+	 * own {\field...} — all pointing at the *same* HYPERLINK url. Deduping by url
+	 * collapses those back into one reference instead of counting it several times.
+	 */
 	private matchScriptures(rawParagraph: string): Scripture[] {
 		const scriptures: Scripture[] = [];
+		const seenUrls = new Set<string>();
 		for (const m of rawParagraph.matchAll(HYPERLINK_RE)) {
 			const url = m[1];
-			if (!url) continue;
+			if (!url || seenUrls.has(url)) continue;
+			seenUrls.add(url);
 			const bibleMatch = BIBLE_CODE_RE.exec(url);
 			if (!bibleMatch || !bibleMatch[1]) continue;
 			try {
@@ -161,36 +396,11 @@ export class RtfParser {
 		return scriptures;
 	}
 
-	private collectBullets(paragraphs: Paragraph[], startIndex: number): string[] {
-		const bullets: string[] = [];
-		for (let j = startIndex; j < Math.min(startIndex + 10, paragraphs.length); j++) {
-			const text = paragraphs[j]?.text ?? '';
-			if (TIME_RE.test(text)) break; // next program item starts
-			if (text.startsWith('•') || text.startsWith('-') || /^\d+\./.test(text)) {
-				bullets.push(text.replace(/^[•\-\d.]\s*/, ''));
-			}
-		}
-		return bullets;
-	}
-
-	private cleanTitle(text: string, time: string): string {
-		return text
-			.replace(time, '')
-			.replace(/^\s*[-–—·]\s*/, '')
-			.trim()
-			.split(/[.!?]/)[0]?.trim() ?? '';
-	}
-
-	private extractTheme(text: string): string {
-		// Theme is typically the first substantial non-time line
-		const lines = text.split(/\s{3,}/);
-		for (const line of lines) {
-			const trimmed = line.trim();
-			if (trimmed.length > 10 && !TIME_RE.test(trimmed) && !WEEKDAY_PATTERN.test(trimmed)) {
-				return trimmed.substring(0, 120);
-			}
-		}
-		return '';
+	private cleanTitle(afterTime: string): string {
+		let cleaned = afterTime.replace(/^\s*[-–—·]\s*/, '');
+		cleaned = cleaned.replace(TYPE_PREFIX_RE, '');
+		cleaned = this.stripRtfCitation(cleaned);
+		return cleaned.trim();
 	}
 
 	private detectItemType(text: string): ItemType {

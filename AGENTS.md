@@ -152,12 +152,38 @@ Content    = AES-128-CBC decrypt → zlib inflate → UTF-8 HTML
   den dekodierten Text als auch das zugehörige rohe RTF-Fragment (`Paragraph`) – dadurch
   können Bibelstellen-Hyperlinks (`matchScriptures()`) pro Absatz statt global über das
   gesamte Dokument gesucht werden
-- `decodeWholeDocument()` (kollabiert weiterhin auf eine Zeile) wird nur noch für
-  Wochentag-/Motto-/Skip-Erkennung verwendet, nicht für die Programmpunkt-Extraktion
-- **Bewusst nicht implementiert:** `Day.theme`/`Day.themeScripture` (siehe
-  `JwpubParser.extractDayTheme()`) werden im RTF-Fallback nicht befüllt – ohne HTML-Struktur
-  gibt es keine zuverlässige Möglichkeit, den Motto-Absatz von anderem Fließtext zu
-  unterscheiden; eine Regex-Rate hätte ein hohes Risiko, die falsche Zeile zu erwischen
+- `rtfToText()` ist ein klammer-bewusster Mini-RTF-Decoder (kein flacher Regex-Strip mehr):
+  er verfolgt die `{`/`}`-Verschachtelungstiefe und unterdrückt den Textinhalt "ignorierbarer"
+  Zielgruppen (`\*`-markiert oder ein Name in `IGNORABLE_DESTINATIONS`: `fonttbl`, `colortbl`,
+  `stylesheet`, `info`, `generator`, `fldinst`, …). **Grund für die Umstellung:** Der alte
+  Ansatz (`\word` strippen, dann alle `{`/`}` entfernen) konnte nicht unterscheiden, ob Text
+  in einer Zielgruppe steht oder sichtbarer Fließtext ist – dadurch sickerten z. B. die rohe
+  `\fldinst`-Hyperlink-URL und Autor-/Titel-Metadaten (`\info`) als sichtbarer Text durch und
+  verfälschten Titel-/Wochentag-/Motto-Erkennung
+- **Zeitformat ist `"H Uhr [MM]"`, nicht `"H:MM"`:** z. B. `"9 Uhr 20"` oder bei voller Stunde
+  nur `"11 Uhr"` (Minute fehlt komplett statt `":00"`). `matchTime()` normalisiert auf `"H:MM"`
+- **Bibelstellen-Zitate im sichtbaren Text nutzen `"Vers"` statt Doppelpunkt:** z. B.
+  `"(Matthäus 5 Vers 3 bis 7 Vers 29; Lukas 6 Vers 17 bis 49)"` – `stripRtfCitation()` nutzt
+  das Wort `"Vers"` als Anker (zuverlässiger als jwpubs `\d+:\d+`, das hier nie vorkommt)
+- **Ein Zitat kann über mehrere `HYPERLINK`-Feldläufe verteilt sein** (Fett-/Kursiv-Grenzen
+  brechen den sichtbaren Text in mehrere `{\field...}`-Läufe auf), alle mit **identischer**
+  URL – `matchScriptures()` dedupliziert daher nach URL, sonst würde dieselbe Stelle mehrfach
+  gezählt
+- **Bibeldrama** erstreckt sich über 3 Absätze (Zeit+"Bibeldrama:", "Serientitel: Folge N",
+  Zitat+Bibelstelle) – `extractBibleDrama()` verbraucht alle drei und baut daraus Titel/Untertitel
+  im gleichen Format wie `JwpubParser.parseBibleDrama()` ("Folge N: „Zitat"")
+- **Vortragsreihe/Symposium**: die Serien-Überschrift-Zeile hat keine eigenen Bibelstellen; die
+  nachfolgenden `•`/`-`/`N.`-Aufzählungsabsätze werden zu `parts` mit eigenem Titel + eigenen
+  Bibelstellen (`extractSeriesParts()`), analog zu jwpubs `parts`-Struktur
+- **Tagesmotto** (`extractDayTheme()`): identischer Ansatz wie `JwpubParser.extractDayTheme()` –
+  der Absatz direkt nach dem alleinstehenden Wochentag-Absatz (z. B. "Freitag") enthält Zitat
+  + Bibelstelle; nur übernommen, wenn dieser Absatz tatsächlich einen Bibelstellen-Link enthält
+- **Kongress-Motto + Jahr** (`extractCongressThemeYear()`): Absatz der Form
+  `"{Motto} Kongress von Jehovas Zeugen {Jahr}"` (kommt bei CO-Programmen auf der Titelseite
+  vor); liefert damit auch das Jahr aus echten Daten statt des bisherigen
+  `new Date().getFullYear()`-Notbehelfs. Nur gegen echte CO-Dateien verifiziert – für
+  Kreiskongresse (keine RTF-Testdatei verfügbar) greift weiterhin der ältere,
+  best-effort `extractTheme()`-Fallback
 
 ### Bibelstellen-Format
 

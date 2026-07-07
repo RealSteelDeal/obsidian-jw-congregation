@@ -41,18 +41,18 @@ test('format respects the requested language', () => {
 
 test('toJwLibraryLink encodes a single verse as one BBCCCVVV code', () => {
 	const s = { book: 19, chapter: 16, verseStart: 11 };
-	assert.equal(ScriptureNormalizer.toJwLibraryLink(s), 'jwlibrary:///finder?bible=19016011');
+	assert.equal(ScriptureNormalizer.toJwLibraryLink(s), 'jwlibrary:///finder?bible=19016011&pub=nwtsty');
 });
 
 test('toJwLibraryLink encodes a range as start-end codes', () => {
 	const s = { book: 44, chapter: 20, verseStart: 34, verseEnd: 35 };
-	assert.equal(ScriptureNormalizer.toJwLibraryLink(s), 'jwlibrary:///finder?bible=44020034-44020035');
+	assert.equal(ScriptureNormalizer.toJwLibraryLink(s), 'jwlibrary:///finder?bible=44020034-44020035&pub=nwtsty');
 });
 
 test('toMarkdownLink combines the readable label and the deeplink', () => {
 	const s = { book: 19, chapter: 16, verseStart: 11 };
 	assert.equal(
 		ScriptureNormalizer.toMarkdownLink(s, 'de'),
-		'[Psalmen 16:11](jwlibrary:///finder?bible=19016011)',
+		'[Psalmen 16:11](jwlibrary:///finder?bible=19016011&pub=nwtsty)',
 	);
 });

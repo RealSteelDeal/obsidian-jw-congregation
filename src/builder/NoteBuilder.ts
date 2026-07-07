@@ -188,16 +188,21 @@ export class NoteBuilder {
 
 	// Neither `pub=sjjm&issue=0&track=N` nor `lank=pub-sjjm_${N+500}` worked on a
 	// real iPhone (JW Library opened, didn't recognize the query, and bounced to
-	// a broken web fallback both times). The link below is instead copied
-	// verbatim from JW Library's own "Share" feature for a song, confirmed
-	// against two real songs from the "Singt voller Freude für Jehova" songbook:
-	// Lied 54 → docid=1102016854, Lied 94 → docid=1102016894 — both give the
-	// same base offset 1102016800, so docid = 1102016800 + songNumber.
-	// Uses the https://www.jw.org universal link (not the jwlibrary:// custom
-	// scheme, unlike scripture links) — that's the format the app itself shares,
-	// and it degrades gracefully to a real jw.org page if JW Library isn't installed.
+	// a broken web fallback both times). The correct content id — confirmed via
+	// JW Library's own "Share" feature for two real songs from "Singt voller
+	// Freude für Jehova" (Lied 54 → docid=1102016854, Lied 94 → docid=1102016894,
+	// both giving the same base offset 1102016800, i.e. docid = 1102016800 + songNumber) —
+	// is `docid=`. That confirmation came via the https://www.jw.org universal
+	// link, which itself worked fine when tapped outside Obsidian but bounced
+	// back to jw.org's bare homepage when tapped from within a note: Obsidian's
+	// mobile in-app browser can render http(s) content itself, so the tap never
+	// reaches the OS-level Universal Link handoff that would hand it to JW
+	// Library. A jwlibrary:// custom-scheme link has no such escape hatch — the
+	// in-app browser can't render it as a page, so Obsidian is forced to hand it
+	// to the OS directly — which is why every jwlibrary:// attempt so far has at
+	// least opened the app (just previously with a query it didn't understand).
 	private songLink(songNumber: number): string {
-		return `https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=${1102016800 + songNumber}`;
+		return `jwlibrary:///finder?docid=${1102016800 + songNumber}`;
 	}
 
 	private renderSingleNote(item: ProgramItem, day: Day, congress: Congress): string {

@@ -220,39 +220,47 @@ Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohn
 
 - jwpub: `jwpub://b/NWTR/book:chapter:verse[-book:chapter:verse]`
 - RTF: `BBCCCVVV[-BBCCCVVV]` (z. B. `40005001`)
-- Ausgabe: `[Matthäus 5:1](jwlibrary:///finder?bible=40005001)`
+- Ausgabe: `[Matthäus 5:1](jwlibrary:///finder?bible=40005001&pub=nwtsty)`
 - `ScriptureNormalizer.toJwLibraryLink()` nutzt das rohe `jwlibrary://`-Custom-Protokoll – das
   ist das Standardformat, das auch andere JW-Library-Linking-Tools nutzen (z. B.
   obsidian-library-linker) und funktioniert bei einer intakten JW-Library-Installation korrekt.
-  **Bekanntes Nutzer-Problem:** Auf einer bestimmten Windows-Installation navigierte der Link
-  per Direkttest (Windows-Ausführen-Dialog, unabhängig von Obsidian reproduzierbar) nicht zur
-  Bibelstelle. Da das Format identisch zu dem des Referenz-Plugins ist und dessen Doku keinerlei
-  Plattform-Einschränkung nennt, ist das sehr wahrscheinlich eine kaputte/fehlerhafte lokale
-  JW-Library-Installation (bekannte Kategorie von Windows-JW-Library-Bugs), keine
-  Format-/Code-Frage. Erster Trouble­shooting-Schritt bei erneuten Meldungen: JW Library
-  neu installieren bzw. App-Cache leeren, bevor am Code weitergesucht wird.
-- **Lieder-Link-Historie:**
-  - v0.2.0–1.3.0 nutzte `jwlibrary:///finder?pub=sjjm&issue=0&track=NNN` (reine Annahme,
-    nie verifiziert). Echter Nutzertest (iPhone) zeigte: JW Library öffnet kurz, erkennt
-    die Anfrage aber nicht und leitet auf eine kaputte Web-Fallback-URL um
-    (`https://finder/?pub=sjjm&issue=0&track=160#suppress_app_links`) – das Format war also nachweislich falsch.
-  - 1.3.1 versuchte darauf `jwlibrary:///finder?lank=pub-sjjm_${songNumber + 500}` (`lank=` aus
-    echten RTF-Exporten übernommen, siehe `scripts/out/`, dort aber nur mit `_VIDEO`-Suffix
-    belegt: `https://www.jw.org/finder?srcid=share&wtlocale=X&lank=pub-sjjm_611_VIDEO` für Lied 111,
-    `611 = 500 + 111`). **Auch das schlug auf einem echten iPhone fehl** – gleiches
-    Bounce-to-broken-URL-Verhalten. Vermutlich zwei Fehler gleichzeitig: `lank=` ist offenbar
-    nur für den `https://www.jw.org/finder`-Universal-Link registriert, nicht für das
-    `jwlibrary://`-Custom-Scheme; und `lank=..._VIDEO` ohne Suffix existiert womöglich gar nicht
-    (jw.org nutzt für reinen Text/Artikel eher `docid=`, nicht `lank=`).
-  - **Seit 1.3.2 verifiziert über JW Librarys eigene „Teilen"-Funktion** (zuverlässigste Quelle,
-    da direkt von der App generiert): Lied 54 → `https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=1102016854`,
-    Lied 94 → `...&docid=1102016894`. Beide ergeben denselben Basiswert
-    **`1102016800`** → `docid = 1102016800 + songNumber`. `NoteBuilder.songLink()` nutzt jetzt
-    dieses `docid=`-basierte `https://www.jw.org/finder`-Format (Universal Link, **kein**
-    `jwlibrary://`-Scheme mehr für Lieder – nur Bibelstellen nutzen weiterhin `jwlibrary://`).
-    Nur an zwei Liedern verifiziert (54, 94) – sollte bei künftigen Problemmeldungen zuerst mit
-    einem dritten, weit entfernten Lied (z. B. Nr. 1 oder > 140) gegengeprüft werden, um die
-    lineare Formel über den gesamten Liedernummernbereich zu bestätigen.
+  Seit 1.3.3 mit `&pub=nwtsty` (welche Bibelübersetzung), passend zu dem, was JW Library
+  Desktop selbst beim Teilen einer Bibelstelle erzeugt (per echtem Nutzertest bestätigt) –
+  siehe **Wichtige Erkenntnis zu jwlibrary:// vs. https://www.jw.org** unten.
+  **Bekanntes Nutzer-Problem (vor 1.3.3):** Auf einer bestimmten Windows-Installation navigierte
+  der Link per Direkttest nicht zur Bibelstelle – möglicherweise durch das fehlende `pub=`
+  bereits erklärt, siehe Lieder-Link-Historie; nicht erneut nachgetestet.
+- **Wichtige Erkenntnis zu `jwlibrary://` vs. `https://www.jw.org/finder` (aus der Lieder-Link-Odyssee unten):**
+  Obsidian öffnet externe `https://`-Links auf Mobile über einen eingebauten In-App-Browser statt
+  über echten System-Handoff – und Universal Links (der Mechanismus, über den iOS/Android eine
+  `https://www.jw.org/...`-URL an JW Library statt an den Browser weiterreichen) funktionieren
+  bekanntermaßen **nicht**, wenn die URL innerhalb einer eingebetteten WebView geladen wird statt
+  vom System selbst (Safari, Mail, Nachrichten, `UIApplication.open`). Ein `jwlibrary://`-Custom-
+  Scheme-Link hat diese Falle nicht: Obsidians eigene WebView kann ein Custom-Scheme gar nicht als
+  Seite darstellen und **muss** es zwingend ans Betriebssystem weiterreichen. Deshalb: **immer**
+  `jwlibrary://` verwenden, nie `https://www.jw.org/...`, auch wenn Letzteres außerhalb von
+  Obsidian (z. B. in Safari) nachweislich funktioniert.
+- **Lieder-Link-Historie** (`NoteBuilder.songLink()`):
+  - v0.2.0–1.3.0: `jwlibrary:///finder?pub=sjjm&issue=0&track=NNN` (reine Annahme, nie
+    verifiziert). Echter Nutzertest (iPhone): JW Library öffnet kurz, erkennt die Anfrage nicht,
+    bounct auf eine kaputte Web-Fallback-URL (`https://finder/?pub=sjjm&issue=0&track=160#suppress_app_links`).
+  - 1.3.1: `jwlibrary:///finder?lank=pub-sjjm_${songNumber + 500}` (`lank=` aus echten
+    RTF-Exporten übernommen, siehe `scripts/out/`, dort aber nur mit `_VIDEO`-Suffix belegt:
+    `lank=pub-sjjm_611_VIDEO` für Lied 111, `611 = 500 + 111`). Ebenfalls fehlgeschlagen (gleiches
+    Bounce-Verhalten) – vermutlich existiert `lank=` ohne `_VIDEO` für Songs schlicht nicht.
+  - 1.3.2: `https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=${1102016800 + songNumber}`
+    – der `docid=`-Offset wurde über JW Librarys eigene „Teilen"-Funktion an zwei echten Liedern
+    verifiziert (Lied 54 → `docid=1102016854`, Lied 94 → `docid=1102016894`, beide Basiswert
+    `1102016800`) und ist **korrekt** – aber als `https://`-Link öffnete er auf dem iPhone aus
+    Obsidian heraus nur `www.jw.org` (Bounce durch die In-App-Browser-Falle oben), obwohl derselbe
+    Link außerhalb von Obsidian (Safari) nachweislich funktionierte. Das trennte die zwei
+    Fehlerquellen sauber: Formel richtig, Scheme falsch.
+  - **Seit 1.3.3:** `jwlibrary:///finder?docid=${1102016800 + songNumber}` – dieselbe verifizierte
+    `docid`-Formel, jetzt über das `jwlibrary://`-Scheme statt `https://www.jw.org`. Noch nicht auf
+    einem echten Gerät bestätigt (nur die Formel selbst, nicht diese exakte Scheme-Kombination) –
+    bei erneuten Problemmeldungen zuerst hier ansetzen. Nur an zwei Liedern (54, 94) verifiziert;
+    bei Bedarf mit einem dritten, weit entfernten Lied (z. B. Nr. 1 oder > 140) gegenprüfen, um die
+    lineare Formel über den gesamten Nummernbereich zu bestätigen.
 
 ### Notiz- & Ordnerbenennung (NoteBuilder)
 

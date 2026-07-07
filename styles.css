@@ -66,21 +66,18 @@
 	color: var(--text-muted);
 }
 
-/* Scripture links use the jwlibrary:// custom protocol; song links use a
-   https://www.jw.org/finder universal link (see NoteBuilder.songLink()) —
-   Obsidian treats both as external and decorates them with a small icon,
-   dropped here so the reference text itself stays clean. The trailing
+/* Scripture and song links point at the jwlibrary:// custom protocol, which
+   Obsidian treats as an external link and decorates with a small icon —
+   drop it here so the reference text itself stays clean. The trailing
    `:not(#_)` doesn't match any real element (no id="_") — it's purely there
    to add ID-level specificity so this reliably outranks Obsidian's own
    external-link rule without resorting to !important. */
-a.external-link[href^="jwlibrary://"]:not(#_),
-a.external-link[href*="jw.org/finder"]:not(#_) {
+a.external-link[href^="jwlibrary://"]:not(#_) {
 	background-image: none;
 	padding-right: 0;
 }
 
-a.external-link[href^="jwlibrary://"]:not(#_)::after,
-a.external-link[href*="jw.org/finder"]:not(#_)::after {
+a.external-link[href^="jwlibrary://"]:not(#_)::after {
 	content: none;
 	display: none;
 	background-image: none;

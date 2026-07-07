@@ -15,6 +15,10 @@ main.js
 # Exclude sourcemaps
 *.map
 
+# sql.js WASM binary — embedded into main.js at build time (esbuild binary
+# loader), not needed as a standalone file in the plugin/repo root.
+/sql-wasm.wasm
+
 # obsidian
 data.json
 

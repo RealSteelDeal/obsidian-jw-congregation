@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.1
+
+### Fehlerbehebungen
+
+- **Lieder-Link repariert**: JW Library erkannte das bisherige Link-Format nicht und leitete stattdessen auf eine kaputte Web-Adresse um (bestätigt durch echten Smartphone-Test). Der Link nutzt jetzt das aus echten jw.org-Exporten bestätigte `lank`-Format (`jwlibrary:///finder?lank=pub-sjjm_NNN`, NNN = Liednummer + 500).
+
 ## 1.3.0
 
 ### Neu

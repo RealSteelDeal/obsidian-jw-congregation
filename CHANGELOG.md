@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.4.0
+
+### Neue Funktionen
+
+- **Kein Wrapper-Ordner mehr beim Import**: Der Standard-Zielordner ist jetzt die Vault-Wurzel – jeder Kongress entsteht direkt als eigener Top-Level-Ordner, ohne zusätzlichen „Kongress"-Ordner darüber. Im Import-Dialog steht „Vault-Wurzel (kein Unterordner)" als eigene Dropdown-Option; ein bestehender oder neuer Ordner kann weiterhin gewählt werden.
+
+### Fehlerbehebungen
+
+- **Lieder-Link-`docid` korrigiert**: Die bisherige Formel (`docid = 1102016800 + Liednummer`) war keine verlässliche Regel, sondern traf nur zufällig für einen Teil der Lieder zu (z. B. Lied 14, 54, 94) – bei Lied 160 wich die echte `docid` um 6000 ab und der Link führte ins Leere. Die echte `docid` steht bereits in der jwpub-Datei selbst (im `jwpub://p/X:...`-Link jedes Liedes) und wird jetzt direkt daraus gelesen statt berechnet. Die alte Formel dient nur noch als Fallback für den RTF-Importpfad, der keine `docid` im Quellmaterial enthält.
+- **„Psalm" statt „Psalmen"** bei Einzelzitaten aus den Psalmen (z. B. „Psalm 16:11“) – entspricht jetzt der offiziellen Vorlage.
+
 ## 1.3.5
 
 ### Fehlerbehebungen

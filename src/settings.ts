@@ -12,6 +12,7 @@ export interface JwPluginSettings {
 	showScriptureField: boolean;
 	showSpeakerField: boolean;
 	extraFields: string;
+	bibleFileLoaded: boolean;
 }
 
 export const DEFAULT_SETTINGS: JwPluginSettings = {
@@ -24,6 +25,7 @@ export const DEFAULT_SETTINGS: JwPluginSettings = {
 	showScriptureField: true,
 	showSpeakerField: true,
 	extraFields: '',
+	bibleFileLoaded: false,
 };
 
 export class JwSettingTab extends PluginSettingTab {
@@ -144,5 +146,35 @@ export class JwSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}),
 			);
+
+		new Setting(containerEl).setName('Bibeltext-Popup').setHeading();
+
+		const bibleDesc = this.plugin.settings.bibleFileLoaded
+			? 'Bibel-Datei ist geladen. Ein Klick auf eine Bibelstelle zeigt den Vers-Text direkt in Obsidian an (mit einem Button zum Öffnen in JW Library).'
+			: 'Optional: eine Bibel-jwpub-Datei auswählen (z. B. von jw.org heruntergeladen), damit ein Klick auf eine Bibelstelle den Vers-Text direkt in Obsidian anzeigt, statt nur JW Library zu öffnen. Empfehlung: die Studienbibel (nwtsty) statt der einfachen Ausgabe (nwt) – sie enthält zusätzliche Studienanmerkungen und mehr Fußnoten. Die Datei wird lokal im Plugin-Ordner gespeichert, nicht ins Vault kopiert.';
+
+		new Setting(containerEl)
+			.setName('Bibel-Datei')
+			.setDesc(bibleDesc)
+			.addButton(btn =>
+				btn.setButtonText(this.plugin.settings.bibleFileLoaded ? 'Datei ersetzen …' : 'Datei wählen …').onClick(() => {
+					const input = createEl('input', { type: 'file' });
+					input.accept = '.jwpub';
+					input.onchange = async () => {
+						const file = input.files?.[0];
+						if (!file) return;
+						await this.plugin.setBibleFile(new Uint8Array(await file.arrayBuffer()));
+						this.display();
+					};
+					input.click();
+				}),
+			)
+			.addExtraButton(btn => {
+				btn.setIcon('trash').setTooltip('Bibel-Datei entfernen').onClick(async () => {
+					await this.plugin.removeBibleFile();
+					this.display();
+				});
+				btn.extraSettingsEl.toggle(this.plugin.settings.bibleFileLoaded);
+			});
 	}
 }

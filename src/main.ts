@@ -3,13 +3,25 @@ import { DEFAULT_SETTINGS, JwPluginSettings, JwSettingTab } from './settings';
 import { SourceRouter } from './parser/SourceRouter';
 import { NoteBuilder } from './builder/NoteBuilder';
 import { ImportModal } from './ui/ImportModal';
+import { BibleReader } from './bible/BibleReader';
+import { BibleVerseModal } from './ui/BibleVerseModal';
+import { ScriptureNormalizer } from './normalizer/ScriptureNormalizer';
+import { Scripture } from './models/congress';
 // esbuild's "binary" loader embeds this as base64 in main.js and decodes it to a
 // Uint8Array at bundle time — no separate file needs to ship alongside main.js.
 import sqlWasmBinary from 'sql.js/dist/sql-wasm.wasm';
 
+const BIBLE_FILE_NAME = 'bible-cache.jwpub';
+
 export default class JwCongregationPlugin extends Plugin {
 	settings!: JwPluginSettings;
 	readonly sqlWasmBinary = sqlWasmBinary;
+
+	// Lazily loaded on first scripture-link click, then cached for the rest of
+	// the session — decrypting/indexing a full Bible file (up to ~125 MB for the
+	// Study Edition) on every click would be far too slow.
+	private bibleReader: BibleReader | null = null;
+	private bibleReaderLoading: Promise<BibleReader | null> | null = null;
 
 	async onload() {
 		await this.loadSettings();
@@ -25,9 +37,91 @@ export default class JwCongregationPlugin extends Plugin {
 		});
 
 		this.addSettingTab(new JwSettingTab(this.app, this));
+
+		// Capture phase so we run before Obsidian's own link-click handling —
+		// only intercepts our own jwlibrary:// scripture links (song links use a
+		// different https://www.jw.org scheme and are left alone), and only when
+		// a Bible file has actually been loaded.
+		this.registerDomEvent(document, 'click', this.onDocumentClick.bind(this), true);
 	}
 
 	onunload() {}
+
+	private onDocumentClick(evt: MouseEvent): void {
+		if (!this.settings.bibleFileLoaded) return;
+		const target = evt.target as HTMLElement | null;
+		const link = target?.closest('a[href^="jwlibrary://"]') as HTMLAnchorElement | null;
+		if (!link) return;
+
+		const scripture = this.parseScriptureFromHref(link.href);
+		if (!scripture) return;
+
+		evt.preventDefault();
+		const href = link.href;
+		void (async () => {
+			const reader = await this.getBibleReader();
+			if (!reader) {
+				window.open(href); // Bible file failed to load — fall back to the normal link behaviour
+				return;
+			}
+			new BibleVerseModal(this.app, scripture, this.settings.lang, reader).open();
+		})();
+	}
+
+	private parseScriptureFromHref(href: string): Scripture | undefined {
+		try {
+			const bibleParam = new URL(href).searchParams.get('bible');
+			if (!bibleParam) return undefined;
+			return ScriptureNormalizer.fromRtf(bibleParam);
+		} catch {
+			return undefined;
+		}
+	}
+
+	private bibleFilePath(): string {
+		return normalizePath(`${this.manifest.dir}/${BIBLE_FILE_NAME}`);
+	}
+
+	async setBibleFile(data: Uint8Array): Promise<void> {
+		const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+		await this.app.vault.adapter.writeBinary(this.bibleFilePath(), arrayBuffer);
+		this.settings.bibleFileLoaded = true;
+		await this.saveSettings();
+		this.bibleReader = null; // force a reload with the new file on next use
+		new Notice('Bibel-Datei gespeichert.');
+	}
+
+	async removeBibleFile(): Promise<void> {
+		const path = this.bibleFilePath();
+		if (await this.app.vault.adapter.exists(path)) {
+			await this.app.vault.adapter.remove(path);
+		}
+		this.settings.bibleFileLoaded = false;
+		await this.saveSettings();
+		this.bibleReader = null;
+	}
+
+	private async getBibleReader(): Promise<BibleReader | null> {
+		if (!this.settings.bibleFileLoaded) return null;
+		if (this.bibleReader) return this.bibleReader;
+		if (this.bibleReaderLoading) return this.bibleReaderLoading;
+
+		this.bibleReaderLoading = (async () => {
+			try {
+				const data = await this.app.vault.adapter.readBinary(this.bibleFilePath());
+				const reader = new BibleReader(this.sqlWasmBinary);
+				await reader.load(new Uint8Array(data));
+				this.bibleReader = reader;
+				return reader;
+			} catch (err) {
+				new Notice(`Bibel-Datei konnte nicht geladen werden: ${String(err)}`);
+				return null;
+			} finally {
+				this.bibleReaderLoading = null;
+			}
+		})();
+		return this.bibleReaderLoading;
+	}
 
 	async loadSettings() {
 		this.settings = Object.assign(

@@ -35,14 +35,20 @@ src/
   normalizer/
     bookNames.ts             # Buchnamenstabelle 1–66, DE + EN
     ScriptureNormalizer.ts   # fromJwpub(), fromRtf(), toJwLibraryLink(), toMarkdownLink()
+  util/
+    jwpubCrypto.ts           # geteilte jwpub-Krypto: openJwpubDatabase(), readPublication(), deriveKey(), decryptBlob()
+    bytes.ts                 # latin1Decode(), hexToBytes()
   parser/
-    JwpubParser.ts           # .jwpub → Congress (primär, WebCrypto AES + pako inflate + fflate zip + DOMParser)
+    JwpubParser.ts           # .jwpub → Congress (primär, nutzt util/jwpubCrypto.ts + DOMParser)
     RtfParser.ts             # RTF-ZIP → Congress (Fallback)
     SourceRouter.ts          # Dateiformat erkennen, Router jwpub → rtf
   builder/
     NoteBuilder.ts           # Congress → GeneratedNote[] (Ordnernamen, Nummerierung, Übersicht, Notiz-Rendering)
+  bible/
+    BibleReader.ts           # Bibel-jwpub-Datei (nwt/nwtsty) → Vers-Text-Lookup (Bibeltext-Popup, Phase 1)
   ui/
     ImportModal.ts           # Dateiauswahl, Zielordner-Dropdown, Vorschau, Import-Bestätigung
+    BibleVerseModal.ts       # Popup mit Vers-Text + "In JW Library öffnen"-Button
 scripts/
   analyze-jwpub.mjs          # Entwickler-Tool: DB + HTML ausgeben (eigenständiges, einfaches Decrypt, keine Parser-Logik)
   test-parse.mjs             # Entwickler-Test: importiert den echten JwpubParser per jiti und parst übergebene .jwpub-Dateien
@@ -287,6 +293,59 @@ Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohn
     JW Library Desktop registriert sich unter Windows möglicherweise nur als Link-Handler, wenn
     der Link direkt im Standardbrowser geöffnet wird, nicht wenn Obsidian/Electron ihn per
     `shell.openExternal` weiterreicht – vor einer Codeänderung mit dem Nutzer verifizieren.
+
+### Bibeltext-Popup (BibleReader, Phase 1)
+
+Klick auf eine Bibelstelle zeigt (falls eine Bibel-Datei geladen ist) den Vers-Text in einem
+Obsidian-Modal statt direkt extern zu öffnen — per echten Testdateien (`nwt_X.jwpub`,
+`nwtsty_X.jwpub`) verifiziert.
+
+- **Der Bibeltext liegt NICHT in der `Document`-Tabelle** (die enthält nur Intro-Seiten wie
+  „Frage 1: Wer ist Gott?"). Eigene Tabellen: `BibleVerse` (~31.000 Zeilen, ein `Content`-Blob
+  pro Vers, verschlüsselt wie `Document.Content`), `BibleChapter` (ein Blob pro Kapitel, mit
+  eingebetteten Fußnoten-/Querverweis-Markern `data-fnid`/`data-mid`), `Footnote` (Blob pro
+  Fußnote, `DocumentId` = das Buch-Dokument aus `BibleBook.BookDocumentId`, `FootnoteIndex`
+  als Schlüssel).
+- **`BibleVerseId`** ist eine global sequentielle ID über die gesamte Bibel (Gen 1:1 = 0), aber
+  **nicht** aus Buch/Kapitel/Vers berechenbar (`BibleVerse` hat keine Buch/Kapitel/Vers-Spalten,
+  nur `BibleVerseId`+`Label`+`Content`) — eine Versifikationstabelle hätte hartkodiert werden
+  müssen (fragil, übersetzungsabhängig). Stattdessen baut `BibleReader.buildVerseIdIndex()` das
+  Lookup aus der **eigenen** `BibleCitation`/`Hyperlink`-Tabelle der Bibel-Datei: jede interne
+  Bibel-zu-Bibel-Querverweisung dort hat sowohl `Hyperlink.Link` (`jwpub://b/NWTR/B:C:V`-Format,
+  identisch zu dem, was `ScriptureNormalizer` schon kennt) als auch `BibleCitation.FirstBibleVerseId`
+  — die Datei liefert ihr eigenes Adressierungsschema, keine Berechnung nötig. Deckt praktisch
+  alle Verse ab, die irgendwo zitiert werden (bei `nwt`: 69.084 Zitate für ~31.000 Verse); nicht
+  zitierte Verse liefern `undefined` → Modal zeigt „Kein Vers-Text verfügbar" + weiterhin den
+  „In JW Library öffnen"-Button als Fallback.
+- **Studienbibel (`nwtsty`) statt einfacher Ausgabe (`nwt`) empfohlen**: mehr Querverweise →
+  bessere Abdeckung. Per Test bestätigt: Psalm 16:11 (das CO-Kongressmotto-Zitat) wird nur von
+  `nwtsty` gefunden, nicht von `nwt`.
+- **Speicherung**: Nutzer wählt die `.jwpub`-Datei einmalig über einen Datei-Picker in den
+  Einstellungen (`JwSettingTab`); `main.ts.setBibleFile()` schreibt sie über
+  `vault.adapter.writeBinary()` in den Plugin-Ordner (`bible-cache.jwpub`) — **nicht** ins Vault
+  kopiert, **nicht** synchronisiert. `vault.adapter` (nicht Node-`fs`) bewusst gewählt, damit das
+  auch auf Mobile funktioniert (siehe `isDesktopOnly: false`).
+- **Lazy Loading**: `main.ts.getBibleReader()` lädt/entschlüsselt die Bibel-Datei erst beim ersten
+  Klick auf eine Bibelstelle (nicht beim Plugin-Start) und cached die `BibleReader`-Instanz danach
+  für die Session — Laden + Index-Aufbau dauert bei der 126-MB-Studienbibel unter 700ms, aber das
+  bei jedem Plugin-Start zu tun wäre unnötig.
+- **Klick-Interception**: `main.ts` registriert einen `document`-Click-Listener in der
+  **Capture-Phase** (`registerDomEvent(document, 'click', handler, true)`), damit er vor Obsidians
+  eigener Link-Behandlung feuert. Reagiert nur auf `a[href^="jwlibrary://"]` (Bibelstellen-Links;
+  Lieder-Links nutzen bewusst `https://www.jw.org/finder`, siehe oben, und bleiben unangetastet).
+  `evt.preventDefault()` läuft **synchron** im Handler (zuverlässig), die eigentliche
+  Bibel-Datei-Ladung danach asynchron; schlägt das Laden fehl, wird der ursprüngliche Link per
+  `window.open(href)` als Fallback nachträglich geöffnet, statt den Klick ins Leere laufen zu lassen.
+- **Kein `innerHTML`**: `BibleVerseModal` rendert den entschlüsselten Vers-HTML-Blob aktuell nur
+  als Klartext (`DOMParser` → `textContent`, nie in den DOM eingesetzt) — bewusst kein
+  `innerHTML`, obwohl der Inhalt vertrauenswürdig ist (Nutzer-eigene, lokal entschlüsselte Datei),
+  da das Projekt `innerHTML` grundsätzlich vermeidet (auch von der Obsidian-Review-Guideline
+  verlangt). Fußnoten/Querverweise darzustellen bräuchte sicheres DOM-Bauen aus den erlaubten
+  Tags statt `innerHTML` — Phase 2/3, noch nicht umgesetzt.
+- **Geteilte Krypto-Logik**: `src/util/jwpubCrypto.ts` (`openJwpubDatabase()`, `readPublication()`,
+  `deriveKey()`, `decryptBlob()`) wurde aus `JwpubParser.ts` herausgezogen, damit `BibleReader`
+  dieselbe AES-128-CBC+zlib-Entschlüsselung nutzt, ohne sie zu duplizieren — jedes jwpub-Format
+  (Kongressprogramm, Bibel, …) nutzt exakt dasselbe Schema.
 
 ### Notiz- & Ordnerbenennung (NoteBuilder)
 

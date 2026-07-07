@@ -88,6 +88,16 @@ a.external-link[href*="jw.org/finder"]:not(#_)::after {
 	margin: 0;
 }
 
+.jw-bible-verse-text p {
+	line-height: 1.6;
+	margin-bottom: 0.75em;
+}
+
+.jw-bible-verse-missing {
+	color: var(--text-muted);
+	font-style: italic;
+}
+
 /* Live Preview (editing view) renders the external-link icon as its own
    CodeMirror decoration span rather than on a real <a href>, so it can't be
    scoped to jwlibrary:// links the way the reading-view rule above is —

@@ -25,6 +25,7 @@ Ein Obsidian Community Plugin, das offizielle Programmdateien von Kongressen der
   - Lieder werden mit JW-Library-Deeplink angezeigt (ohne eigene Notiz)
   - Pausen und Musikvideos werden als Hinweis angezeigt (ohne eigene Notiz)
 - **Klickbare Bibelstellen** als JW-Library-Deeplinks in allen Notizen
+- **Bibeltext-Popup** (optional, Phase 1): mit einer eigenen Bibel-jwpub-Datei (siehe unten) zeigt ein Klick auf eine Bibelstelle den Vers-Text direkt in Obsidian, mit Button zum Öffnen in JW Library
 - **„Beantworte die folgenden Fragen"** (Kreiskongress-Wiederholungsfragen) wird als eigene Notiz mit einer Überschrift pro Frage erzeugt und steht immer an letzter Stelle
 - **„Wiederholung"-Notiz** (optional, Standard: an) mit den drei Standard-Reflexionsfragen für die Kongress-Wiederholung in der Versammlung – bei Kreiskongressen mit Link zu den gedruckten Wiederholungsfragen, bei Regionalen Kongressen mit Hinweis auf das Highlights-Video
 
@@ -70,6 +71,18 @@ Ein Obsidian Community Plugin, das offizielle Programmdateien von Kongressen der
 | Wiederholungs-Notiz erstellen | An | Legt zusätzlich `Wiederholung.md` mit den drei Standard-Reflexionsfragen an |
 | Feld "Tag" / "Uhrzeit" / "Bibeltexte" / "Redner" anzeigen | jeweils An | Einzeln abschaltbar, falls ein Feld nicht gebraucht wird |
 | Zusätzliche Felder | *(leer)* | Freitext, wird an jede Programmpunkt-Notiz angehängt (z. B. eine eigene `**Notizen:**`-Zeile) |
+| Bibel-Datei | *(keine)* | Optional: eigene Bibel-jwpub-Datei für das Bibeltext-Popup, siehe [Bibeltext-Popup](#bibeltext-popup) |
+
+## Bibeltext-Popup
+
+Mit einer selbst bereitgestellten Bibel-jwpub-Datei zeigt ein Klick auf eine Bibelstelle den Vers-Text direkt in einem Obsidian-Popup an (mit Button zum Öffnen in JW Library), statt nur JW Library zu öffnen.
+
+1. Eine Bibel-jwpub-Datei besorgen – z. B. von [jw.org](https://www.jw.org/) im JWPUB-Format herunterladen, oder eine bereits über JW Library heruntergeladene Datei verwenden
+2. **Empfehlung: die Studienbibel (`nwtsty`)** statt der einfachen Ausgabe (`nwt`) wählen – sie enthält deutlich mehr Querverweise, wodurch mehr Bibelstellen im Popup auflösbar sind (getestet: Psalm 16:11 wird nur von der Studienbibel gefunden, nicht von der einfachen Ausgabe)
+3. In den Plugin-Einstellungen unter „Bibel-Datei" → „Datei wählen …" die heruntergeladene `.jwpub`-Datei auswählen
+4. Die Datei wird lokal im Plugin-Ordner gespeichert (nicht ins Vault kopiert, nicht synchronisiert) – danach zeigt jeder Klick auf eine Bibelstelle den Vers-Text an
+
+**Phase 1** (aktueller Stand): reiner Vers-Text, keine Fußnoten oder Querverweise. Die technische Grundlage dafür ist vorhanden (siehe [AGENTS.md](AGENTS.md)) – als Ausbaustufe geplant.
 
 ## Ordner- & Notizstruktur
 

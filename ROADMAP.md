@@ -5,22 +5,25 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 
 ## Planned
 
-- **Song titles**: with a user-supplied songbook jwpub (`sjjm`), show the song's
-  title next to its number in overviews and "Next:" hints — same mechanism as
-  the Bible file for the verse popup.
-- **Chapter context in the verse popup**: load the verses before/after the
-  cited passage, or the whole chapter, without leaving the popup.
+- **Chapter context in the verse popup** *(next up)*: load the verses
+  before/after the cited passage, or the whole chapter, without leaving the
+  popup.
 - **More program-file languages** (Spanish, French, …): the architecture is in
   place (central string table, language-tolerant parsing patterns, automatic
   language detection) — each language needs real program files for testing,
   its type-marker variants and a string-table entry.
 
-## Later
+## Later (deliberately deferred)
 
 - **Raise minAppVersion to 1.13 and drop the imperative settings fallback**:
   tried once and reverted — a real 1.12.7 install rendered an empty settings
   tab, since Obsidian 1.13 (declarative settings API) is not broadly deployed
-  yet. Revisit once 1.13 has been the stable public release for a while.
+  yet (public release is 1.12.7 as of July 2026). Revisit once 1.13 has been
+  the stable public release for a while.
+- **Moving import work off the main thread** (Web Worker): unzip/decrypt of a
+  jwpub currently blocks Obsidian's UI for 1–3 seconds during import.
+  Deferred until it hurts in practice — the rework is disproportionate to the
+  current pain.
 
 ## Under consideration
 
@@ -28,10 +31,6 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   Watchtower study edition) as meeting notes — the decryption, crypto and
   scripture-link infrastructure is fully reusable; unclear how much demand
   there is.
-- **Moving import work off the main thread** (Web Worker): unzip/decrypt of a
-  jwpub currently blocks Obsidian's UI for 1–3 seconds during import.
-  Deliberately deferred until it hurts in practice — the rework is
-  disproportionate to the current pain.
 
 ## Recently shipped
 

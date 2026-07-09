@@ -98,6 +98,23 @@ export default class JwCongregationPlugin extends Plugin {
 		}
 		const touch = evt.touches[0]!;
 		this.touchStart = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+
+		// Disarm Obsidian's own touch handling for scripture links right at the
+		// START of the gesture, not only at its end: Obsidian's tap helper arms
+		// its touchend listener during touchstart, and its long-press link menu
+		// is a ~400 ms timer started on touchstart whose CANCEL also lives in a
+		// touchend listener. Stopping only the touchend (as the first version of
+		// this fix did) therefore killed the cancel too — the orphaned timer
+		// fired moments after our popup opened and the "open in browser / edit
+		// link / copy URL" sheet appeared on a plain tap (confirmed on a real
+		// iPhone). Deliberately NO preventDefault here: native scrolling that
+		// happens to start on a link must keep working. Long-pressing a
+		// scripture link consequently does nothing at all now — acceptable,
+		// since every action in that sheet targets the raw URL, which is
+		// meaningless for these generated deep links.
+		if (this.settings.bibleFileLoaded && this.findScriptureLinkForEvent(evt)) {
+			evt.stopImmediatePropagation();
+		}
 	}
 
 	private onDocumentTouchEnd(evt: TouchEvent): void {

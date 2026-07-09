@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.7.0
+
+### New features
+
+- **Study-note cross-references are clickable**: references like "See study note on Mt 5:18" inside the popup's study notes now open another verse popup. The target book is resolved from the Bible file's own document table (verified against all 3,557 study notes of a real study edition, German and English).
+- **Fully bilingual interface**: the settings tab, import dialog and every notice follow the (renamed) "Language of the interface and Bible-verse popup" setting; the settings tab re-renders immediately when the language is switched.
+- **Bible-file hint**: without a Bible file loaded, the first three scripture clicks (and every 20th after that) show a one-time tip that adding a Bible jwpub file enables the in-app verse popup.
+- **Import preview shows the detected program-file language.**
+
+### Fixes
+
+- **iPhone editing view opened JW Library instead of the popup**: Obsidian's mobile tap helper handles `touchend` and calls its link handler directly — invisible to any click listener. The plugin now registers its own capture-phase `touchend` listener with the same tap heuristic (< 600 ms, < 5 px movement) and intercepts scripture taps before Obsidian's handler runs; scrolling and long-presses are untouched.
+- **The verse popup opens instantly**: previously the very first click silently waited several seconds while the Bible file (up to ~125 MB) was decrypted and indexed; the popup now opens immediately and shows its loading state, and a load failure keeps it usable as a JW Library springboard.
+- **Missing Bible file on a synced device** now produces a clear, actionable message (settings sync between devices, the file itself does not) instead of a cryptic error.
+- **Scripture links are editable again in editing view**: clicks are only intercepted on the rendered link decoration — clicking into the raw markdown (cursor on the line) places the cursor normally instead of opening the popup.
+- **Memory guidance for mobile**: the Bible-file setting now recommends the much smaller regular edition (nwt) for memory-constrained mobile devices.
+
+### Other
+
+- English `package.json` description, `authorUrl` in the manifest, corrected legacy `versions.json` entry.
+- New English parser unit tests (synthetic fixtures); plugin-review lint warnings reduced from 28 to 2 (both remaining ones are the documented `display()` fallback for Obsidian < 1.13).
+
 ## 1.6.0
 
 ### New features

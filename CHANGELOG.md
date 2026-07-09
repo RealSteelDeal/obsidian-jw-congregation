@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.6.0
+
+### New features
+
+- **English program files are now fully supported.** The language of the imported file is detected automatically (`MepsLanguageIndex`); all generated notes, labels, file and folder names follow it — a German jwpub produces German notes (`00. Übersicht.md`, `**Bibeltexte:**`, …), an English one English notes (`00. Overview.md`, `**Scriptures:**`, …), including English Bible book names, folder names (`2026 Regional Convention – …`) and the review note. English-specific program details are handled correctly: `Song No. 160` lines, `jwpub://p/E:` song links, `CHAIRMAN’S ADDRESS:`/`FEATURE BIBLE DRAMA:`/`PUBLIC BIBLE DISCOURSE:` markers, `Music-Video Presentation`/`Intermission` entries and the `Find Answers to These Questions` document. Verified against real German and English files of all three convention types. (The RTF-ZIP fallback remains German-only.)
+- **"Next:" hint in every program-item note**: each note now ends with what follows in the program — a song (with JW Library link), the next program item (linked to its note) or a break — with a visible three-line writing gap above it.
+- **One-time update notice**: after a plugin update, a notice reminds you that note-template improvements only reach existing convention folders via delete + re-import.
+- **Settings are searchable**: the settings tab now uses Obsidian's declarative settings API (1.13+), so every option is found by the app-wide settings search; older Obsidian versions keep the previous tab.
+
+### Fixes
+
+- **Bible-verse popup**: marker letters inside the footnote/cross-reference accordions now carry the same colors as their inline counterparts (footnotes orange, cross-references green); study-note labels get their own purple. The "Open in JW Library" button moved below the accordions, closing the popup.
+- **Review note**: the type-specific instruction now sits as an italic "Hinweis:"/"Note:" line directly beneath the title (no more duplicated heading, since the filename already serves as the title).
+- **Import dialog**: when the saved target folder no longer exists, the dialog now defaults to the vault root instead of pre-filling the "new folder" flow with a stale name.
+- **Scripture-link clicks** are now intercepted at window level with `stopImmediatePropagation`, addressing JW Library opening in parallel with the popup in editing view.
+- Declared `@codemirror/view` as a direct dependency and switched to `activeDocument` (popout-window compatibility) — resolves the plugin-review warnings.
+
+### Other
+
+- Plugin name and description in the manifest, and the README, are now in English (the plugin supports German and English program files; notes always follow the file's language).
+- Replaced the broken `scripts/analyze-jwpub.mjs` (still required the removed `adm-zip`) with the working `scripts/dump-structure.mjs`.
+
 ## 1.5.1
 
 ### Fehlerbehebungen (Bibeltext-Popup)

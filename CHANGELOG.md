@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.2
+
+### New features
+
+- **Safety cap for stacked verse popups**: cross-reference and study-note links can open popups on top of popups without limit — every open popup holds its verse content in memory, and enough of them can slow Obsidian down or crash it, especially on mobile. At 10 simultaneously open popups, further ones are blocked with an explanatory notice asking to close some first.
+
 ## 1.7.1
 
 ### Fixes

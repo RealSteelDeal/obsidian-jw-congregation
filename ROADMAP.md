@@ -35,6 +35,8 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 
 ## Recently shipped
 
+- Language-aware `wtlocale` in generated JW Library links (X for German,
+  E for English notes)
 - Chapter context in the verse popup: verse-by-verse expansion and a
   whole-chapter view, with chapter bounds read from the Bible file itself —
   which also fixed verses cited nowhere (e.g. Psalm 117:2) losing their

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.8.1
+
+### Fixes
+
+- **`wtlocale` in generated links follows the note language**: scripture and song links hardcoded `wtlocale=X` (German) even inside notes generated from English program files. The locale now matches the link's language context (X = German, E = English) — notes follow the imported file's language, the popup's JW Library button follows the popup language. (`prefer=lang` meant the hardcoded X mostly still worked; matching the note's language is the correct source hint.)
+
+### Other
+
+- Roadmap: planned features now include "insert verse as quote" (offline, from the local Bible file) and documenting the JW Library Linker synergy.
+
 ## 1.8.0
 
 ### New features

@@ -209,3 +209,19 @@ a.external-link[href*="jw.org/finder"]:not(#_)::after {
 	padding: 0;
 	margin: 0;
 }
+
+/* Popup header: back arrow (navigation history) + passage title in one row.
+   The back button only exists after navigating into a cross-reference. */
+.jw-bible-verse-header {
+	display: flex;
+	align-items: center;
+	gap: 0.4em;
+}
+
+.jw-bible-verse-header h2 {
+	margin: 0;
+}
+
+.jw-bible-back-button {
+	flex-shrink: 0;
+}

@@ -6,6 +6,9 @@ Obsidian Community Plugin (TypeScript → gebündeltes JavaScript via esbuild).
 Liest JW-Kongressprogramme (`.jwpub` / RTF-ZIP) ein und erzeugt Markdown-Notizen.
 
 - Einstiegspunkt: `src/main.ts` → kompiliert nach `main.js`
+- **minAppVersion ist 1.13.0** (seit Branch feature/1.8.0): Der Einstellungs-Tab nutzt
+  ausschließlich die deklarative Settings-API (getSettingDefinitions); der frühere
+  imperative display()-Fallback für ältere Obsidian-Versionen wurde entfernt.
 - Release-Artefakte: `main.js`, `manifest.json`, `styles.css` (mehr nicht – der
   Community-Plugin-Installer lädt aus einem GitHub-Release ausschließlich diese drei
   Dateien; alles andere muss in `main.js` eingebettet sein)
@@ -89,6 +92,11 @@ Echte Testdateien für beide Sprachen (alle 3 Kongresstypen + Studienbibel) lieg
 unter `C:\Users\LukasSchütter\Obsidian\.dateien\{Deutsch,Englisch}\` — nach Parser-Änderungen
 immer alle 6 Kongressdateien durch `node scripts/test-parse.mjs` schicken und die
 Programmpunkt-Zahlen zwischen den Sprachen vergleichen (müssen identisch sein).
+
+## Roadmap
+
+Geplante Features und Ideen stehen öffentlich in `ROADMAP.md` (englisch) — dort pflegen,
+nicht hier duplizieren. Historische Entscheidungen dazu:
 
 ## Bewusst zurückgestellt
 

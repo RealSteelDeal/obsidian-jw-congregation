@@ -54,7 +54,7 @@ export interface Strings {
 	popupStudyNotes: string;
 	popupVersePrefix: string;
 	popupNoText: string;
-	popupLimitReached: string;
+	popupBack: string;
 
 	// ── Notices (settings.lang) ─────────────────────────────────────────────
 	noticeUpdated: (version: string) => string;
@@ -68,6 +68,7 @@ export interface Strings {
 	noticeImportResult: (folder: string, created: number, updated: number, skipped: number) => string;
 	noticeImportRolledBack: (err: string) => string;
 	noticePickFileFirst: string;
+	noticeOpenOverviewHint: string;
 	noticeNotAFolder: (path: string) => string;
 
 	// ── Settings tab (settings.lang) ────────────────────────────────────────
@@ -88,6 +89,8 @@ export interface Strings {
 	setShowSpeaker: string;
 	setExtraFields: string;
 	setExtraFieldsDesc: string;
+	setFrontmatter: string;
+	setFrontmatterDesc: string;
 	headPopup: string;
 	setBibleFile: string;
 	bibleDescLoaded: string;
@@ -162,13 +165,13 @@ export const L: Record<SupportedLang, Strings> = {
 		popupStudyNotes: 'Studienanmerkungen',
 		popupVersePrefix: 'Vers',
 		popupNoText: '(kein Text verfügbar)',
-		popupLimitReached: 'Maximal 10 gestapelte Bibeltext-Popups erreicht — es werden keine weiteren geöffnet, da zu viele offene Popups Obsidian verlangsamen oder zum Absturz bringen können. Bitte erst einige Popups schließen.',
+		popupBack: 'Zurück zur vorherigen Stelle',
 
 		noticeUpdated: version => `JW Kongressprogramm wurde auf Version ${version} aktualisiert.\n\nVerbesserungen an den Notiz-Vorlagen erreichen bereits importierte Kongresse nicht automatisch: Um sie zu übernehmen, den Kongress-Ordner löschen und die Programmdatei neu importieren.\n\n(Zum Schließen klicken)`,
 		noticeBibleSaved: 'Bibel-Datei gespeichert.',
 		noticeBibleMissingOnDevice: 'Die Bibel-Datei fehlt auf diesem Gerät (Einstellungen werden synchronisiert, die Datei selbst nicht). Bitte in den Plugin-Einstellungen unter „Bibel-Datei" neu auswählen.',
 		noticeBibleLoadFailed: err => `Bibel-Datei konnte nicht geladen werden: ${err}`,
-		noticeBibleHint: 'Tipp: Hinterlege in den Plugin-Einstellungen eine Bibel-jwpub-Datei (z. B. die Studienbibel von jw.org), dann öffnet ein Klick auf eine Bibelstelle den Vers-Text samt Querverweisen und Studienanmerkungen direkt als Popup in Obsidian.',
+		noticeBibleHint: 'Tipp: Hinterlege in den Plugin-Einstellungen eine Bibel-jwpub-Datei (z. B. die Studienbibel von jw.org), dann öffnet ein Klick auf eine Bibelstelle den Vers-Text samt Querverweisen und Studienanmerkungen direkt als Popup in Obsidian. (Klicken öffnet die Einstellungen)',
 		noticeImportFailed: err => `Import fehlgeschlagen: ${err}`,
 		noticeRtfFallback: 'Jwpub-Parsing fehlgeschlagen – RTF-Fallback verwendet.',
 		noticeImportProgress: (done, total) => `Import läuft … ${done}/${total}`,
@@ -180,6 +183,7 @@ export const L: Record<SupportedLang, Strings> = {
 		},
 		noticeImportRolledBack: err => `Import fehlgeschlagen, bereits erstellte Dateien wurden zurückgerollt: ${err}`,
 		noticePickFileFirst: 'Bitte zuerst eine Datei wählen.',
+		noticeOpenOverviewHint: '(Klicken, um die Übersicht zu öffnen)',
 		noticeNotAFolder: path => `„${path}" ist keine Ordner-Datei.`,
 
 		setTargetFolder: 'Zielordner',
@@ -199,6 +203,8 @@ export const L: Record<SupportedLang, Strings> = {
 		setShowSpeaker: 'Feld "Redner" anzeigen',
 		setExtraFields: 'Zusätzliche Felder',
 		setExtraFieldsDesc: 'Jede Zeile wird als eigenes Feld mit eigenem Schreibplatz an jede Programmpunkt-Notiz angehängt (z. B. "**Notizen:**").',
+		setFrontmatter: 'Frontmatter (Eigenschaften) hinzufügen',
+		setFrontmatterDesc: 'Fügt jeder erzeugten Notiz YAML-Frontmatter mit stabilen englischen Schlüsseln hinzu (convention, type, day, time) – z. B. für Dataview-Abfragen. Die Schlüssel sind bewusst sprachunabhängig.',
 		headPopup: 'Bibeltext-Popup',
 		setBibleFile: 'Bibel-Datei',
 		bibleDescLoaded: 'Bibel-Datei ist geladen. Ein Klick auf eine Bibelstelle zeigt den Vers-Text direkt in Obsidian an (mit einem Button zum Öffnen in JW Library).',
@@ -276,13 +282,13 @@ export const L: Record<SupportedLang, Strings> = {
 		popupStudyNotes: 'Study notes',
 		popupVersePrefix: 'Verse',
 		popupNoText: '(no text available)',
-		popupLimitReached: 'Maximum of 10 stacked Bible-verse popups reached — no further popups will open, since too many open popups can slow Obsidian down or crash it. Please close some popups first.',
+		popupBack: 'Back to the previous passage',
 
 		noticeUpdated: version => `JW Convention Program was updated to version ${version}.\n\nNote-template improvements do not reach already imported conventions automatically: to pick them up, delete the convention folder and re-import the program file.\n\n(Click to dismiss)`,
 		noticeBibleSaved: 'Bible file saved.',
 		noticeBibleMissingOnDevice: 'The Bible file is missing on this device (settings sync between devices, the file itself does not). Please re-select it under "Bible file" in the plugin settings.',
 		noticeBibleLoadFailed: err => `The Bible file could not be loaded: ${err}`,
-		noticeBibleHint: 'Tip: Add a Bible jwpub file (e.g. the study edition from jw.org) in the plugin settings — clicking a scripture will then open the verse text with cross-references and study notes directly as a popup in Obsidian.',
+		noticeBibleHint: 'Tip: Add a Bible jwpub file (e.g. the study edition from jw.org) in the plugin settings — clicking a scripture will then open the verse text with cross-references and study notes directly as a popup in Obsidian. (Click to open the settings)',
 		noticeImportFailed: err => `Import failed: ${err}`,
 		noticeRtfFallback: 'jwpub parsing failed – RTF fallback used.',
 		noticeImportProgress: (done, total) => `Importing … ${done}/${total}`,
@@ -294,6 +300,7 @@ export const L: Record<SupportedLang, Strings> = {
 		},
 		noticeImportRolledBack: err => `Import failed; files created so far were rolled back: ${err}`,
 		noticePickFileFirst: 'Please pick a file first.',
+		noticeOpenOverviewHint: '(Click to open the overview)',
 		noticeNotAFolder: path => `“${path}” is not a folder.`,
 
 		setTargetFolder: 'Target folder',
@@ -313,6 +320,8 @@ export const L: Record<SupportedLang, Strings> = {
 		setShowSpeaker: 'Show "Speaker" field',
 		setExtraFields: 'Extra fields',
 		setExtraFieldsDesc: 'Each line is appended to every program-item note as its own field with its own writing space (e.g. "**Notes:**").',
+		setFrontmatter: 'Add frontmatter (properties)',
+		setFrontmatterDesc: 'Adds YAML frontmatter with stable English keys (convention, type, day, time) to every generated note – e.g. for Dataview queries. Keys are deliberately language-independent.',
 		headPopup: 'Bible-verse popup',
 		setBibleFile: 'Bible file',
 		bibleDescLoaded: 'Bible file is loaded. Clicking a scripture shows the verse text directly in Obsidian (with a button to open it in JW Library).',

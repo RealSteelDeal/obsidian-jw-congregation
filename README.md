@@ -34,7 +34,7 @@ An Obsidian community plugin that imports official convention program files of J
 
 ## Requirements
 
-- Obsidian ≥ 1.6.6
+- Obsidian ≥ 1.13.0
 - Runs on desktop and mobile (iOS/Android) – decryption uses WebCrypto (`crypto.subtle`) instead of Node `crypto`, `pako` instead of Node `zlib`, `fflate` instead of `adm-zip`
 
 ## Installation
@@ -159,6 +159,10 @@ src/
     jwpubCrypto.ts           # shared jwpub crypto
     bytes.ts                 # hex/latin1 helpers
 ```
+
+## Roadmap
+
+Planned features and ideas under consideration live in [ROADMAP.md](ROADMAP.md).
 
 ## License
 

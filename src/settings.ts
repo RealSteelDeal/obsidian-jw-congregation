@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, SettingDefinitionItem } from 'obsidian';
+import { App, PluginSettingTab, requireApiVersion, Setting, SettingDefinitionItem } from 'obsidian';
 import type JwCongregationPlugin from './main';
 import { SupportedLang } from './normalizer/bookNames';
 import { L, Strings } from './i18n';
@@ -47,13 +47,6 @@ export const DEFAULT_SETTINGS: JwPluginSettings = {
 	bibleHintClickCount: 0,
 };
 
-// Declarative settings only (minAppVersion is 1.13.0, where the declarative
-// API including getSettingDefinitions()/setControlValue() is always present) —
-// the imperative display() fallback for older Obsidian versions was removed
-// together with the minAppVersion bump. getControlValue()/setControlValue()
-// keep their PluginSettingTab defaults (read/write this.plugin.settings),
-// which match our settings shape; setControlValue is only overridden to
-// re-render the language-dependent tab after a language switch.
 export class JwSettingTab extends PluginSettingTab {
 	constructor(app: App, private readonly plugin: JwCongregationPlugin) {
 		super(app, plugin);
@@ -63,6 +56,16 @@ export class JwSettingTab extends PluginSettingTab {
 		return L[this.plugin.settings.lang];
 	}
 
+	// Declarative settings (Obsidian ≥ 1.13.0) — makes every setting below
+	// searchable from the app-wide settings search. getControlValue()/
+	// setControlValue() are left at their PluginSettingTab default (read/write
+	// this.plugin.settings directly), which matches our settings shape.
+	// display() below is the fallback for Obsidian < 1.13.0 — REQUIRED, not
+	// legacy decoration: raising minAppVersion to 1.13 was tried once and
+	// immediately produced an empty settings tab on a real 1.12.7 install
+	// (Obsidian 1.13 is not broadly deployed yet). The base class only calls
+	// display() when getSettingDefinitions() isn't supported, so both paths
+	// never run at once; keep the two in sync when changing a setting.
 	getSettingDefinitions(): SettingDefinitionItem[] {
 		const t = this.t;
 		return [
@@ -117,7 +120,13 @@ export class JwSettingTab extends PluginSettingTab {
 					{
 						name: t.setBibleFile,
 						desc: this.plugin.settings.bibleFileLoaded ? t.bibleDescLoaded : t.bibleDescMissing,
-						render: setting => this.renderBibleFileSetting(setting),
+						// this.update() is only ever reachable here on Obsidian ≥ 1.13.0 (only
+						// such versions call getSettingDefinitions()/render() in the first
+						// place), but the requireApiVersion() guard is still needed to satisfy
+						// static minAppVersion checks against this newer API.
+						render: setting => this.renderBibleFileSetting(setting, () => {
+							if (requireApiVersion('1.13.0')) this.update();
+						}),
 					},
 				],
 			},
@@ -126,15 +135,24 @@ export class JwSettingTab extends PluginSettingTab {
 
 	// The whole tab is language-dependent — re-render it right after the user
 	// switches the language so the change is visible immediately, not only on
-	// the next opening of the settings.
+	// the next opening of the settings. Obsidian only ever calls
+	// setControlValue on ≥ 1.13.0 (the declarative-settings API that includes
+	// it), so the guard can never actually fail — it exists to satisfy the
+	// static minAppVersion check.
 	async setControlValue(key: string, value: unknown): Promise<void> {
-		await super.setControlValue(key, value);
-		if (key === 'lang') this.update();
+		if (requireApiVersion('1.13.0')) {
+			await super.setControlValue(key, value);
+			if (key === 'lang') this.update();
+		}
 	}
 
-	// The declarative "render" escape hatch: a file-upload button plus a
-	// conditional delete button has no direct declarative equivalent.
-	private renderBibleFileSetting(setting: Setting): void {
+	// Shared between the declarative "render" escape hatch (above — a
+	// file-upload button plus a conditional delete button has no direct
+	// declarative equivalent) and the display() fallback below. `refresh`
+	// re-renders the tab afterwards — this.update() under the declarative
+	// path, this.display() under the imperative fallback; only one of the two
+	// rendering paths is ever active for a given Obsidian version.
+	private renderBibleFileSetting(setting: Setting, refresh: () => void): void {
 		const t = this.t;
 		setting
 			.addButton(btn =>
@@ -145,7 +163,7 @@ export class JwSettingTab extends PluginSettingTab {
 						const file = input.files?.[0];
 						if (!file) return;
 						await this.plugin.setBibleFile(new Uint8Array(await file.arrayBuffer()));
-						this.update();
+						refresh();
 					};
 					input.click();
 				}),
@@ -153,9 +171,150 @@ export class JwSettingTab extends PluginSettingTab {
 			.addExtraButton(btn => {
 				btn.setIcon('trash').setTooltip(t.btnRemoveBible).onClick(async () => {
 					await this.plugin.removeBibleFile();
-					this.update();
+					refresh();
 				});
 				btn.extraSettingsEl.toggle(this.plugin.settings.bibleFileLoaded);
 			});
+	}
+
+	display(): void {
+		const { containerEl } = this;
+		const t = this.t;
+		containerEl.empty();
+
+		new Setting(containerEl)
+			.setName(t.setTargetFolder)
+			.setDesc(t.setTargetFolderDesc)
+			.addText(text =>
+				text
+					.setPlaceholder(t.setTargetFolderPlaceholder)
+					.setValue(this.plugin.settings.targetFolder)
+					.onChange(async value => {
+						this.plugin.settings.targetFolder = value.trim();
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t.setLang)
+			.setDesc(t.setLangDesc)
+			.addDropdown(drop =>
+				drop
+					.addOption('de', 'Deutsch')
+					.addOption('en', 'English')
+					.setValue(this.plugin.settings.lang)
+					.onChange(async (value: string) => {
+						this.plugin.settings.lang = value as SupportedLang;
+						await this.plugin.saveSettings();
+						this.display();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t.setScriptureLinks)
+			.setDesc(t.setScriptureLinksDesc)
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.scriptureLinks)
+					.onChange(async value => {
+						this.plugin.settings.scriptureLinks = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t.setReviewNote)
+			.setDesc(t.setReviewNoteDesc)
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.reviewNote)
+					.onChange(async value => {
+						this.plugin.settings.reviewNote = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl).setName(t.headNoteFields).setHeading();
+
+		new Setting(containerEl)
+			.setName(t.setShowDay)
+			.setDesc(t.setShowDayDesc)
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.showTagField)
+					.onChange(async value => {
+						this.plugin.settings.showTagField = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t.setShowTime)
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.showTimeField)
+					.onChange(async value => {
+						this.plugin.settings.showTimeField = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t.setShowScriptures)
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.showScriptureField)
+					.onChange(async value => {
+						this.plugin.settings.showScriptureField = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t.setShowSpeaker)
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.showSpeakerField)
+					.onChange(async value => {
+						this.plugin.settings.showSpeakerField = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t.setExtraFields)
+			.setDesc(t.setExtraFieldsDesc)
+			.addTextArea(text =>
+				text
+					.setPlaceholder('**Notizen:**')
+					.setValue(this.plugin.settings.extraFields)
+					.onChange(async value => {
+						this.plugin.settings.extraFields = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t.setFrontmatter)
+			.setDesc(t.setFrontmatterDesc)
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.frontmatter)
+					.onChange(async value => {
+						this.plugin.settings.frontmatter = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl).setName(t.headPopup).setHeading();
+
+		const bibleFileSetting = new Setting(containerEl)
+			.setName(t.setBibleFile)
+			.setDesc(this.plugin.settings.bibleFileLoaded ? t.bibleDescLoaded : t.bibleDescMissing);
+		// This whole method only runs on Obsidian < 1.13.0 (see class-level comment
+		// above), where display() is the only way to refresh the tab — the resulting
+		// "display is deprecated" lint warning below is the documented fallback
+		// pattern, not leftover use of the old API.
+		this.renderBibleFileSetting(bibleFileSetting, () => this.display());
 	}
 }

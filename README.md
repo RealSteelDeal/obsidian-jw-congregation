@@ -34,7 +34,7 @@ An Obsidian community plugin that imports official convention program files of J
 
 ## Requirements
 
-- Obsidian ≥ 1.13.0
+- Obsidian ≥ 1.8.7
 - Runs on desktop and mobile (iOS/Android) – decryption uses WebCrypto (`crypto.subtle`) instead of Node `crypto`, `pako` instead of Node `zlib`, `fflate` instead of `adm-zip`
 
 ## Installation

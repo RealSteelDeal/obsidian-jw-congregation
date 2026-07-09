@@ -15,6 +15,13 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   language detection) — each language needs real program files for testing,
   its type-marker variants and a string-table entry.
 
+## Later
+
+- **Raise minAppVersion to 1.13 and drop the imperative settings fallback**:
+  tried once and reverted — a real 1.12.7 install rendered an empty settings
+  tab, since Obsidian 1.13 (declarative settings API) is not broadly deployed
+  yet. Revisit once 1.13 has been the stable public release for a while.
+
 ## Under consideration
 
 - **Import of other jwpub publications** (Life and Ministry Meeting Workbook,

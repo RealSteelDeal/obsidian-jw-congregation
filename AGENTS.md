@@ -6,9 +6,11 @@ Obsidian Community Plugin (TypeScript → gebündeltes JavaScript via esbuild).
 Liest JW-Kongressprogramme (`.jwpub` / RTF-ZIP) ein und erzeugt Markdown-Notizen.
 
 - Einstiegspunkt: `src/main.ts` → kompiliert nach `main.js`
-- **minAppVersion ist 1.13.0** (seit Branch feature/1.8.0): Der Einstellungs-Tab nutzt
-  ausschließlich die deklarative Settings-API (getSettingDefinitions); der frühere
-  imperative display()-Fallback für ältere Obsidian-Versionen wurde entfernt.
+- **minAppVersion bleibt 1.6.6**: Ein Anheben auf 1.13 (nur deklarative Settings-API)
+  wurde auf feature/1.8.0 probiert und sofort zurückgenommen — reale Installation 1.12.7
+  zeigte einen leeren Einstellungs-Tab, Obsidian 1.13 ist noch nicht breit verteilt.
+  display()-Fallback NICHT entfernen, ohne die verteilte Obsidian-Version zu prüfen
+  (installierte Version steht in AppData/Local/Programs/Obsidian/resources/app.asar).
 - Release-Artefakte: `main.js`, `manifest.json`, `styles.css` (mehr nicht – der
   Community-Plugin-Installer lädt aus einem GitHub-Release ausschließlich diese drei
   Dateien; alles andere muss in `main.js` eingebettet sein)

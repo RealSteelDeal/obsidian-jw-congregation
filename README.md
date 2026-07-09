@@ -2,7 +2,7 @@
 
 An Obsidian community plugin that imports official convention program files of Jehovah's Witnesses and turns them into structured, linked Markdown notes in your vault.
 
-**Sprachhinweis:** Das Plugin unterstützt deutsche und englische Programmdateien. Die erzeugten Notizen folgen automatisch der Sprache der importierten Datei — aus einer deutschen jwpub-Datei entstehen deutsche Notizen, aus einer englischen englische.
+**Language note:** The plugin supports German and English program files. Generated notes automatically follow the language of the imported file — a German jwpub file produces German notes, an English one English notes. The plugin interface itself can be switched between German and English in the settings.
 
 ## Features
 
@@ -18,7 +18,7 @@ An Obsidian community plugin that imports official convention program files of J
   - Circuit assemblies (one day) place their notes directly in the convention folder
 - **One note per program item**, numbered in program order (`01.`, `02.`, …)
   - Symposiums get one note with a heading per part
-- **A per-day overview note** (`00. Übersicht.md` / `00. Overview.md`) with the complete day's program:
+- **A per-day overview note** (`00. Overview.md`; `00. Übersicht.md` for German imports) with the complete day's program:
   - the day's cover image and theme (with linked scripture) at the top
   - every program item linked to its note
   - symposium parts linked straight to the matching section
@@ -29,8 +29,8 @@ An Obsidian community plugin that imports official convention program files of J
 - **"Next:" hint** at the end of every note – the following song (linked), the next program item (linked to its note) or the break
 - **Clickable scriptures** as JW Library deep links in every note
 - **Bible-verse popup** (optional): with a user-supplied Bible jwpub file (`nwt`/`nwtsty`), clicking a scripture opens the verse text directly in Obsidian – including footnotes, cross-references and study notes – instead of jumping to JW Library
-- **Review note** (`Wiederholung.md` / `Review.md`) with the three standard reflection questions for the congregation's convention review
-- **Printed review questions** ("Beantworte die folgenden Fragen" / "Find Answers to These Questions") become their own note with one heading per question, always numbered last
+- **Review note** (`Review.md`; `Wiederholung.md` for German imports) with the three standard reflection questions for the congregation's convention review
+- **Printed review questions** ("Find Answers to These Questions") become their own note with one heading per question, always numbered last
 
 ## Requirements
 
@@ -56,7 +56,7 @@ An Obsidian community plugin that imports official convention program files of J
 
 ## Usage
 
-1. **Ribbon icon** (book symbol) or **command palette** → "Kongressprogramm importieren"
+1. **Ribbon icon** (book symbol) or **command palette** → "Import convention program"
 2. Pick a program file (`.jwpub` or RTF-ZIP)
 3. Pick a target folder (vault root is the default; an existing folder or "new folder" can be chosen instead)
 4. Check the preview (convention type, theme, detected days/program items)
@@ -68,12 +68,12 @@ Re-importing into an existing convention folder only refreshes purely derived fi
 
 | Setting | Default | Description |
 |---|---|---|
-| Zielordner | *(vault root)* | Parent folder for new convention folders (overridable per import); empty = no wrapper folder |
-| Sprache des Bibeltext-Popups | `Deutsch` | Language of the Bible-verse popup (book names, labels). Notes follow the imported file's language automatically |
-| Bibelstellen verlinken | on | Generates clickable `jwlibrary://` links |
-| Wiederholungs-Notiz erstellen | on | Creates the additional review note |
-| Notiz-Felder | all on | Show/hide the Day/Time/Scriptures/Speaker fields individually, plus free-form extra fields |
-| Bibel-Datei | – | Optional Bible jwpub file for the verse popup (recommended: study edition `nwtsty`) |
+| Target folder | *(vault root)* | Parent folder for new convention folders (overridable per import); empty = no wrapper folder |
+| Language of the interface and Bible-verse popup | `Deutsch` | Plugin labels and Bible book names in the popup. Generated notes follow the imported file's language automatically |
+| Link scriptures | on | Generates clickable `jwlibrary://` links |
+| Create review note | on | Creates the additional review note |
+| Note fields | all on | Show/hide the Day/Time/Scriptures/Speaker fields individually, plus free-form extra fields |
+| Bible file | – | Optional Bible jwpub file for the verse popup (study edition `nwtsty` for study notes; the much smaller regular edition `nwt` is the memory-friendly choice on mobile) |
 
 ## Folder & note structure
 
@@ -89,16 +89,16 @@ By default (target folder = vault root), each convention is its own top-level fo
   Saturday/
   Sunday/
   Review.md
-Kreiskongressprogramm 2026-2027 – mit dem Kreisaufseher – „Titel“/
-  Titelbild.jpg
-  00. Übersicht.md
-  01. Warum sollten wir mit ganzem Herzen auf Jehova vertrauen.md
+2026-2027 Circuit Assembly – With Circuit Overseer – “Theme”/
+  Cover.jpg
+  00. Overview.md
+  01. Why Trust In Jehovah With All Your Heart.md
   ...
-  10. Beantworte die folgenden Fragen.md   ← always numbered last
-  Wiederholung.md
+  10. Find Answers to These Questions.md   ← always numbered last
+  Review.md
 ```
 
-(The first example shows an English import, the second a German one – names follow the file's language.)
+(Examples show English imports; a German program file produces German names throughout — e.g. `Regionaler Kongress 2026 – …`, `00. Übersicht.md`, `Titelbild.jpg`, `Wiederholung.md`.)
 
 ## Technical details
 

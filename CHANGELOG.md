@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.1
+
+### Fixes
+
+- **Link context sheet no longer appears after a tap on iOS**: Obsidian starts its long-press timer on `touchstart` and cancels it in a `touchend` listener — the 1.7.0 tap fix stopped exactly that listener, so the orphaned timer fired ~400 ms later and the "open in browser / edit link / copy URL" sheet popped up right after the verse popup, in both views. Obsidian's touch handling for scripture links is now disarmed at `touchstart` (its tap helper never arms, the long-press timer never starts); native scrolling is unaffected. Long-pressing a scripture link now intentionally does nothing.
+
 ## 1.7.0
 
 ### New features

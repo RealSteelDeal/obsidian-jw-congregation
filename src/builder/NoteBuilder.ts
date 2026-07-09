@@ -356,7 +356,7 @@ export class NoteBuilder {
 	private overviewScriptureLink(s: Scripture): string {
 		const label = ScriptureNormalizer.format(s, this.lang);
 		if (!this.opts.scriptureLinks) return label;
-		return `<a href="${ScriptureNormalizer.toJwLibraryLink(s)}">${label}</a>`;
+		return `<a href="${ScriptureNormalizer.toJwLibraryLink(s, this.lang)}">${label}</a>`;
 	}
 
 	// Neither `pub=sjjm&issue=0&track=N` nor `lank=pub-sjjm_${N+500}` worked on a
@@ -376,7 +376,7 @@ export class NoteBuilder {
 	// which has no docid to read and can't do better than a guess.
 	private songLink(songNumber: number, songDocid?: number): string {
 		const docid = songDocid ?? 1102016800 + songNumber;
-		return `https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=${docid}`;
+		return `https://www.jw.org/finder?srcid=jwlshare&wtlocale=${ScriptureNormalizer.wtlocale(this.lang)}&prefer=lang&docid=${docid}`;
 	}
 
 	private renderSingleNote(item: ProgramItem, day: Day, congress: Congress, trailingText?: string): string {

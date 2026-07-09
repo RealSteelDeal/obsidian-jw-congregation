@@ -156,7 +156,7 @@ export class BibleVerseModal extends Modal {
 				.setButtonText(L[this.lang].popupOpenJwLibrary)
 				.setCta()
 				.onClick(() => {
-					window.open(ScriptureNormalizer.toJwLibraryLink(this.scripture));
+					window.open(ScriptureNormalizer.toJwLibraryLink(this.scripture, this.lang));
 					this.close();
 				}),
 		);

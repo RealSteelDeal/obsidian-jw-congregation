@@ -300,7 +300,7 @@ test('an English congress produces English folder name, filenames and labels', (
 	assert.ok(itemNote.content.includes('**Speaker:**'));
 	// "Song No. 89" keeps only the song designation as the link; the remark stays plain text.
 	assert.ok(itemNote.content.includes(
-		'**Next:** [Song No. 89](https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=1102016889) and Announcements',
+		'**Next:** [Song No. 89](https://www.jw.org/finder?srcid=jwlshare&wtlocale=E&prefer=lang&docid=1102016889) and Announcements',
 	));
 
 	const review = result.notes.find(n => n.filename === 'Review.md');

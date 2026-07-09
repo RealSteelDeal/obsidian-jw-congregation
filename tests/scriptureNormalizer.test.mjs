@@ -67,3 +67,11 @@ test('toMarkdownLink combines the readable label and the deeplink', () => {
 		'[Psalm 16:11](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19016011&pub=nwtsty)',
 	);
 });
+
+test('toJwLibraryLink carries the language-matching wtlocale (X for German, E for English)', () => {
+	const s = { book: 19, chapter: 16, verseStart: 11 };
+	assert.ok(ScriptureNormalizer.toJwLibraryLink(s, 'de').includes('wtlocale=X'));
+	assert.ok(ScriptureNormalizer.toJwLibraryLink(s, 'en').includes('wtlocale=E'));
+	// Callers without a language context (default) keep the German locale.
+	assert.ok(ScriptureNormalizer.toJwLibraryLink(s).includes('wtlocale=X'));
+});

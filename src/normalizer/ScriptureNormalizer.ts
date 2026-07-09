@@ -63,15 +63,27 @@ export class ScriptureNormalizer {
 	 * (confirmed against a real share from the Windows desktop app) — only the
 	 * scheme+host are swapped for jwlibrary://. Closest match to what the app
 	 * itself generates is the most reliable bet (same reasoning as the song link).
+	 *
+	 * `wtlocale` follows the language the link is generated for (X = German,
+	 * E = English) — it used to be hardcoded to X, which put a German source
+	 * locale into links inside English notes. `prefer=lang` makes JW Library
+	 * favour the user's own language either way, so X mostly still worked, but
+	 * matching the note's language is the correct hint. Defaults to 'de' for
+	 * callers without a language context.
 	 */
-	static toJwLibraryLink(s: Scripture): string {
+	static toJwLibraryLink(s: Scripture, lang: SupportedLang = 'de'): string {
 		const start = ScriptureNormalizer.toRtfCode(s.book, s.chapter, s.verseStart);
-		const params = 'srcid=jwlshare&wtlocale=X&prefer=lang';
+		const params = `srcid=jwlshare&wtlocale=${ScriptureNormalizer.wtlocale(lang)}&prefer=lang`;
 		if (s.verseEnd !== undefined && s.verseEnd !== s.verseStart) {
 			const end = ScriptureNormalizer.toRtfCode(s.book, s.chapter, s.verseEnd);
 			return `jwlibrary:///finder?${params}&bible=${start}-${end}&pub=nwtsty`;
 		}
 		return `jwlibrary:///finder?${params}&bible=${start}&pub=nwtsty`;
+	}
+
+	/** MEPS locale symbol for a supported language (the wtlocale= URL parameter). */
+	static wtlocale(lang: SupportedLang): string {
+		return lang === 'en' ? 'E' : 'X';
 	}
 
 	/**
@@ -93,7 +105,7 @@ export class ScriptureNormalizer {
 	/** Renders a Scripture as a Markdown link: [Spr 16:20](jwlibrary:///finder?bible=20016020) */
 	static toMarkdownLink(s: Scripture, lang: SupportedLang): string {
 		const label = ScriptureNormalizer.format(s, lang);
-		const href  = ScriptureNormalizer.toJwLibraryLink(s);
+		const href  = ScriptureNormalizer.toJwLibraryLink(s, lang);
 		return `[${label}](${href})`;
 	}
 

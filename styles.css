@@ -125,18 +125,35 @@ a.external-link[href*="jw.org/finder"]:not(#_)::after {
 
 /* Deliberately not --text-accent (used by the verse/chapter number) or
    --text-muted (too easily read as "just faded text") — a distinct warm tone
-   so the footnote letter can't be mistaken for a verse number at a glance. */
+   so the footnote letter can't be mistaken for a verse number at a glance.
+   font-weight is repeated here (not just on .jw-bible-inline-marker) because
+   this class is also used standalone for the marker letter in the collapsed
+   footnotes list below the verse text (see BibleVerseModal.renderNotes()),
+   where .jw-bible-inline-marker's superscript/size wouldn't fit the list. */
 .jw-bible-inline-footnote {
 	color: var(--text-warning);
+	font-weight: 700;
 }
 
 /* Also deliberately not --text-accent — that's what the verse/chapter number
    already uses, so cross-reference markers would blend right into it
    otherwise (confirmed by real-world testing). A third, distinct tone from
    the footnote's --text-warning so all three (verse number, footnote,
-   cross-reference) stay tellable apart at a glance. */
+   cross-reference) stay tellable apart at a glance. Also used standalone in
+   the collapsed cross-references list, same reasoning as .jw-bible-inline-footnote. */
 .jw-bible-inline-crossref {
 	color: var(--text-success);
+	font-weight: 700;
+}
+
+/* Study-note label (e.g. "5:1") in the collapsed study-notes list — a fourth
+   distinct tone so it can't be mistaken for the verse number (--text-accent),
+   footnote (--text-warning) or cross-reference (--text-success) markers.
+   Study notes have no inline-verse marker (unlike footnotes/cross-references),
+   so this class only ever appears standalone in the list. */
+.jw-bible-inline-studynote {
+	color: var(--color-purple);
+	font-weight: 700;
 }
 
 /* Bible references embedded inside footnote/cross-reference/study-note text —

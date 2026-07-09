@@ -1,9 +1,9 @@
 import { Congress, Day, ProgramItem, Scripture } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 import { SupportedLang } from '../normalizer/bookNames';
+import { L, Strings } from '../i18n';
 
 export interface NoteBuilderOptions {
-	lang: SupportedLang;
 	scriptureLinks: boolean;
 	reviewNote: boolean;
 	showTagField: boolean;
@@ -40,27 +40,40 @@ export interface BuildResult {
 
 export class NoteBuilder {
 
+	// Notes are generated in the language of the imported FILE (Congress.lang),
+	// not the plugin's UI language — mixing e.g. German labels into an English
+	// programme would help nobody. Set at the start of buildNotes()/
+	// congressFolderName() from the congress being rendered; 'de' is only the
+	// pre-first-call placeholder.
+	private lang: SupportedLang = 'de';
+
 	constructor(private readonly opts: NoteBuilderOptions) {}
 
+	private get t(): Strings {
+		return L[this.lang];
+	}
+
 	congressFolderName(congress: Congress): string {
+		this.lang = congress.lang;
 		const { year, theme, type } = congress;
 		const clean = this.sanitizeFolderName(theme);
 		const season = `${year - 1}-${year}`;
 		switch (type) {
-			case 'CO':        return `Regionaler Kongress ${year} – ${clean}`;
-			case 'CA-copgm':  return `Kreiskongressprogramm ${season} – mit dem Kreisaufseher – „${clean}“`;
-			case 'CA-brpgm':  return `Kreiskongressprogramm ${season} – mit dem Vertreter des Zweigbüros – „${clean}“`;
+			case 'CO':        return this.sanitizeFolderName(this.t.folderCO(year, clean));
+			case 'CA-copgm':  return this.sanitizeFolderName(this.t.folderCAco(season, clean));
+			case 'CA-brpgm':  return this.sanitizeFolderName(this.t.folderCAbr(season, clean));
 		}
 	}
 
 	buildNotes(congress: Congress): BuildResult {
+		this.lang = congress.lang;
 		const notes: GeneratedNote[] = [];
 		const attachments: GeneratedAttachment[] = [];
 		const isMultiDay = congress.type === 'CO';
 
-		// Base name of the printed "Beantworte die folgenden Fragen" note (circuit
-		// assemblies only) — the review note links straight to it instead of
-		// duplicating its content.
+		// Base name of the printed review-questions note (circuit assemblies
+		// only) — the review note links straight to it instead of duplicating
+		// its content.
 		let questionsBaseName: string | undefined;
 
 		for (const day of congress.days) {
@@ -68,10 +81,13 @@ export class NoteBuilder {
 			const noteBaseNames = new Map<ProgramItem, string>();
 			const dayNotes: GeneratedNote[] = [];
 
+			// First pass: assign every note its number/base name up front. Rendering
+			// needs the *complete* map, because each note's "Anschließend" hint links
+			// to the FOLLOWING item's note — whose name wouldn't exist yet if naming
+			// and rendering happened in the same pass.
 			let index = 0;
 			for (const session of day.sessions) {
-				for (let i = 0; i < session.items.length; i++) {
-					const item = session.items[i]!;
+				for (const item of session.items) {
 					// Songs and asides (Pause/Musikvideo) show up in the overview only —
 					// no dedicated, numbered note for either.
 					if (item.itemType === 'song' || item.itemType === 'aside') continue;
@@ -80,32 +96,42 @@ export class NoteBuilder {
 
 					const baseName = `${number}. ${this.slugify(item.title)}`;
 					noteBaseNames.set(item, baseName);
-					if (item.title === 'Beantworte die folgenden Fragen') {
+					if (item.title === this.t.questionsTitle) {
 						questionsBaseName = baseName;
 					}
+				}
+			}
 
-					// A song (often with a trailing "und Gebet") that directly follows
-					// this item in the programme — mentioned and linked in the item's
-					// own note too, not just the overview, so it isn't only visible one
-					// note away.
+			// Second pass: render. Whatever directly follows this item in the
+			// programme — a song (often with a trailing "und Gebet"), a plain aside
+			// (Pause, Musikvideo, …) or the next regular programme item — is
+			// mentioned at the end of the item's own note too, not just in the
+			// overview, so the flow of the programme is visible without switching
+			// notes. Deliberately session-scoped: the last item of a session gets no
+			// hint pointing across the lunch break.
+			for (const session of day.sessions) {
+				for (let i = 0; i < session.items.length; i++) {
+					const item = session.items[i]!;
+					if (item.itemType === 'song' || item.itemType === 'aside') continue;
+
 					const next = session.items[i + 1];
-					const trailingSong = next?.itemType === 'song' ? next : undefined;
+					const trailingText = next ? this.trailingItemText(next, noteBaseNames.get(next)) : undefined;
 
 					const content = item.itemType === 'talk-series'
-						? this.renderSeriesNote(item, day, congress, trailingSong)
-						: this.renderSingleNote(item, day, congress, trailingSong);
-					dayNotes.push({ filename: `${baseName}.md`, dayFolder, content });
+						? this.renderSeriesNote(item, day, congress, trailingText)
+						: this.renderSingleNote(item, day, congress, trailingText);
+					dayNotes.push({ filename: `${noteBaseNames.get(item)!}.md`, dayFolder, content });
 				}
 			}
 
 			let coverImageFilename: string | undefined;
 			if (day.coverImage) {
-				coverImageFilename = `Titelbild${this.extensionFor(day.coverImage.mimeType, day.coverImage.filename)}`;
+				coverImageFilename = `${this.t.coverImageBase}${this.extensionFor(day.coverImage.mimeType, day.coverImage.filename)}`;
 				attachments.push({ filename: coverImageFilename, dayFolder, data: day.coverImage.data, regenerate: true });
 			}
 
 			notes.push({
-				filename: '00. Übersicht.md',
+				filename: `${this.t.overviewBase}.md`,
 				dayFolder,
 				content: this.renderOverviewNote(day, congress, noteBaseNames, coverImageFilename),
 				regenerate: true,
@@ -115,7 +141,7 @@ export class NoteBuilder {
 
 		if (this.opts.reviewNote) {
 			notes.push({
-				filename: 'Wiederholung.md',
+				filename: `${this.t.reviewNoteBase}.md`,
 				content: this.renderReviewNote(congress, questionsBaseName),
 			});
 		}
@@ -128,27 +154,30 @@ export class NoteBuilder {
 	// circuit assemblies repeat the printed review questions from the programme
 	// (which we already generated a note for), regional conventions instead play
 	// a highlights video (not something we can extract from the programme file).
+	// The pointer sits as an italic "Hinweis:" line at the very top (same styling
+	// slot as a programme item's subtitle, e.g. "*Folge 4: …*"), not at the
+	// bottom — per user request, so the practical instruction is read before the
+	// questions rather than discovered after them. Deliberately NO "#" heading:
+	// Obsidian already renders the filename ("Wiederholung") as the note's inline
+	// title, so an in-note heading showed up as a duplicate second title.
 	private renderReviewNote(congress: Congress, questionsBaseName: string | undefined): string {
 		const lines: string[] = [];
-		lines.push('# Kongress-Wiederholung');
-		lines.push('');
-		lines.push('**Welche Gedanken haben dich Jehova nähergebracht?**');
-		lines.push('');
-		lines.push('');
-		lines.push('**Welche Gedanken kannst du im Predigtdienst anwenden?**');
-		lines.push('');
-		lines.push('');
-		lines.push('**Welche Gedanken kannst du in deinem persönlichen Leben anwenden?**');
-		lines.push('');
-		lines.push('');
 
 		const isCA = congress.type === 'CA-copgm' || congress.type === 'CA-brpgm';
 		if (isCA && questionsBaseName) {
-			lines.push(`Der Versammlungsleiter stellt außerdem die gedruckten Wiederholungsfragen: [[${questionsBaseName}|Beantworte die folgenden Fragen]]`);
+			const link = `[[${questionsBaseName}|${this.t.questionsTitle}]]`;
+			lines.push(`*${this.t.reviewHintCA(link)}*`);
+			lines.push('');
 		} else if (!isCA) {
-			lines.push('Der Bruder lässt das Video mit Auszügen aus dem Kongressprogramm abspielen.');
+			lines.push(`*${this.t.reviewHintCO}*`);
+			lines.push('');
 		}
-		lines.push('');
+
+		for (const question of this.t.reviewQuestions) {
+			lines.push(`**${question}**`);
+			lines.push('');
+			lines.push('');
+		}
 
 		return lines.join('\n').trim() + '\n';
 	}
@@ -228,21 +257,59 @@ export class NoteBuilder {
 	}
 
 	private splitSongTitle(title: string): { label: string; remark?: string } {
-		const match = /^((?:Lied|Song)\s+\d+)[.,:;\s-]*(.*)$/i.exec(title.trim());
+		// "Lied 12 und Gebet" (German) / "Song No. 160 and Prayer" (English) —
+		// the optional "No." only appears in English programme files.
+		const match = /^((?:Lied|Song)(?:\s+No\.)?\s+\d+)[.,:;\s-]*(.*)$/i.exec(title.trim());
 		if (!match || !match[1]) return { label: title };
 		return { label: match[1], remark: match[2]?.trim() || undefined };
+	}
+
+	// Own writing space (e.g. for the talk itself) needs clear air below it before
+	// the "Anschließend" hint, or the two run together — trims whatever blank
+	// lines the preceding section already ended with (usually just one, after
+	// "**Redner:**") and replaces them with a fixed 3-line gap, regardless of
+	// what came right before.
+	//
+	// The gap lines carry a literal no-break space (U+00A0) instead of being
+	// empty: Markdown collapses any run of truly blank lines into a single
+	// paragraph break when rendering, so plain empty lines would be invisible in
+	// Reading View (confirmed by real-world testing — the gap only showed in the
+	// raw source). A line whose only content is a no-break space is "non-empty"
+	// to the renderer and keeps its own line height, while looking blank and
+	// being freely type-over-able in the editor. Deliberately the raw character,
+	// NOT the `&nbsp;` entity: Live Preview displays the entity as literal
+	// "&nbsp;" text (also confirmed by real-world testing), while the raw
+	// character is invisible in every view.
+	private pushAnschliessendGap(lines: string[]): void {
+		// trim() (not === '') because a preceding noteSpace() sits in the array as
+		// one single '\n\n\n' element, not as individual empty lines — a plain
+		// equality check walks right past it and the gap ends up 10 lines tall
+		// for series notes (confirmed against a real imported note).
+		while (lines.length > 0 && lines[lines.length - 1]!.trim() === '') lines.pop();
+		lines.push('');
+		for (let i = 0; i < 3; i++) lines.push('\u00A0');
+		lines.push('');
+	}
+
+	// A trailing song gets its usual JW-Library-linked treatment; a regular
+	// programme item links to its own note; an aside (Pause, Musikvideo, …) has
+	// no link target, so its plain title is enough.
+	private trailingItemText(item: ProgramItem, baseName: string | undefined): string {
+		if (item.itemType === 'song') return this.songLinkText(item);
+		if (baseName) return `[[${baseName}|${item.title}]]`;
+		return item.title;
 	}
 
 	// Every dedicated per-item note carries a link back to the day's overview —
 	// as close to "above the title" as Obsidian allows (content can't render
 	// above the inline title, so this is the first line of body content instead).
 	// Uses a folder-qualified link (not just "[[00. Übersicht]]") so multi-day
-	// congresses, which have one "00. Übersicht" per day folder, resolve
+	// congresses, which have one overview note per day folder, resolve
 	// unambiguously rather than relying on Obsidian's shortest-path guess.
 	private overviewLinkLine(day: Day, congress: Congress): string {
 		const folder = this.dayFolderName(day, congress);
-		const target = folder ? `${folder}/00. Übersicht` : '00. Übersicht';
-		return `[[${target}|↩ Zur Übersicht]]`;
+		const target = folder ? `${folder}/${this.t.overviewBase}` : this.t.overviewBase;
+		return `[[${target}|${this.t.backToOverview}]]`;
 	}
 
 	private dayFolderName(day: Day, congress: Congress): string | undefined {
@@ -270,7 +337,7 @@ export class NoteBuilder {
 	}
 
 	private overviewScriptureLink(s: Scripture): string {
-		const label = ScriptureNormalizer.format(s, this.opts.lang);
+		const label = ScriptureNormalizer.format(s, this.lang);
 		if (!this.opts.scriptureLinks) return label;
 		return `<a href="${ScriptureNormalizer.toJwLibraryLink(s)}">${label}</a>`;
 	}
@@ -295,7 +362,7 @@ export class NoteBuilder {
 		return `https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=${docid}`;
 	}
 
-	private renderSingleNote(item: ProgramItem, day: Day, congress: Congress, trailingSong?: ProgramItem): string {
+	private renderSingleNote(item: ProgramItem, day: Day, congress: Congress, trailingText?: string): string {
 		const lines: string[] = [];
 
 		lines.push(this.overviewLinkLine(day, congress));
@@ -305,15 +372,15 @@ export class NoteBuilder {
 			lines.push(`*${item.subtitle}*`);
 			lines.push('');
 		}
-		if (this.opts.showTagField && congress.type === 'CO') lines.push(`**Tag:** ${day.weekday}`);
-		if (this.opts.showTimeField && item.time) lines.push(`**Uhrzeit:** ${item.time}`);
+		if (this.opts.showTagField && congress.type === 'CO') lines.push(`**${this.t.dayLabel}:** ${day.weekday}`);
+		if (this.opts.showTimeField && item.time) lines.push(`**${this.t.timeLabel}:** ${item.time}`);
 
 		if (this.opts.showScriptureField && item.scriptures.length > 0) {
 			lines.push(this.scriptureBlock(item.scriptures));
 		}
 
 		if (this.opts.showSpeakerField) {
-			lines.push('**Redner:**');
+			lines.push(`**${this.t.speakerLabel}:**`);
 			lines.push('');
 		}
 		this.pushExtraFields(lines);
@@ -326,8 +393,9 @@ export class NoteBuilder {
 			lines.push('');
 		}
 
-		if (trailingSong) {
-			lines.push(`**Anschließend:** ${this.songLinkText(trailingSong)}`);
+		if (trailingText) {
+			this.pushAnschliessendGap(lines);
+			lines.push(`**${this.t.nextLabel}:** ${trailingText}`);
 			lines.push('');
 		}
 
@@ -336,7 +404,7 @@ export class NoteBuilder {
 		return lines.join('\n');
 	}
 
-	private renderSeriesNote(item: ProgramItem, day: Day, congress: Congress, trailingSong?: ProgramItem): string {
+	private renderSeriesNote(item: ProgramItem, day: Day, congress: Congress, trailingText?: string): string {
 		const lines: string[] = [];
 
 		lines.push(this.overviewLinkLine(day, congress));
@@ -346,8 +414,8 @@ export class NoteBuilder {
 			lines.push(`*${item.subtitle}*`);
 			lines.push('');
 		}
-		if (this.opts.showTagField && congress.type === 'CO') lines.push(`**Tag:** ${day.weekday}`);
-		if (this.opts.showTimeField && item.time) lines.push(`**Uhrzeit:** ${item.time}`);
+		if (this.opts.showTagField && congress.type === 'CO') lines.push(`**${this.t.dayLabel}:** ${day.weekday}`);
+		if (this.opts.showTimeField && item.time) lines.push(`**${this.t.timeLabel}:** ${item.time}`);
 
 		if (this.opts.showScriptureField && item.scriptures.length > 0) {
 			lines.push(this.scriptureBlock(item.scriptures));
@@ -364,7 +432,7 @@ export class NoteBuilder {
 					lines.push(this.scriptureBlock(part.scriptures));
 				}
 				if (this.opts.showSpeakerField) {
-					lines.push('**Redner:**');
+					lines.push(`**${this.t.speakerLabel}:**`);
 					lines.push('');
 				}
 				this.pushExtraFields(lines);
@@ -372,15 +440,16 @@ export class NoteBuilder {
 			}
 		} else {
 			if (this.opts.showSpeakerField) {
-				lines.push('**Redner:**');
+				lines.push(`**${this.t.speakerLabel}:**`);
 				lines.push('');
 			}
 			this.pushExtraFields(lines);
 			lines.push(this.noteSpace());
 		}
 
-		if (trailingSong) {
-			lines.push(`**Anschließend:** ${this.songLinkText(trailingSong)}`);
+		if (trailingText) {
+			this.pushAnschliessendGap(lines);
+			lines.push(`**${this.t.nextLabel}:** ${trailingText}`);
 			lines.push('');
 		}
 
@@ -406,14 +475,14 @@ export class NoteBuilder {
 
 	private scriptureBlock(scriptures: Scripture[]): string {
 		const links = scriptures.map(s => this.formatScripture(s)).join('; ');
-		return `**Bibeltexte:** (${links})`;
+		return `**${this.t.scripturesLabel}:** (${links})`;
 	}
 
 	private formatScripture(s: Scripture): string {
 		if (this.opts.scriptureLinks) {
-			return ScriptureNormalizer.toMarkdownLink(s, this.opts.lang);
+			return ScriptureNormalizer.toMarkdownLink(s, this.lang);
 		}
-		return ScriptureNormalizer.format(s, this.opts.lang);
+		return ScriptureNormalizer.format(s, this.lang);
 	}
 
 	private noteSpace(): string {

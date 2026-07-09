@@ -61,8 +61,15 @@ export class ImportModal extends Modal {
 			);
 
 		const folders = listAllFolders(this.app);
+		// A saved target folder that no longer exists in the vault must not funnel
+		// the user into the "create new folder" flow with a stale prefill (confirmed
+		// by real-world feedback: a leftover "Kongress" default made the modal open
+		// on "➕ Neuer Ordner" every time). Fall back to the vault root instead —
+		// "new folder" is strictly an explicit dropdown choice now.
+		if (this.targetFolder !== '' && !folders.some(f => f.path === this.targetFolder)) {
+			this.targetFolder = '';
+		}
 		const isRoot = this.targetFolder === '';
-		const existingMatch = !isRoot && folders.some(f => f.path === this.targetFolder);
 		let newFolderText: TextComponent | undefined;
 
 		const newFolderSetting = new Setting(contentEl)
@@ -70,13 +77,12 @@ export class ImportModal extends Modal {
 			.addText(text => {
 				text
 					.setPlaceholder('z. B. Kongress')
-					.setValue(existingMatch || isRoot ? '' : this.targetFolder)
 					.onChange(value => {
 						this.targetFolder = value.trim();
 					});
 				newFolderText = text;
 			});
-		if (existingMatch || isRoot) newFolderSetting.settingEl.hide();
+		newFolderSetting.settingEl.hide();
 
 		const folderDropdownSetting = new Setting(contentEl)
 			.setName('Zielordner')
@@ -87,7 +93,9 @@ export class ImportModal extends Modal {
 					drop.addOption(folder.path, folder.path);
 				}
 				drop.addOption(NEW_FOLDER_VALUE, '➕ Neuer Ordner …');
-				drop.setValue(isRoot ? ROOT_VALUE : existingMatch ? this.targetFolder : NEW_FOLDER_VALUE);
+				// After the normalization above, targetFolder is always either '' (root)
+				// or an existing folder path — never a not-yet-created name.
+				drop.setValue(isRoot ? ROOT_VALUE : this.targetFolder);
 				drop.onChange(value => {
 					if (value === NEW_FOLDER_VALUE) {
 						newFolderSetting.settingEl.show();

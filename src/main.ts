@@ -33,6 +33,7 @@ export default class JwCongregationPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+		await this.notifyOnUpdate();
 
 		this.addRibbonIcon('book-open', 'Kongressprogramm importieren', () => {
 			new ImportModal(this.app, this).open();
@@ -46,61 +47,75 @@ export default class JwCongregationPlugin extends Plugin {
 
 		this.addSettingTab(new JwSettingTab(this.app, this));
 
-		// A single document-level, CAPTURE-phase click listener handles both
-		// Reading View (real <a href> elements) and Live Preview (links rendered
-		// as decoration spans, e.g. span.cm-underline inside span.cm-link — no
-		// real href to read there). Capture phase is the important part: it runs
-		// before ANY bubble-phase handler anywhere in the DOM tree, which is what
-		// actually guarantees we run before Obsidian's own link-click handling —
-		// unlike a CM6 `EditorView.domEventHandlers` extension (even wrapped in
-		// `Prec.highest()`), which is only guaranteed to win against *other*
-		// domEventHandlers-registered extensions, not against a handler Obsidian
-		// might attach directly to the link's DOM element. A previous version of
-		// this plugin used the Prec.highest()-wrapped extension approach for Live
-		// Preview and it still let JW Library open alongside the popup in some
-		// cases (confirmed by real-world testing) — this capture-phase listener
-		// is the actually-reliable fix.
-		this.registerDomEvent(document, 'click', this.onDocumentClick.bind(this), true);
+		// A single WINDOW-level, CAPTURE-phase click listener handles both Reading
+		// View (real <a href> elements) and Live Preview (links rendered as
+		// decoration spans, e.g. span.cm-underline inside span.cm-link — no real
+		// href to read there).
+		//
+		// Registered on the *window*, not just `document`: inspecting Obsidian's
+		// own bundled app code (obsidian.asar) shows external-link clicks in
+		// Reading View are handled by a delegated click listener bound to the
+		// rendered content's container element, which calls `window.open(href)`
+		// directly — not the browser's native link-following default action, so
+		// `preventDefault()` alone cannot stop it, only intercepting the click
+		// before that delegated handler runs can. Capture phase strictly precedes
+		// bubble phase for the whole dispatch, so any capture-phase listener on
+		// an ancestor should already win against that container's (presumably
+		// bubble-phase) delegated listener — attaching at `window` instead of
+		// `document` additionally guards against the (unconfirmed, but possible)
+		// case of Obsidian having its own document-level capture listener
+		// registered before ours (core loads before plugins, so on the exact same
+		// node we'd otherwise lose that race). `stopImmediatePropagation()` (not
+		// just `stopPropagation()`) also guards against another listener on this
+		// exact same node/phase.
+		//
+		// A 'mousedown' capture-phase listener (same detection, stopPropagation
+		// only) was tried here previously to beat a suspected mousedown-triggered
+		// Obsidian handler in Live Preview, but real-device testing showed no
+		// improvement — reverted. Do not reintroduce it without new evidence of
+		// exactly which event/handler is winning the race.
+		this.registerDomEvent(activeWindow, 'click', this.onDocumentClick.bind(this), true);
 	}
 
 	onunload() {}
 
 	private onDocumentClick(evt: MouseEvent): void {
 		if (!this.settings.bibleFileLoaded) return;
+		const found = this.findScriptureLinkForEvent(evt);
+		if (!found) return;
+		evt.preventDefault();
+		evt.stopImmediatePropagation(); // belt-and-braces: also stop any other click handler on this link/ancestor
+		this.showVersePopupOrFallback(found.scripture, found.href);
+	}
+
+	/** Finds the jwlibrary:// scripture link (if any) that a mouse event's target is part of — Reading View
+	 *  (a real `<a href>`) or Live Preview (a decoration span; resolved via the CM6 EditorView's raw source text). */
+	private findScriptureLinkForEvent(evt: MouseEvent): { scripture: Scripture; href: string } | undefined {
 		const target = evt.target;
-		if (!target || !(target instanceof HTMLElement)) return;
+		if (!target || !(target instanceof HTMLElement)) return undefined;
 
 		// Reading View: a real <a href="jwlibrary://...">.
 		const link = target.closest<HTMLAnchorElement>('a[href^="jwlibrary://"]');
 		if (link) {
 			const scripture = this.parseScriptureFromHref(link.href);
-			if (!scripture) return;
-			evt.preventDefault();
-			evt.stopPropagation(); // belt-and-braces: also stop any other click handler on this link/ancestor
-			this.showVersePopupOrFallback(scripture, link.href);
-			return;
+			return scripture ? { scripture, href: link.href } : undefined;
 		}
 
 		// Live Preview: no real <a> to find — resolve the click position via the
 		// CM6 EditorView the click landed in (if any), then read the raw markdown
 		// source text at that position instead of the rendered (label-only) text.
 		const view = EditorView.findFromDOM(target);
-		if (!view) return;
+		if (!view) return undefined;
 
 		let pos: number;
 		try {
 			pos = view.posAtDOM(target);
 		} catch {
-			return;
+			return undefined;
 		}
 
 		const line = view.state.doc.lineAt(pos);
-		const found = this.findScriptureLinkInText(line.text, pos - line.from);
-		if (!found) return;
-
-		evt.preventDefault();
-		evt.stopPropagation();
-		this.showVersePopupOrFallback(found.scripture, found.href);
+		return this.findScriptureLinkInText(line.text, pos - line.from);
 	}
 
 	/** Finds a jwlibrary:// scripture link (markdown or raw-HTML form) whose span covers `offset` within `text`. */
@@ -186,12 +201,36 @@ export default class JwCongregationPlugin extends Plugin {
 		return this.bibleReaderLoading;
 	}
 
+	// Imported notes with writing space are deliberately never auto-updated on
+	// re-import (see GeneratedNote.regenerate), so improvements to the note
+	// templates don't reach existing congress folders on their own — after an
+	// update, the user has to delete and re-import to pick them up. This shows
+	// that hint exactly once per new version (sticky Notice, dismissed by
+	// clicking). Only a genuinely fresh install records the version silently —
+	// detected via hadStoredSettings, NOT via a missing lastVersion: everyone
+	// updating from a version predating this feature is missing lastVersion too,
+	// and those users are exactly the ones with stale imported notes.
+	private async notifyOnUpdate(): Promise<void> {
+		const current = this.manifest.version;
+		if (this.settings.lastVersion === current) return;
+		const isUpdate = this.settings.lastVersion !== '' || this.hadStoredSettings;
+		this.settings.lastVersion = current;
+		await this.saveSettings();
+		if (isUpdate) {
+			new Notice(
+				`JW Kongressprogramm wurde auf Version ${current} aktualisiert.\n\nVerbesserungen an den Notiz-Vorlagen erreichen bereits importierte Kongresse nicht automatisch: Um sie zu übernehmen, den Kongress-Ordner löschen und die Programmdatei neu importieren.\n\n(Zum Schließen klicken)`,
+				0,
+			);
+		}
+	}
+
+	/** True when data.json existed before this load — i.e. anything but a fresh install. */
+	private hadStoredSettings = false;
+
 	async loadSettings() {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			(await this.loadData()) as Partial<JwPluginSettings>,
-		);
+		const stored = (await this.loadData()) as Partial<JwPluginSettings> | null;
+		this.hadStoredSettings = stored != null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, stored);
 	}
 
 	async saveSettings() {
@@ -200,8 +239,10 @@ export default class JwCongregationPlugin extends Plugin {
 
 	async importFile(filename: string, data: Uint8Array, targetFolder?: string): Promise<void> {
 		const router = new SourceRouter(this.sqlWasmBinary);
+		// No lang here: generated notes follow the imported FILE's language
+		// (Congress.lang, auto-detected by the parser) — settings.lang only
+		// drives the Bible-verse popup.
 		const builder = new NoteBuilder({
-			lang: this.settings.lang,
 			scriptureLinks: this.settings.scriptureLinks,
 			reviewNote: this.settings.reviewNote,
 			showTagField: this.settings.showTagField,

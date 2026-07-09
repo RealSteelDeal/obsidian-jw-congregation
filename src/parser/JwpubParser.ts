@@ -2,25 +2,36 @@ import type { Unzipped } from 'fflate';
 import type { Database } from 'sql.js';
 import { Congress, CongressType, CoverImage, Day, ItemType, ProgramItem, Scripture, Session } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
+import { SupportedLang } from '../normalizer/bookNames';
+import { L, Strings } from '../i18n';
 import { DbRow, decryptBlob, deriveKey, openJwpubDatabase, readPublication } from '../util/jwpubCrypto';
 
 // Matches jwpub://b/NWTR/book:chapter:verse[-book:chapter:verse]
 const BIBLE_HREF_RE = /^jwpub:\/\/b\/NWTR\/([\d:]+(?:-[\d:]+)?)$/;
-// Matches jwpub://p/X:<docid>/ — the real jw.org/finder docid for a song, embedded
-// directly in the jwpub file. Not a linear function of the song number (confirmed:
-// docid jumps by +6000 for at least one song vs. the naive songNumber-based guess),
-// so this is the only reliable source and must be read rather than computed.
-const SONG_DOCID_HREF_RE = /^jwpub:\/\/p\/X:(\d+)\/?$/;
-// Time at start of paragraph text
+// Matches jwpub://p/<langSymbol>:<docid>/ — the real jw.org/finder docid for a
+// song, embedded directly in the jwpub file. The language symbol varies with
+// the publication's language (X = German, E = English, …), so it must NOT be
+// hardcoded. The docid is not a linear function of the song number (confirmed:
+// docid jumps by +6000 for at least one song vs. the naive songNumber-based
+// guess), so this is the only reliable source and must be read, not computed.
+const SONG_DOCID_HREF_RE = /^jwpub:\/\/p\/[^:/]+:(\d+)\/?$/;
+// Any song/publication link, language-independent (jwpub://p/X:…, jwpub://p/E:…).
+const SONG_HREF_SELECTOR = 'a[href^="jwpub://p/"]';
+// Time at start of paragraph text — same "H:MM" shape in German (24h) and
+// English (12h without am/pm) programme files.
 const TIME_RE = /^\s*(\d{1,2}:\d{2})/;
-// Standalone "Musik"/"Musikvideo" line (no song link, no talk) — shown in the
-// overview as an aside, without its own note.
-const MUSIC_VIDEO_RE = /^(Musik(?:video)?)$/i;
-// "Pause" line, optionally with a duration, e.g. "Pause" or "Pause (15 Min.)" —
-// same treatment as Musikvideo: overview-only, no dedicated note.
-const PAUSE_RE = /^(Pause\b.*)$/i;
-// "Beantworte die folgenden Fragen:" / "Answer the following questions:" style Q&A blocks
-const QUESTIONS_RE = /^(Beantworte die folgenden Fragen|Answer the following questions)/i;
+// Standalone music line (no song link, no talk) — shown in the overview as an
+// aside, without its own note. Real-world variants: "Musik" (German CA),
+// "Musikvideo" (German CO), "Music" (English CA), "Music-Video Presentation"
+// (English CO; the hyphen may be a non-breaking variant, hence the class).
+const MUSIC_VIDEO_RE = /^(Musik(?:video)?|Music(?:[\s‐-―-]?Video)?(?:\s?Presentation)?)$/i;
+// Standalone break line, optionally with a duration, e.g. "Pause" or
+// "Pause (15 Min.)" / "Intermission" — same treatment: overview-only, no note.
+const PAUSE_RE = /^((?:Pause|Intermission)\b.*)$/i;
+// Printed review-questions blocks/documents. Real h1s: "Beantworte die
+// folgenden Fragen:" (German) and "Find Answers to These Questions:" (English);
+// "Answer the following questions" kept as a defensive extra variant.
+const QUESTIONS_RE = /^(Beantworte die folgenden Fragen|Find answers to these questions|Answer the following questions)/i;
 
 export class JwpubParser {
 
@@ -31,6 +42,17 @@ export class JwpubParser {
 	 *   that it receives the bytes.
 	 */
 	constructor(private readonly sqlWasmBinary: Uint8Array) {}
+
+	// Language of the file currently being parsed, set at the start of
+	// buildCongress() from the publication's MepsLanguageIndex (0 = English,
+	// 2 = German). Anything unknown falls back to German — the plugin's primary
+	// audience — with the language-tolerant regexes above still giving such
+	// files a fighting chance structurally.
+	private lang: SupportedLang = 'de';
+
+	private get t(): Strings {
+		return L[this.lang];
+	}
 
 	async parse(fileBuffer: Uint8Array): Promise<Congress> {
 		this.assertPlatformSupport();
@@ -108,6 +130,9 @@ export class JwpubParser {
 		const symbol = String(pub['Symbol']);
 		const year   = Number(pub['Year']);
 		const type   = this.detectType(symbol);
+		// sql.js may return numeric columns as strings — always cast (same caveat
+		// as IssueTagNumber in deriveKey()).
+		this.lang = Number(pub['MepsLanguageIndex']) === 0 ? 'en' : 'de';
 
 		// Theme: for CO the cover doc title is the theme ("Ewiges Glück").
 		// For CA the cover doc title is the publication name; the actual congress
@@ -150,7 +175,7 @@ export class JwpubParser {
 			if (questionsItem) {
 				const targetDay = days[days.length - 1];
 				if (targetDay) {
-					targetDay.sessions.push({ name: 'Wiederholungsfragen', items: [questionsItem] });
+					targetDay.sessions.push({ name: this.t.reviewQuestionsSession, items: [questionsItem] });
 				}
 				continue;
 			}
@@ -166,18 +191,19 @@ export class JwpubParser {
 			}
 		}
 
-		// Keep "Wiederholungsfragen" as the last session of its day, regardless of
-		// the order in which its source document appeared in the jwpub file.
+		// Keep the review-questions session last on its day, regardless of the
+		// order in which its source document appeared in the jwpub file.
+		const questionsSession = this.t.reviewQuestionsSession;
 		for (const day of days) {
 			day.sessions.sort((a, b) =>
-				(a.name === 'Wiederholungsfragen' ? 1 : 0) - (b.name === 'Wiederholungsfragen' ? 1 : 0),
+				(a.name === questionsSession ? 1 : 0) - (b.name === questionsSession ? 1 : 0),
 			);
 		}
 
-		// CO: sort Freitag → Samstag → Sonntag
+		// CO: sort Friday → Saturday → Sunday
 		days.sort((a, b) => this.dayOrder(a.weekday) - this.dayOrder(b.weekday));
 
-		return { type, theme, themeScripture, year, days };
+		return { type, theme, themeScripture, year, days, lang: this.lang };
 	}
 
 	// ──────────────────────────────────────────────────────────────────────────
@@ -256,14 +282,14 @@ export class JwpubParser {
 		if (!h1) return null;
 		const text = h1.textContent?.trim() ?? '';
 
-		// CO: explicit weekday in h1
-		const match = /\b(Freitag|Samstag|Sonntag)\b/i.exec(text);
+		// CO: explicit weekday in h1 (German or English programme files)
+		const match = /\b(Freitag|Samstag|Sonntag|Friday|Saturday|Sunday)\b/i.exec(text);
 		if (match) return match[1] ?? null;
 
 		// CA: one-day congress — h1 has theme, not weekday.
 		// Detect by presence of session structure (h2 inside bodyTxt).
 		const hasSession = dom.querySelector('.bodyTxt h2') !== null;
-		if (hasSession) return 'Samstag';
+		if (hasSession) return this.t.caFallbackDay;
 
 		return null;
 	}
@@ -275,9 +301,12 @@ export class JwpubParser {
 
 		if (!bodyTxt) return { name: dayName, weekday: dayName, theme, themeScripture, sessions };
 
-		// Split by <h2> session headers
+		// Split by <h2> session headers (their text — "Vormittag"/"Morning"/… —
+		// is taken over verbatim, so session names follow the file's language
+		// automatically; the default below is only a fallback for items that
+		// unexpectedly appear before the first <h2>).
 		const children = Array.from(bodyTxt.children);
-		let currentSessionName = 'Vormittag';
+		let currentSessionName = this.t.defaultSession;
 		let currentItems: ProgramItem[] = [];
 
 		for (const child of children) {
@@ -286,7 +315,7 @@ export class JwpubParser {
 					sessions.push({ name: currentSessionName, items: currentItems });
 					currentItems = [];
 				}
-				currentSessionName = child.textContent?.trim() ?? 'Vormittag';
+				currentSessionName = child.textContent?.trim() ?? this.t.defaultSession;
 				continue;
 			}
 
@@ -324,11 +353,12 @@ export class JwpubParser {
 			return { time, itemType: 'aside', title: textAfterTime, scriptures: [], bulletPoints: [] };
 		}
 
-		// Song reference (has jwpub://p/X: link but no bible ref) — captured as its own
-		// item so it can be listed & linked in the day overview, but doesn't get its own
-		// note. Uses the full paragraph text (not just the link text) so any adjoining
-		// remark in the same line — e.g. "Lied 43 (Bekanntmachungen und Gebet)" — is kept.
-		const songLink     = li.querySelector('a[href^="jwpub://p/X:"]');
+		// Song reference (has a jwpub://p/ link but no bible ref) — captured as its
+		// own item so it can be listed & linked in the day overview, but doesn't get
+		// its own note. Uses the full paragraph text (not just the link text) so any
+		// adjoining remark in the same line — e.g. "Lied 43 und Gebet" / "Song
+		// No. 14 and Intermission" — is kept.
+		const songLink     = li.querySelector(SONG_HREF_SELECTOR);
 		const hasBibleLink = li.querySelector('a[href^="jwpub://b/NWTR/"]') !== null;
 		if (songLink && !hasBibleLink) {
 			return this.parseSongLine(time, textAfterTime, songLink);
@@ -369,7 +399,7 @@ export class JwpubParser {
 		return {
 			time,
 			itemType: 'song',
-			title: fullText || linkText || `Lied ${songNumber}`,
+			title: fullText || linkText || this.t.song(songNumber),
 			scriptures: [],
 			bulletPoints: [],
 			songNumber,
@@ -384,7 +414,7 @@ export class JwpubParser {
 		// P2: episode subtitle + refs (italic)
 		const seriesTitle = paragraphs[1]?.textContent?.trim() ?? '';
 		const episodeText = this.stripScriptureCitation(paragraphs[2]?.textContent?.trim() ?? '');
-		const title    = seriesTitle || 'Bibeldrama';
+		const title    = seriesTitle || this.t.bibleDramaFallback;
 		const subtitle = episodeText || undefined;
 		const scriptures = this.extractScriptures(li);
 		return { time, itemType, title, subtitle, scriptures, bulletPoints: [] };
@@ -410,14 +440,15 @@ export class JwpubParser {
 		return {
 			time,
 			itemType: 'talk-series',
-			title: 'Beantworte die folgenden Fragen',
+			title: this.t.questionsTitle,
 			scriptures: [],
 			bulletPoints: [],
 			parts,
 		};
 	}
 
-	/** Standalone "Beantworte die folgenden Fragen" / "Answer the following questions" document. */
+	/** Standalone review-questions document ("Beantworte die folgenden Fragen:" /
+	 *  "Find Answers to These Questions:"). */
 	private extractQuestionsDocument(dom: Document): ProgramItem | null {
 		const h1 = dom.querySelector('h1');
 		const h1Text = h1?.textContent?.trim() ?? '';
@@ -431,7 +462,7 @@ export class JwpubParser {
 		return {
 			time: '',
 			itemType: 'talk-series',
-			title: 'Beantworte die folgenden Fragen',
+			title: this.t.questionsTitle,
 			scriptures: [],
 			bulletPoints: [],
 			parts,
@@ -481,11 +512,16 @@ export class JwpubParser {
 
 		const marker = spanText || strongText;
 
-		if (/BIBELDRAMA|BIBLE\s*DRAMA/.test(marker))  return ['bible-drama', true];
-		if (/VORTRAGSREIHE|SYMPOSIUM/.test(marker))   return ['talk-series', true];
-		if (/TAUFE|BAPTISM/.test(marker))             return ['baptism', true];
-		if (/INTERVIEW/.test(marker))                  return ['interview', true];
-		if (/VORTRAG|TALK|REDE/.test(marker))         return ['talk', true];
+		// Real-world markers — German: "BIBELDRAMA:", "VORTRAGSREIHE:", "TAUFE:",
+		// "VORTRAG DES VORSITZENDEN:", "ÖFFENTLICHER VORTRAG:"; English:
+		// "FEATURE BIBLE DRAMA:", "SYMPOSIUM:", "BAPTISM:", "CHAIRMAN’S ADDRESS:",
+		// "PUBLIC BIBLE DISCOURSE:" (CA files use mixed case, hence the upper-
+		// casing above).
+		if (/BIBELDRAMA|BIBLE\s*DRAMA/.test(marker))       return ['bible-drama', true];
+		if (/VORTRAGSREIHE|SYMPOSIUM/.test(marker))        return ['talk-series', true];
+		if (/TAUFE|BAPTISM/.test(marker))                  return ['baptism', true];
+		if (/INTERVIEW/.test(marker))                      return ['interview', true];
+		if (/VORTRAG|TALK|REDE|CHAIRMAN|ADDRESS|DISCOURSE/.test(marker)) return ['talk', true];
 
 		return ['talk', false];
 	}
@@ -552,7 +588,10 @@ export class JwpubParser {
 	}
 
 	private dayOrder(weekday: string): number {
-		const order: Record<string, number> = { Freitag: 0, Samstag: 1, Sonntag: 2 };
+		const order: Record<string, number> = {
+			Freitag: 0, Samstag: 1, Sonntag: 2,
+			Friday: 0, Saturday: 1, Sunday: 2,
+		};
 		return order[weekday] ?? 99;
 	}
 }

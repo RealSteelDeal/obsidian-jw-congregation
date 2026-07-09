@@ -61,4 +61,10 @@ export interface Congress {
 	year: number;
 	season?: string;
 	days: Day[];
+	/** Language of the source programme file (JwpubParser: detected from the
+	 *  publication's MepsLanguageIndex; RtfParser: always 'de', German RTF
+	 *  exports are the only ones it understands). Drives the language of all
+	 *  generated notes — labels, file and folder names — independently of the
+	 *  plugin's UI language setting. */
+	lang: 'de' | 'en';
 }

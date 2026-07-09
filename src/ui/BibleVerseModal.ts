@@ -3,6 +3,7 @@ import { BibleReader, VerseDetail, VerseSegment } from '../bible/BibleReader';
 import { Scripture } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 import { SupportedLang } from '../normalizer/bookNames';
+import { L } from '../i18n';
 
 // The scheme used by embedded scripture links *inside* footnote/cross-reference/
 // study-note HTML (e.g. `<a href="jwpub://b/NWTR/43:5:7-43:5:7">Joh 5:7</a>`) —
@@ -29,32 +30,31 @@ export class BibleVerseModal extends Modal {
 		contentEl.createEl('h2', { text: ScriptureNormalizer.format(this.scripture, this.lang) });
 
 		const bodyEl = contentEl.createDiv('jw-bible-verse-text');
-		bodyEl.setText('Lade Bibeltext …');
+		bodyEl.setText(L[this.lang].popupLoading);
 
 		const verses = await this.reader.getVerseDetails(this.scripture);
 		bodyEl.empty();
 		if (verses && verses.length > 0) {
 			this.renderVerseText(bodyEl, verses);
-			this.renderJwLibraryButton(bodyEl);
 			this.renderNotes(bodyEl, verses);
 			this.renderStudyNotes(bodyEl, verses);
 		} else {
 			bodyEl.createEl('p', {
-				text: 'Kein Vers-Text verfügbar (diese Stelle ist in der geladenen Bibel-Datei nicht indiziert).',
+				text: L[this.lang].popupMissing,
 				cls: 'jw-bible-verse-missing',
 			});
-			this.renderJwLibraryButton(bodyEl);
 		}
+		this.renderJwLibraryButton(bodyEl);
 	}
 
-	// Placed directly beneath the verse text, before the (collapsed) footnotes/
-	// cross-references/study notes — the button belongs with the verse it acts
-	// on, not at the very bottom of a popup that can grow much longer once those
-	// sections are expanded.
+	// Placed at the very bottom of the popup, below the (collapsed) footnote/
+	// cross-reference/study-note accordions — an earlier version had it directly
+	// beneath the verse text, but per user feedback the button reads better as
+	// the popup's closing element than as a wedge between text and accordions.
 	private renderJwLibraryButton(container: HTMLElement): void {
 		new Setting(container).addButton(btn =>
 			btn
-				.setButtonText('In JW Library öffnen')
+				.setButtonText(L[this.lang].popupOpenJwLibrary)
 				.setCta()
 				.onClick(() => {
 					window.open(ScriptureNormalizer.toJwLibraryLink(this.scripture));
@@ -112,12 +112,14 @@ export class BibleVerseModal extends Modal {
 		);
 		if (footnoteLines.length > 0) {
 			const details = bodyEl.createEl('details', { cls: 'jw-bible-collapsible' });
-			details.createEl('summary', { text: `Fußnoten (${footnoteLines.length})` });
+			details.createEl('summary', { text: `${L[this.lang].popupFootnotes} (${footnoteLines.length})` });
 			const list = details.createEl('ul', { cls: 'jw-bible-notes-list' });
 			for (const fn of footnoteLines) {
-				const prefix = multiVerse ? `Vers ${this.stripHtml(fn.verse)}, ` : '';
+				const prefix = multiVerse ? `${L[this.lang].popupVersePrefix} ${this.stripHtml(fn.verse)}, ` : '';
 				const li = list.createEl('li');
-				li.appendText(`${prefix}${fn.symbol}) `);
+				li.appendText(prefix);
+				li.createSpan({ text: fn.symbol, cls: 'jw-bible-inline-footnote' });
+				li.appendText(') ');
 				this.renderRichText(li, fn.html);
 			}
 		}
@@ -133,12 +135,14 @@ export class BibleVerseModal extends Modal {
 		);
 		if (crossRefLines.length > 0) {
 			const details = bodyEl.createEl('details', { cls: 'jw-bible-collapsible' });
-			details.createEl('summary', { text: `Querverweise (${crossRefLines.length})` });
+			details.createEl('summary', { text: `${L[this.lang].popupCrossRefs} (${crossRefLines.length})` });
 			const list = details.createEl('ul', { cls: 'jw-bible-notes-list' });
 			for (const cr of crossRefLines) {
-				const prefix = multiVerse ? `Vers ${this.stripHtml(cr.verse)}, ` : '';
+				const prefix = multiVerse ? `${L[this.lang].popupVersePrefix} ${this.stripHtml(cr.verse)}, ` : '';
 				const li = list.createEl('li');
-				li.appendText(`${prefix}${cr.symbol}) `);
+				li.appendText(prefix);
+				li.createSpan({ text: cr.symbol, cls: 'jw-bible-inline-crossref' });
+				li.appendText(') ');
 				if (cr.label && cr.scripture) {
 					const target = cr.scripture;
 					const labelEl = li.createEl('strong', { text: `${cr.label}: `, cls: 'jw-bible-inline-link' });
@@ -147,7 +151,7 @@ export class BibleVerseModal extends Modal {
 					li.createEl('strong', { text: `${cr.label}: ` });
 				}
 				if (cr.html) this.renderRichText(li, cr.html);
-				else li.appendText('(kein Text verfügbar)');
+				else li.appendText(L[this.lang].popupNoText);
 			}
 		}
 	}
@@ -162,13 +166,14 @@ export class BibleVerseModal extends Modal {
 		if (notes.length === 0) return;
 
 		const details = bodyEl.createEl('details', { cls: 'jw-bible-collapsible' });
-		details.createEl('summary', { text: `Studienanmerkungen (${notes.length})` });
+		details.createEl('summary', { text: `${L[this.lang].popupStudyNotes} (${notes.length})` });
 		const list = details.createEl('ul', { cls: 'jw-bible-notes-list' });
 		for (const note of notes) {
 			const li = list.createEl('li');
-			const prefix = multiVerse ? `Vers ${this.stripHtml(note.verse)}, ` : '';
+			const prefix = multiVerse ? `${L[this.lang].popupVersePrefix} ${this.stripHtml(note.verse)}, ` : '';
 			const label = this.stripHtml(note.label);
-			li.appendText(`${prefix}${label ? `${label}: ` : ''}`);
+			li.appendText(prefix);
+			if (label) li.createSpan({ text: `${label}: `, cls: 'jw-bible-inline-studynote' });
 			this.renderRichText(li, note.html);
 		}
 	}

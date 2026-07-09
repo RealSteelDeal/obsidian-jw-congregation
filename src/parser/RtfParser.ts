@@ -88,7 +88,10 @@ export class RtfParser {
 
 		const type = this.detectType(days);
 
-		return { type, theme, year, days };
+		// The RTF path only understands German exports (time format "H Uhr MM",
+		// "Lied"/"Pause" markers, German weekday names) — lang is therefore
+		// always 'de' here; English programme files come in as jwpub.
+		return { type, theme, year, days, lang: 'de' };
 	}
 
 	/** Accepts either a single raw .rtf file or a .zip containing one or more .rtf files. */

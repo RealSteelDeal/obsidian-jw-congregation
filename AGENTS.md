@@ -59,6 +59,37 @@ scripts/
 `DOMParser` als `globalThis.DOMParser`. Es gibt **keine** duplizierte Parser-Logik mehr –
 Änderungen an `JwpubParser.ts` wirken sich automatisch auf das Testskript aus.
 
+## Zweisprachigkeit (Deutsch/Englisch)
+
+Seit der i18n-Umstellung fließen **zwei verschiedene Sprachen** durchs Plugin — nicht verwechseln:
+
+- **`Congress.lang`** (vom Parser aus `Publication.MepsLanguageIndex` erkannt: 0 = Englisch,
+  2 = Deutsch, alles andere fällt auf Deutsch zurück): bestimmt ALLES, was in erzeugte
+  Notizen geschrieben wird — Feldbeschriftungen, Datei-/Ordnernamen (`00. Übersicht` vs.
+  `00. Overview`, `Wiederholung` vs. `Review`, `Titelbild` vs. `Cover`), Buchnamen,
+  Wiederholungs-Notiz. Eine englische Programmdatei erzeugt englische Notizen, unabhängig
+  von der Plugin-Einstellung.
+- **`settings.lang`** (Nutzereinstellung): bestimmt nur noch das Bibeltext-Popup
+  (Beschriftungen + Buchnamen dort).
+
+Alle sprachabhängigen Strings liegen zentral in `src/i18n.ts` (`L[lang]`); Parser und
+NoteBuilder halten die aktive Sprache als `this.lang` + `this.t`-Getter. Die
+Parser-**Erkennungsmuster** (Marker wie `SYMPOSIUM:`/`VORTRAGSREIHE:`, Musik-/Pause-Zeilen,
+Wochentage, `QUESTIONS_RE`) sind bewusst **sprachtolerant kombiniert** (matchen de+en
+gleichzeitig), nicht pro Sprache verzweigt — nur echte AUSGABE-Strings kommen aus `i18n.ts`.
+Wichtige sprachvariable Realdaten (per `scripts/dump-structure.mjs` an echten Dateien
+verifiziert): Song-Links sind `jwpub://p/X:` (de) bzw. `jwpub://p/E:` (en) → Selektor/Regex
+müssen auf `jwpub://p/` matchen; englische Liedzeilen heißen „Song **No.** 160 …"
+(splitSongTitle!); Fragen-Dokument-h1 ist „Beantworte die folgenden Fragen:" bzw. „Find
+Answers to These Questions:"; englische Marker: `CHAIRMAN’S ADDRESS:`, `FEATURE BIBLE
+DRAMA:`, `PUBLIC BIBLE DISCOURSE:`, `BAPTISM:`. Der RTF-Fallback bleibt rein deutsch
+(`lang: 'de'` hart gesetzt) — englische RTF-Exporte lagen nie als Testmaterial vor.
+
+Echte Testdateien für beide Sprachen (alle 3 Kongresstypen + Studienbibel) liegen lokal
+unter `C:\Users\LukasSchütter\Obsidian\.dateien\{Deutsch,Englisch}\` — nach Parser-Änderungen
+immer alle 6 Kongressdateien durch `node scripts/test-parse.mjs` schicken und die
+Programmpunkt-Zahlen zwischen den Sprachen vergleichen (müssen identisch sein).
+
 ## Wichtige Implementierungsdetails
 
 ### jwpub-Entschlüsselung (mobil-kompatibel: WebCrypto statt Node-crypto/zlib/adm-zip)

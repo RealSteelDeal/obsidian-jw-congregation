@@ -13,6 +13,7 @@ function builder(opts = {}) {
 		showScriptureField: true,
 		showSpeakerField: true,
 		extraFields: '',
+		frontmatter: false,
 		...opts,
 	});
 }
@@ -319,4 +320,26 @@ test('an English circuit assembly links the printed questions note in its review
 	assert.ok(review.content.startsWith(
 		'*Note: The meeting chairman will also consider the printed review questions: [[01. Find Answers to These Questions|Find Answers to These Questions]]*',
 	));
+});
+
+test('frontmatter option prepends stable English keys to every generated note', () => {
+	const result = builder({ frontmatter: true, reviewNote: true }).buildNotes(coCongress([coDay()]));
+
+	const overview = result.notes.find(n => n.filename === '00. Übersicht.md');
+	const overviewLines = overview.content.split('\n');
+	assert.equal(overviewLines[0], '---');
+	assert.equal(overviewLines[1], 'convention: "Ewiges Glück"');
+	assert.equal(overviewLines[2], 'type: CO');
+	assert.equal(overviewLines[3], 'day: Samstag');
+	assert.equal(overviewLines[4], '---');
+
+	const itemNote = result.notes.find(n => n.filename.startsWith('01.'));
+	assert.ok(itemNote.content.startsWith('---\nconvention: "Ewiges Glück"\ntype: CO\nday: Samstag\ntime: "9:40"\n---\n'));
+
+	const review = result.notes.find(n => n.filename === 'Wiederholung.md');
+	assert.ok(review.content.startsWith('---\nconvention: "Ewiges Glück"\ntype: CO\n---\n'));
+
+	// Off by default: no frontmatter anywhere.
+	const plain = builder().buildNotes(coCongress([coDay()]));
+	assert.ok(plain.notes.every(n => !n.content.startsWith('---')));
 });

@@ -11,6 +11,7 @@ export interface NoteBuilderOptions {
 	showScriptureField: boolean;
 	showSpeakerField: boolean;
 	extraFields: string;
+	frontmatter: boolean;
 }
 
 export interface GeneratedNote {
@@ -51,6 +52,20 @@ export class NoteBuilder {
 
 	private get t(): Strings {
 		return L[this.lang];
+	}
+
+	// Opt-in YAML frontmatter (settings.frontmatter). Keys are deliberately
+	// stable ENGLISH identifiers regardless of the note language — Dataview/
+	// Bases queries written once must keep working across mixed-language
+	// vaults; only the VALUES follow the file (weekday names, theme).
+	private frontmatterLines(congress: Congress, day?: Day, time?: string): string[] {
+		if (!this.opts.frontmatter) return [];
+		const esc = (v: string) => v.replace(/"/g, '\\"');
+		const lines = ['---', `convention: "${esc(congress.theme)}"`, `type: ${congress.type}`];
+		if (day) lines.push(`day: ${day.weekday}`);
+		if (time) lines.push(`time: "${time}"`);
+		lines.push('---', '');
+		return lines;
 	}
 
 	congressFolderName(congress: Congress): string {
@@ -162,6 +177,7 @@ export class NoteBuilder {
 	// title, so an in-note heading showed up as a duplicate second title.
 	private renderReviewNote(congress: Congress, questionsBaseName: string | undefined): string {
 		const lines: string[] = [];
+		lines.push(...this.frontmatterLines(congress));
 
 		const isCA = congress.type === 'CA-copgm' || congress.type === 'CA-brpgm';
 		if (isCA && questionsBaseName) {
@@ -201,6 +217,7 @@ export class NoteBuilder {
 		coverImageFilename?: string,
 	): string {
 		const lines: string[] = [];
+		lines.push(...this.frontmatterLines(congress, day));
 
 		if (coverImageFilename) {
 			lines.push(`![[${coverImageFilename}]]`);
@@ -364,6 +381,7 @@ export class NoteBuilder {
 
 	private renderSingleNote(item: ProgramItem, day: Day, congress: Congress, trailingText?: string): string {
 		const lines: string[] = [];
+		lines.push(...this.frontmatterLines(congress, day, item.time || undefined));
 
 		lines.push(this.overviewLinkLine(day, congress));
 		lines.push('');
@@ -406,6 +424,7 @@ export class NoteBuilder {
 
 	private renderSeriesNote(item: ProgramItem, day: Day, congress: Congress, trailingText?: string): string {
 		const lines: string[] = [];
+		lines.push(...this.frontmatterLines(congress, day, item.time || undefined));
 
 		lines.push(this.overviewLinkLine(day, congress));
 		lines.push('');

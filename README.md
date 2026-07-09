@@ -160,6 +160,10 @@ src/
     bytes.ts                 # hex/latin1 helpers
 ```
 
+## Roadmap
+
+Planned features and ideas under consideration live in [ROADMAP.md](ROADMAP.md).
+
 ## License
 
 0-BSD – see [LICENSE](LICENSE)

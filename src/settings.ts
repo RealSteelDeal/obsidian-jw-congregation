@@ -13,6 +13,11 @@ export interface JwPluginSettings {
 	showScriptureField: boolean;
 	showSpeakerField: boolean;
 	extraFields: string;
+	/** Opt-in: prepend YAML frontmatter (stable English keys — convention/type/
+	 *  day/time — regardless of note language, so Dataview queries work across
+	 *  mixed-language vaults) to every generated note. Off by default: the
+	 *  notes are deliberately frontmatter-free otherwise. */
+	frontmatter: boolean;
 	bibleFileLoaded: boolean;
 	/** Plugin version at the time of the last load — used to show a one-time
 	 *  "re-import to pick up note-template improvements" notice after updates
@@ -36,6 +41,7 @@ export const DEFAULT_SETTINGS: JwPluginSettings = {
 	showScriptureField: true,
 	showSpeakerField: true,
 	extraFields: '',
+	frontmatter: false,
 	bibleFileLoaded: false,
 	lastVersion: '',
 	bibleHintClickCount: 0,
@@ -50,14 +56,16 @@ export class JwSettingTab extends PluginSettingTab {
 		return L[this.plugin.settings.lang];
 	}
 
-	// Declarative settings (Obsidian ≥ 1.13.0) — makes every setting below searchable
-	// from the app-wide settings search. getControlValue()/setControlValue() are left
-	// at their PluginSettingTab default (read/write this.plugin.settings directly),
-	// which already matches our settings shape — except for the language override
-	// below. display() further down is kept as the fallback for Obsidian < 1.13.0
-	// (minAppVersion is 1.6.6) — the base class only calls it when
-	// getSettingDefinitions() isn't present at all, so both paths never run at
-	// once; keep the two in sync when changing a setting.
+	// Declarative settings (Obsidian ≥ 1.13.0) — makes every setting below
+	// searchable from the app-wide settings search. getControlValue()/
+	// setControlValue() are left at their PluginSettingTab default (read/write
+	// this.plugin.settings directly), which matches our settings shape.
+	// display() below is the fallback for Obsidian < 1.13.0 — REQUIRED, not
+	// legacy decoration: raising minAppVersion to 1.13 was tried once and
+	// immediately produced an empty settings tab on a real 1.12.7 install
+	// (Obsidian 1.13 is not broadly deployed yet). The base class only calls
+	// display() when getSettingDefinitions() isn't supported, so both paths
+	// never run at once; keep the two in sync when changing a setting.
 	getSettingDefinitions(): SettingDefinitionItem[] {
 		const t = this.t;
 		return [
@@ -98,6 +106,11 @@ export class JwSettingTab extends PluginSettingTab {
 						desc: t.setExtraFieldsDesc,
 						control: { type: 'textarea', key: 'extraFields', placeholder: '**Notizen:**' },
 					},
+					{
+						name: t.setFrontmatter,
+						desc: t.setFrontmatterDesc,
+						control: { type: 'toggle', key: 'frontmatter' },
+					},
 				],
 			},
 			{
@@ -133,13 +146,12 @@ export class JwSettingTab extends PluginSettingTab {
 		}
 	}
 
-	// Shared between the declarative "render" escape hatch (above — needed since a
-	// file-upload button + conditional delete button has no direct declarative
-	// equivalent) and the display() fallback below. `refresh` re-renders the tab
-	// afterwards — this.update() under the declarative path, this.display() under
-	// the imperative fallback; the two are never appropriate at the same time,
-	// since only one of the two rendering paths is ever active for a given
-	// Obsidian version.
+	// Shared between the declarative "render" escape hatch (above — a
+	// file-upload button plus a conditional delete button has no direct
+	// declarative equivalent) and the display() fallback below. `refresh`
+	// re-renders the tab afterwards — this.update() under the declarative
+	// path, this.display() under the imperative fallback; only one of the two
+	// rendering paths is ever active for a given Obsidian version.
 	private renderBibleFileSetting(setting: Setting, refresh: () => void): void {
 		const t = this.t;
 		setting
@@ -278,6 +290,18 @@ export class JwSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.extraFields)
 					.onChange(async value => {
 						this.plugin.settings.extraFields = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t.setFrontmatter)
+			.setDesc(t.setFrontmatterDesc)
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.frontmatter)
+					.onChange(async value => {
+						this.plugin.settings.frontmatter = value;
 						await this.plugin.saveSettings();
 					}),
 			);

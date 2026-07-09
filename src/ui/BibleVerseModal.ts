@@ -1,4 +1,4 @@
-import { App, Modal, Notice, Setting } from 'obsidian';
+import { App, Modal, Setting, setIcon } from 'obsidian';
 import { BibleReader, VerseDetail, VerseSegment } from '../bible/BibleReader';
 import { Scripture } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
@@ -13,16 +13,13 @@ import { L } from '../i18n';
 const EMBEDDED_BIBLE_HREF_PREFIX = 'jwpub://b/NWTR/';
 
 export class BibleVerseModal extends Modal {
-	// Each nested cross-reference/study-note click stacks another popup on top
-	// of the previous one (deliberately — the user keeps their place). Without
-	// a ceiling that stack is unbounded, and every open popup holds its verse
-	// DOM and data in memory — enough of them slow Obsidian down or crash it,
-	// especially on mobile. Hard cap: attempts beyond it show an explanatory
-	// notice instead of a new popup. Tracked as a static open-modal count (not
-	// a per-chain depth), since stacking is the only way multiple instances
-	// can be open at once — a modal blocks clicks on the note behind it.
-	private static readonly MAX_STACKED = 10;
-	private static openCount = 0;
+	// Cross-reference/study-note clicks navigate WITHIN this one modal instead
+	// of stacking a new popup on top (an earlier version stacked, capped at 10
+	// — navigation makes both the cap and the memory concern obsolete: there is
+	// only ever one popup, and the history holds tiny Scripture records, not
+	// rendered DOM). The back arrow in the header walks the trail back.
+	private history: Scripture[] = [];
+	private scripture: Scripture;
 
 	// Resolved from getReader() on open. The loader indirection (instead of a
 	// ready reader instance) lets the modal open INSTANTLY on the very first
@@ -34,20 +31,34 @@ export class BibleVerseModal extends Modal {
 
 	constructor(
 		app: App,
-		private readonly scripture: Scripture,
+		scripture: Scripture,
 		private readonly lang: SupportedLang,
 		private readonly getReader: () => Promise<BibleReader | null>,
 	) {
 		super(app);
+		this.scripture = scripture;
 	}
 
 	async onOpen() {
-		BibleVerseModal.openCount++;
+		await this.render();
+	}
+
+	// Renders the CURRENT scripture into the modal — called on open and again
+	// after every navigation step (forward into a reference, or back).
+	private async render(): Promise<void> {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass('jw-bible-verse-modal');
+		contentEl.scrollTop = 0;
 
-		contentEl.createEl('h2', { text: ScriptureNormalizer.format(this.scripture, this.lang) });
+		const header = contentEl.createDiv('jw-bible-verse-header');
+		if (this.history.length > 0) {
+			const backBtn = header.createEl('button', { cls: 'clickable-icon jw-bible-back-button' });
+			setIcon(backBtn, 'arrow-left');
+			backBtn.setAttribute('aria-label', L[this.lang].popupBack);
+			backBtn.addEventListener('click', () => this.goBack());
+		}
+		header.createEl('h2', { text: ScriptureNormalizer.format(this.scripture, this.lang) });
 
 		const bodyEl = contentEl.createDiv('jw-bible-verse-text');
 		bodyEl.setText(L[this.lang].popupLoading);
@@ -66,6 +77,7 @@ export class BibleVerseModal extends Modal {
 		const verses = await this.reader.getVerseDetails(this.scripture);
 		if (verses && verses.length > 0) {
 			this.renderVerseText(bodyEl, verses);
+			this.renderContextControls(bodyEl);
 			this.renderNotes(bodyEl, verses);
 			this.renderStudyNotes(bodyEl, verses);
 		} else {
@@ -75,6 +87,63 @@ export class BibleVerseModal extends Modal {
 			});
 		}
 		this.renderJwLibraryButton(bodyEl);
+	}
+
+	// Context expansion: widen the shown passage verse by verse (or to the
+	// whole chapter) WITHOUT touching the navigation history — expanding is
+	// refining the current view, not visiting a new place, so the back arrow
+	// still returns to wherever the user navigated from. Bounds come from the
+	// Bible file's own BibleChapter table; without a known chapter end the
+	// forward/whole-chapter buttons stay hidden, because verse ids continue
+	// seamlessly into the next chapter and an unbounded expansion would
+	// silently show foreign verses.
+	private renderContextControls(bodyEl: HTMLElement): void {
+		const count = this.reader?.chapterVerseCount(this.scripture.book, this.scripture.chapter);
+		const start = this.scripture.verseStart;
+		const end = this.scripture.verseEnd ?? start;
+		const canBefore = start > 1;
+		const canAfter = count !== undefined && end < count;
+		const canWholeChapter = count !== undefined && !(start === 1 && end >= count);
+		if (!canBefore && !canAfter && !canWholeChapter) return;
+
+		const t = L[this.lang];
+		const row = bodyEl.createDiv('jw-bible-context-row');
+		const addButton = (label: string, onClick: () => void) => {
+			const btn = row.createEl('button', { text: label, cls: 'jw-bible-context-button' });
+			btn.addEventListener('click', onClick);
+		};
+
+		if (canBefore) {
+			addButton(t.popupVerseBefore, () => {
+				this.scripture = { ...this.scripture, verseStart: start - 1, verseEnd: end };
+				void this.render();
+			});
+		}
+		if (canAfter) {
+			addButton(t.popupVerseAfter, () => {
+				this.scripture = { ...this.scripture, verseEnd: end + 1 };
+				void this.render();
+			});
+		}
+		if (canWholeChapter) {
+			addButton(t.popupWholeChapter, () => {
+				this.scripture = { ...this.scripture, verseStart: 1, verseEnd: count };
+				void this.render();
+			});
+		}
+	}
+
+	private navigateTo(scripture: Scripture): void {
+		this.history.push(this.scripture);
+		this.scripture = scripture;
+		void this.render();
+	}
+
+	private goBack(): void {
+		const previous = this.history.pop();
+		if (!previous) return;
+		this.scripture = previous;
+		void this.render();
 	}
 
 	// Placed at the very bottom of the popup, below the (collapsed) footnote/
@@ -261,17 +330,12 @@ export class BibleVerseModal extends Modal {
 		}
 	}
 
-	// Opens another popup for `scripture` on top of this one (this modal is left
-	// open underneath) — lets the user drill into a footnote/cross-reference's
-	// own scripture citations without losing their place, per user request. The
-	// nested popup reuses this modal's loader, which resolves instantly from the
-	// plugin-level cache once the reader is loaded.
+	// Navigates this modal to `scripture` — the previous passage goes onto the
+	// history stack and stays reachable via the header's back arrow, so the
+	// user can drill into a footnote/cross-reference's citations without losing
+	// their place (and without stacking windows).
 	private openScripturePopup(scripture: Scripture): void {
-		if (BibleVerseModal.openCount >= BibleVerseModal.MAX_STACKED) {
-			new Notice(L[this.lang].popupLimitReached, 8000);
-			return;
-		}
-		new BibleVerseModal(this.app, scripture, this.lang, this.getReader).open();
+		this.navigateTo(scripture);
 	}
 
 	// Verse-number labels (BibleVerse.Label) are plain strings in practice but
@@ -282,7 +346,6 @@ export class BibleVerseModal extends Modal {
 	}
 
 	onClose() {
-		BibleVerseModal.openCount = Math.max(0, BibleVerseModal.openCount - 1);
 		this.contentEl.empty();
 	}
 }

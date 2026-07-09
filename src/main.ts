@@ -158,13 +158,30 @@ export default class JwCongregationPlugin extends Plugin {
 	}
 
 	// Shown on the first three scripture clicks and every 20th one after that —
-	// often enough to be discovered, rare enough not to nag.
+	// often enough to be discovered, rare enough not to nag. Clicking the
+	// notice jumps straight to the plugin's settings tab, where the Bible file
+	// can be picked.
 	private async maybeShowBibleHint(): Promise<void> {
 		const count = ++this.settings.bibleHintClickCount;
 		await this.saveSettings();
 		if (count <= 3 || count % 20 === 0) {
-			new Notice(this.tr.noticeBibleHint, 12000);
+			// noticeEl (not the 1.8.7+ messageEl): minAppVersion is 1.6.6, where
+			// messageEl does not exist yet — the deprecation warning is deliberate.
+			const notice = new Notice(this.tr.noticeBibleHint, 12000);
+			notice.noticeEl.addEventListener('click', () => this.openOwnSettingsTab());
 		}
+	}
+
+	// `app.setting` is real but undocumented (not in obsidian.d.ts) — the
+	// de-facto standard way plugins deep-link into their own settings tab.
+	// Optional chaining keeps this a silent no-op if a future Obsidian version
+	// removes it; the notice text alone still tells the user where to go.
+	private openOwnSettingsTab(): void {
+		const app = this.app as typeof this.app & {
+			setting?: { open(): void; openTabById(id: string): void };
+		};
+		app.setting?.open();
+		app.setting?.openTabById(this.manifest.id);
 	}
 
 	/** Finds the jwlibrary:// scripture link (if any) that an event's target is part of — Reading View
@@ -331,6 +348,7 @@ export default class JwCongregationPlugin extends Plugin {
 			showScriptureField: this.settings.showScriptureField,
 			showSpeakerField: this.settings.showSpeakerField,
 			extraFields: this.settings.extraFields,
+			frontmatter: this.settings.frontmatter,
 		});
 
 		let result;
@@ -412,10 +430,19 @@ export default class JwCongregationPlugin extends Plugin {
 			}
 
 			progress?.hide();
-			const parts = [`${createdPaths.length} neu`];
-			if (updated > 0) parts.push(`${updated} aktualisiert`);
-			if (skipped > 0) parts.push(`${skipped} übersprungen (bereits vorhanden)`);
-			new Notice(`„${congressFolder}": ${parts.join(', ')}.`);
+			// The success notice doubles as a shortcut: clicking it opens the first
+			// day's overview note, so the freshly imported congress is one tap away.
+			const overviewName = `${L[result.congress.lang].overviewBase}.md`;
+			const firstDay = result.congress.days[0];
+			const overviewPath = result.congress.type === 'CO' && firstDay
+				? normalizePath(`${congressPath}/${firstDay.weekday}/${overviewName}`)
+				: normalizePath(`${congressPath}/${overviewName}`);
+			const summary = this.tr.noticeImportResult(congressFolder, createdPaths.length, updated, skipped);
+			const resultNotice = new Notice(`${summary}\n${this.tr.noticeOpenOverviewHint}`, 10000);
+			resultNotice.noticeEl.addEventListener('click', () => {
+				const file = this.app.vault.getAbstractFileByPath(overviewPath);
+				if (file instanceof TFile) void this.app.workspace.getLeaf().openFile(file);
+			});
 		} catch (err) {
 			progress?.hide();
 			for (const path of createdPaths.reverse()) {

@@ -165,8 +165,10 @@ export default class JwCongregationPlugin extends Plugin {
 		const count = ++this.settings.bibleHintClickCount;
 		await this.saveSettings();
 		if (count <= 3 || count % 20 === 0) {
+			// noticeEl (not the 1.8.7+ messageEl): minAppVersion is 1.6.6, where
+			// messageEl does not exist yet — the deprecation warning is deliberate.
 			const notice = new Notice(this.tr.noticeBibleHint, 12000);
-			notice.messageEl.addEventListener('click', () => this.openOwnSettingsTab());
+			notice.noticeEl.addEventListener('click', () => this.openOwnSettingsTab());
 		}
 	}
 
@@ -437,7 +439,7 @@ export default class JwCongregationPlugin extends Plugin {
 				: normalizePath(`${congressPath}/${overviewName}`);
 			const summary = this.tr.noticeImportResult(congressFolder, createdPaths.length, updated, skipped);
 			const resultNotice = new Notice(`${summary}\n${this.tr.noticeOpenOverviewHint}`, 10000);
-			resultNotice.messageEl.addEventListener('click', () => {
+			resultNotice.noticeEl.addEventListener('click', () => {
 				const file = this.app.vault.getAbstractFileByPath(overviewPath);
 				if (file instanceof TFile) void this.app.workspace.getLeaf().openFile(file);
 			});

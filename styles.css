@@ -225,3 +225,11 @@ a.external-link[href*="jw.org/finder"]:not(#_)::after {
 .jw-bible-back-button {
 	flex-shrink: 0;
 }
+
+/* The "Open in JW Library" button at the popup's bottom sits in a bare
+   Setting row, and .setting-item ships a top border by default — which read
+   as a stray divider line after the last accordion. Drop the border, keep
+   the row's own padding so the gap to the content above stays unchanged. */
+.jw-bible-verse-modal .setting-item {
+	border-top: none;
+}

@@ -54,6 +54,7 @@ export interface Strings {
 	popupStudyNotes: string;
 	popupVersePrefix: string;
 	popupNoText: string;
+	popupLimitReached: string;
 
 	// ── Notices (settings.lang) ─────────────────────────────────────────────
 	noticeUpdated: (version: string) => string;
@@ -161,6 +162,7 @@ export const L: Record<SupportedLang, Strings> = {
 		popupStudyNotes: 'Studienanmerkungen',
 		popupVersePrefix: 'Vers',
 		popupNoText: '(kein Text verfügbar)',
+		popupLimitReached: 'Maximal 10 gestapelte Bibeltext-Popups erreicht — es werden keine weiteren geöffnet, da zu viele offene Popups Obsidian verlangsamen oder zum Absturz bringen können. Bitte erst einige Popups schließen.',
 
 		noticeUpdated: version => `JW Kongressprogramm wurde auf Version ${version} aktualisiert.\n\nVerbesserungen an den Notiz-Vorlagen erreichen bereits importierte Kongresse nicht automatisch: Um sie zu übernehmen, den Kongress-Ordner löschen und die Programmdatei neu importieren.\n\n(Zum Schließen klicken)`,
 		noticeBibleSaved: 'Bibel-Datei gespeichert.',
@@ -274,6 +276,7 @@ export const L: Record<SupportedLang, Strings> = {
 		popupStudyNotes: 'Study notes',
 		popupVersePrefix: 'Verse',
 		popupNoText: '(no text available)',
+		popupLimitReached: 'Maximum of 10 stacked Bible-verse popups reached — no further popups will open, since too many open popups can slow Obsidian down or crash it. Please close some popups first.',
 
 		noticeUpdated: version => `JW Convention Program was updated to version ${version}.\n\nNote-template improvements do not reach already imported conventions automatically: to pick them up, delete the convention folder and re-import the program file.\n\n(Click to dismiss)`,
 		noticeBibleSaved: 'Bible file saved.',

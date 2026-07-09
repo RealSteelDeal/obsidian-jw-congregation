@@ -1,4 +1,4 @@
-import { App, Modal, Setting } from 'obsidian';
+import { App, Modal, Notice, Setting } from 'obsidian';
 import { BibleReader, VerseDetail, VerseSegment } from '../bible/BibleReader';
 import { Scripture } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
@@ -13,6 +13,17 @@ import { L } from '../i18n';
 const EMBEDDED_BIBLE_HREF_PREFIX = 'jwpub://b/NWTR/';
 
 export class BibleVerseModal extends Modal {
+	// Each nested cross-reference/study-note click stacks another popup on top
+	// of the previous one (deliberately — the user keeps their place). Without
+	// a ceiling that stack is unbounded, and every open popup holds its verse
+	// DOM and data in memory — enough of them slow Obsidian down or crash it,
+	// especially on mobile. Hard cap: attempts beyond it show an explanatory
+	// notice instead of a new popup. Tracked as a static open-modal count (not
+	// a per-chain depth), since stacking is the only way multiple instances
+	// can be open at once — a modal blocks clicks on the note behind it.
+	private static readonly MAX_STACKED = 10;
+	private static openCount = 0;
+
 	// Resolved from getReader() on open. The loader indirection (instead of a
 	// ready reader instance) lets the modal open INSTANTLY on the very first
 	// click of a session and show its loading state while the Bible file is
@@ -31,6 +42,7 @@ export class BibleVerseModal extends Modal {
 	}
 
 	async onOpen() {
+		BibleVerseModal.openCount++;
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass('jw-bible-verse-modal');
@@ -255,6 +267,10 @@ export class BibleVerseModal extends Modal {
 	// nested popup reuses this modal's loader, which resolves instantly from the
 	// plugin-level cache once the reader is loaded.
 	private openScripturePopup(scripture: Scripture): void {
+		if (BibleVerseModal.openCount >= BibleVerseModal.MAX_STACKED) {
+			new Notice(L[this.lang].popupLimitReached, 8000);
+			return;
+		}
 		new BibleVerseModal(this.app, scripture, this.lang, this.getReader).open();
 	}
 
@@ -266,6 +282,7 @@ export class BibleVerseModal extends Modal {
 	}
 
 	onClose() {
+		BibleVerseModal.openCount = Math.max(0, BibleVerseModal.openCount - 1);
 		this.contentEl.empty();
 	}
 }

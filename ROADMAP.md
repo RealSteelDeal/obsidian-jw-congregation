@@ -5,6 +5,15 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 
 ## Planned
 
+- **Insert verse as quote**: a button in the verse popup that inserts the
+  verse text into the active note as a quote/callout — sourced from the local
+  Bible file, fully offline (the counterpart to JW Library Linker's online
+  quote fetching, staying true to this plugin's no-network principle).
+- **Document the JW Library Linker synergy in the README**: links created by
+  the [JW Library Linker](https://github.com/msakowski/obsidian-library-linker)
+  plugin should already open this plugin's offline verse popup (both use the
+  jwlibrary:// finder format) — verify against its generated links, then
+  describe the combination as a tip.
 - **More program-file languages** (Spanish, French, …): the architecture is in
   place (central string table, language-tolerant parsing patterns, automatic
   language detection) — each language needs real program files for testing,

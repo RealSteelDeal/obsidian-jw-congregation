@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.8.0
+
+### New features
+
+- **In-popup navigation**: cross-reference and study-note links now navigate within the same popup, with a back arrow in the header walking the trail back — instead of stacking a new popup on top each time. The 10-popup safety cap from 1.7.2 is obsolete and removed.
+- **Chapter context in the verse popup**: a new button row beneath the verse text expands the passage verse by verse (before/after) or shows the whole chapter. Chapter bounds are read from the Bible file's own `BibleChapter` table; without a known bound the forward/whole-chapter buttons stay hidden (verse ids continue seamlessly into the next chapter). On the way, two long-standing gaps were fixed: verses cited nowhere in the Bible file (e.g. Psalm 117:2) previously showed "no verse text available" or lost their inline cross-reference markers, and overlong citations could silently show the next chapter's verses.
+- **Optional YAML frontmatter** (new toggle, off by default): every generated note gets frontmatter with deliberately language-independent English keys (`convention`, `type`, `day`, `time`) — e.g. for Dataview queries across mixed-language vaults.
+- **Clickable notices**: the import success notice opens the first day's overview; the Bible-file hint notice opens the plugin's settings tab directly.
+- CI now also runs the unit tests on every push/PR; a public [ROADMAP.md](ROADMAP.md) documents planned features.
+
+### Fixes
+
+- **Divider line above the "Open in JW Library" button removed** (it was the Setting row's default top border); spacing is unchanged.
+- Notice click handlers use `noticeEl` deliberately (not the 1.8.7+ `messageEl`), keeping minAppVersion at 1.6.6.
+
 ## 1.7.2
 
 ### New features

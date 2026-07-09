@@ -55,6 +55,9 @@ export interface Strings {
 	popupVersePrefix: string;
 	popupNoText: string;
 	popupBack: string;
+	popupVerseBefore: string;
+	popupVerseAfter: string;
+	popupWholeChapter: string;
 
 	// ── Notices (settings.lang) ─────────────────────────────────────────────
 	noticeUpdated: (version: string) => string;
@@ -166,6 +169,9 @@ export const L: Record<SupportedLang, Strings> = {
 		popupVersePrefix: 'Vers',
 		popupNoText: '(kein Text verfügbar)',
 		popupBack: 'Zurück zur vorherigen Stelle',
+		popupVerseBefore: '◀ Vers davor',
+		popupVerseAfter: 'Vers danach ▶',
+		popupWholeChapter: 'Ganzes Kapitel',
 
 		noticeUpdated: version => `JW Kongressprogramm wurde auf Version ${version} aktualisiert.\n\nVerbesserungen an den Notiz-Vorlagen erreichen bereits importierte Kongresse nicht automatisch: Um sie zu übernehmen, den Kongress-Ordner löschen und die Programmdatei neu importieren.\n\n(Zum Schließen klicken)`,
 		noticeBibleSaved: 'Bibel-Datei gespeichert.',
@@ -283,6 +289,9 @@ export const L: Record<SupportedLang, Strings> = {
 		popupVersePrefix: 'Verse',
 		popupNoText: '(no text available)',
 		popupBack: 'Back to the previous passage',
+		popupVerseBefore: '◀ Verse before',
+		popupVerseAfter: 'Verse after ▶',
+		popupWholeChapter: 'Whole chapter',
 
 		noticeUpdated: version => `JW Convention Program was updated to version ${version}.\n\nNote-template improvements do not reach already imported conventions automatically: to pick them up, delete the convention folder and re-import the program file.\n\n(Click to dismiss)`,
 		noticeBibleSaved: 'Bible file saved.',

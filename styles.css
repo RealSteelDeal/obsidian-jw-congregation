@@ -233,3 +233,27 @@ a.external-link[href*="jw.org/finder"]:not(#_)::after {
 .jw-bible-verse-modal .setting-item:not(#_) {
 	border-top: none;
 }
+
+/* Context-expansion row beneath the verse text: verse-by-verse widening and
+   the whole-chapter shortcut. Kept visually quiet (muted, small) so the verse
+   text stays the focal point. */
+.jw-bible-context-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em;
+	margin-bottom: 0.5em;
+}
+
+.jw-bible-context-button {
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+	background-color: var(--background-secondary);
+	padding: 2px 10px;
+	border-radius: var(--radius-s);
+	cursor: pointer;
+}
+
+.jw-bible-context-button:hover {
+	color: var(--text-normal);
+	background-color: var(--background-modifier-hover);
+}

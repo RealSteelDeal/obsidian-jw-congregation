@@ -77,6 +77,7 @@ export class BibleVerseModal extends Modal {
 		const verses = await this.reader.getVerseDetails(this.scripture);
 		if (verses && verses.length > 0) {
 			this.renderVerseText(bodyEl, verses);
+			this.renderContextControls(bodyEl);
 			this.renderNotes(bodyEl, verses);
 			this.renderStudyNotes(bodyEl, verses);
 		} else {
@@ -86,6 +87,50 @@ export class BibleVerseModal extends Modal {
 			});
 		}
 		this.renderJwLibraryButton(bodyEl);
+	}
+
+	// Context expansion: widen the shown passage verse by verse (or to the
+	// whole chapter) WITHOUT touching the navigation history — expanding is
+	// refining the current view, not visiting a new place, so the back arrow
+	// still returns to wherever the user navigated from. Bounds come from the
+	// Bible file's own BibleChapter table; without a known chapter end the
+	// forward/whole-chapter buttons stay hidden, because verse ids continue
+	// seamlessly into the next chapter and an unbounded expansion would
+	// silently show foreign verses.
+	private renderContextControls(bodyEl: HTMLElement): void {
+		const count = this.reader?.chapterVerseCount(this.scripture.book, this.scripture.chapter);
+		const start = this.scripture.verseStart;
+		const end = this.scripture.verseEnd ?? start;
+		const canBefore = start > 1;
+		const canAfter = count !== undefined && end < count;
+		const canWholeChapter = count !== undefined && !(start === 1 && end >= count);
+		if (!canBefore && !canAfter && !canWholeChapter) return;
+
+		const t = L[this.lang];
+		const row = bodyEl.createDiv('jw-bible-context-row');
+		const addButton = (label: string, onClick: () => void) => {
+			const btn = row.createEl('button', { text: label, cls: 'jw-bible-context-button' });
+			btn.addEventListener('click', onClick);
+		};
+
+		if (canBefore) {
+			addButton(t.popupVerseBefore, () => {
+				this.scripture = { ...this.scripture, verseStart: start - 1, verseEnd: end };
+				void this.render();
+			});
+		}
+		if (canAfter) {
+			addButton(t.popupVerseAfter, () => {
+				this.scripture = { ...this.scripture, verseEnd: end + 1 };
+				void this.render();
+			});
+		}
+		if (canWholeChapter) {
+			addButton(t.popupWholeChapter, () => {
+				this.scripture = { ...this.scripture, verseStart: 1, verseEnd: count };
+				void this.render();
+			});
+		}
 	}
 
 	private navigateTo(scripture: Scripture): void {

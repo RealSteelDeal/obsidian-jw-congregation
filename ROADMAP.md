@@ -5,9 +5,6 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 
 ## Planned
 
-- **Chapter context in the verse popup** *(next up)*: load the verses
-  before/after the cited passage, or the whole chapter, without leaving the
-  popup.
 - **More program-file languages** (Spanish, French, …): the architecture is in
   place (central string table, language-tolerant parsing patterns, automatic
   language detection) — each language needs real program files for testing,
@@ -15,11 +12,6 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 
 ## Later (deliberately deferred)
 
-- **Raise minAppVersion to 1.13 and drop the imperative settings fallback**:
-  tried once and reverted — a real 1.12.7 install rendered an empty settings
-  tab, since Obsidian 1.13 (declarative settings API) is not broadly deployed
-  yet (public release is 1.12.7 as of July 2026). Revisit once 1.13 has been
-  the stable public release for a while.
 - **Moving import work off the main thread** (Web Worker): unzip/decrypt of a
   jwpub currently blocks Obsidian's UI for 1–3 seconds during import.
   Deferred until it hurts in practice — the rework is disproportionate to the
@@ -34,6 +26,10 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 
 ## Recently shipped
 
+- Chapter context in the verse popup: verse-by-verse expansion and a
+  whole-chapter view, with chapter bounds read from the Bible file itself —
+  which also fixed verses cited nowhere (e.g. Psalm 117:2) losing their
+  cross-reference markers
 - In-popup navigation with a back arrow for cross-references and study notes
   (instead of stacking popups)
 - Optional YAML frontmatter (stable English keys) for Dataview queries

@@ -13,11 +13,19 @@ import { L } from '../i18n';
 const EMBEDDED_BIBLE_HREF_PREFIX = 'jwpub://b/NWTR/';
 
 export class BibleVerseModal extends Modal {
+	// Resolved from getReader() on open. The loader indirection (instead of a
+	// ready reader instance) lets the modal open INSTANTLY on the very first
+	// click of a session and show its loading state while the Bible file is
+	// still being decrypted/indexed (up to ~125 MB for the study edition) —
+	// previously that first click sat on a silently dead screen for seconds
+	// before anything appeared.
+	private reader: BibleReader | null = null;
+
 	constructor(
 		app: App,
 		private readonly scripture: Scripture,
 		private readonly lang: SupportedLang,
-		private readonly reader: BibleReader,
+		private readonly getReader: () => Promise<BibleReader | null>,
 	) {
 		super(app);
 	}
@@ -32,8 +40,18 @@ export class BibleVerseModal extends Modal {
 		const bodyEl = contentEl.createDiv('jw-bible-verse-text');
 		bodyEl.setText(L[this.lang].popupLoading);
 
-		const verses = await this.reader.getVerseDetails(this.scripture);
+		this.reader = await this.getReader();
 		bodyEl.empty();
+
+		if (!this.reader) {
+			// Reader failed to load (a specific Notice with the reason is already
+			// shown by the loader) — keep the popup usable as a JW Library springboard.
+			bodyEl.createEl('p', { text: L[this.lang].popupLoadFailed, cls: 'jw-bible-verse-missing' });
+			this.renderJwLibraryButton(bodyEl);
+			return;
+		}
+
+		const verses = await this.reader.getVerseDetails(this.scripture);
 		if (verses && verses.length > 0) {
 			this.renderVerseText(bodyEl, verses);
 			this.renderNotes(bodyEl, verses);
@@ -201,14 +219,20 @@ export class BibleVerseModal extends Modal {
 			if (!node.instanceOf(HTMLElement)) continue;
 
 			if (node.tagName === 'A') {
-				const scripture = this.parseEmbeddedScripture(node.getAttribute('href') ?? '');
+				const href = node.getAttribute('href') ?? '';
+				// Direct scripture links (jwpub://b/NWTR/…) and study-note
+				// cross-references ("Anm. zu Mat 5:18", jwpub://c/…, whose target
+				// verse the reader resolves via the file's own book-document
+				// mapping) both open another verse popup — the target verse's
+				// popup includes the referenced study note in its own accordion.
+				const scripture = this.parseEmbeddedScripture(href) ?? this.reader?.parseCommentaryHref(href);
 				if (scripture) {
 					const link = container.createSpan({ text: node.textContent ?? '', cls: 'jw-bible-inline-link' });
 					link.addEventListener('click', () => this.openScripturePopup(scripture));
 					continue;
 				}
-				// Non-Bible link (e.g. a link to another study note) — not something
-				// this popup can navigate to, so just keep its text.
+				// Anything else (e.g. glossary/media links, jwpub://p/…) — not
+				// something this popup can navigate to, so just keep its text.
 				container.appendText(node.textContent ?? '');
 				continue;
 			}
@@ -227,9 +251,11 @@ export class BibleVerseModal extends Modal {
 
 	// Opens another popup for `scripture` on top of this one (this modal is left
 	// open underneath) — lets the user drill into a footnote/cross-reference's
-	// own scripture citations without losing their place, per user request.
+	// own scripture citations without losing their place, per user request. The
+	// nested popup reuses this modal's loader, which resolves instantly from the
+	// plugin-level cache once the reader is loaded.
 	private openScripturePopup(scripture: Scripture): void {
-		new BibleVerseModal(this.app, scripture, this.lang, this.reader).open();
+		new BibleVerseModal(this.app, scripture, this.lang, this.getReader).open();
 	}
 
 	// Verse-number labels (BibleVerse.Label) are plain strings in practice but

@@ -1,13 +1,8 @@
 import { App, Modal, Notice, Setting, TextComponent, TFolder } from 'obsidian';
+import { L, Strings } from '../i18n';
 import type JwCongregationPlugin from '../main';
 import { SourceRouter } from '../parser/SourceRouter';
-import { Congress, CongressType } from '../models/congress';
-
-const TYPE_LABELS: Record<CongressType, string> = {
-	'CO':        'Regionaler Kongress',
-	'CA-copgm':  'Kreiskongress (Kreisaufseher)',
-	'CA-brpgm':  'Kreiskongress (Zweigbüro)',
-};
+import { Congress } from '../models/congress';
 
 const NEW_FOLDER_VALUE = '__new__';
 const ROOT_VALUE = '__root__';
@@ -37,16 +32,20 @@ export class ImportModal extends Modal {
 		this.targetFolder = plugin.settings.targetFolder;
 	}
 
+	private get t(): Strings {
+		return L[this.plugin.settings.lang];
+	}
+
 	onOpen() {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.createEl('h2', { text: 'Kongressprogramm importieren' });
+		contentEl.createEl('h2', { text: this.t.importTitle });
 
 		new Setting(contentEl)
-			.setName('Programmdatei')
-			.setDesc('Wähle eine .jwpub-Datei oder ein RTF-ZIP.')
+			.setName(this.t.importFileName)
+			.setDesc(this.t.importFileDesc)
 			.addButton(btn =>
-				btn.setButtonText('Datei wählen …').onClick(() => {
+				btn.setButtonText(this.t.btnPickFile).onClick(() => {
 					const input = createEl('input', { type: 'file' });
 					input.accept = '.jwpub,.zip,.rtf';
 					input.onchange = async () => {
@@ -73,10 +72,10 @@ export class ImportModal extends Modal {
 		let newFolderText: TextComponent | undefined;
 
 		const newFolderSetting = new Setting(contentEl)
-			.setName('Name des neuen Ordners')
+			.setName(this.t.importNewFolder)
 			.addText(text => {
 				text
-					.setPlaceholder('z. B. Kongress')
+					.setPlaceholder(this.t.importNewFolderPlaceholder)
 					.onChange(value => {
 						this.targetFolder = value.trim();
 					});
@@ -85,14 +84,14 @@ export class ImportModal extends Modal {
 		newFolderSetting.settingEl.hide();
 
 		const folderDropdownSetting = new Setting(contentEl)
-			.setName('Zielordner')
-			.setDesc('Standard: Vault-Wurzel – der Kongress wird direkt als eigener Ordner angelegt, ohne Wrapper-Ordner. Alternativ einen bestehenden Ordner wählen oder einen neuen anlegen.')
+			.setName(this.t.importTarget)
+			.setDesc(this.t.importTargetDesc)
 			.addDropdown(drop => {
-				drop.addOption(ROOT_VALUE, 'Vault-Wurzel (kein Unterordner)');
+				drop.addOption(ROOT_VALUE, this.t.optVaultRoot);
 				for (const folder of folders) {
 					drop.addOption(folder.path, folder.path);
 				}
-				drop.addOption(NEW_FOLDER_VALUE, '➕ Neuer Ordner …');
+				drop.addOption(NEW_FOLDER_VALUE, this.t.optNewFolder);
 				// After the normalization above, targetFolder is always either '' (root)
 				// or an existing folder path — never a not-yet-created name.
 				drop.setValue(isRoot ? ROOT_VALUE : this.targetFolder);
@@ -117,11 +116,11 @@ export class ImportModal extends Modal {
 		new Setting(contentEl)
 			.addButton(btn =>
 				btn
-					.setButtonText('Importieren')
+					.setButtonText(this.t.btnImport)
 					.setCta()
 					.onClick(async () => {
 						if (!this.fileData) {
-							new Notice('Bitte zuerst eine Datei wählen.');
+							new Notice(this.t.noticePickFileFirst);
 							return;
 						}
 						this.close();
@@ -129,7 +128,7 @@ export class ImportModal extends Modal {
 					}),
 			)
 			.addButton(btn =>
-				btn.setButtonText('Abbrechen').onClick(() => this.close()),
+				btn.setButtonText(this.t.btnCancel).onClick(() => this.close()),
 			);
 	}
 
@@ -144,7 +143,7 @@ export class ImportModal extends Modal {
 			this.renderPreview(result.congress, result.source);
 		} catch (err) {
 			this.previewEl.createEl('p', {
-				text: `Vorschau nicht möglich: ${String(err)}`,
+				text: this.t.previewFailed(String(err)),
 				cls: 'jw-preview-error',
 			});
 		}
@@ -154,7 +153,7 @@ export class ImportModal extends Modal {
 		if (!this.previewEl) return;
 		const el = this.previewEl;
 
-		el.createEl('h3', { text: 'Vorschau' });
+		el.createEl('h3', { text: this.t.previewHeading });
 
 		const table = el.createEl('table', { cls: 'jw-preview-table' });
 		const addRow = (label: string, value: string) => {
@@ -163,16 +162,17 @@ export class ImportModal extends Modal {
 			row.createEl('td', { text: value });
 		};
 
-		addRow('Typ', TYPE_LABELS[congress.type] ?? congress.type);
-		addRow('Motto', congress.theme);
-		addRow('Jahr', String(congress.year));
-		addRow('Tage', congress.days.map(d => d.weekday).join(', '));
-		addRow('Quelle', source === 'jwpub' ? 'jwpub' : 'RTF (Fallback)');
+		addRow(this.t.rowType, this.t.typeLabels[congress.type] ?? congress.type);
+		addRow(this.t.rowTheme, congress.theme);
+		addRow(this.t.rowYear, String(congress.year));
+		addRow(this.t.rowDays, congress.days.map(d => d.weekday).join(', '));
+		addRow(this.t.rowSource, source === 'jwpub' ? 'jwpub' : this.t.rowSourceRtf);
 
 		const itemCount = congress.days.flatMap(d =>
 			d.sessions.flatMap(s => s.items),
 		).length;
-		addRow('Programmpunkte', String(itemCount));
+		addRow(this.t.rowLanguage, this.t.langDisplay(congress.lang));
+		addRow(this.t.rowItems, String(itemCount));
 	}
 
 	onClose() {

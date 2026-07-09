@@ -87,6 +87,7 @@ export class BibleReader {
 	private verseIdByReference = new Map<string, number>();
 	private referenceByVerseId = new Map<number, { book: number; chapter: number; verse: number }>();
 	private bookDocumentId = new Map<number, number>();
+	private bookByMepsDocumentId = new Map<number, number>();
 
 	constructor(private readonly sqlWasmBinary: Uint8Array) {}
 
@@ -103,6 +104,7 @@ export class BibleReader {
 		this.iv = iv;
 		this.buildVerseIdIndex(db);
 		this.buildBookDocumentIndex(db);
+		this.buildMepsDocumentIndex(db);
 	}
 
 	private buildVerseIdIndex(db: Database): void {
@@ -143,6 +145,42 @@ export class BibleReader {
 			const docId = Number(row[cols.indexOf('BookDocumentId')]);
 			this.bookDocumentId.set(book, docId);
 		}
+	}
+
+	// Study notes cross-reference each other via "jwpub://c/<lang>:<mepsDocId>/
+	// <chapter>:<verse>$…" links ("Anm. zu Mat 5:18" / "See study note on
+	// Mt 5:18"). The href carries chapter and verse directly, but the BOOK only
+	// indirectly through the MEPS document id of the target book's own document.
+	// The mapping lives in the file itself: Bible-book documents (Type = 2) carry
+	// their book number in Document.ChapterNumber (verified against a real nwtsty:
+	// MepsDocumentId 1001070144 → ChapterNumber 40 → Matthäus). Read, not guessed —
+	// the ids only LOOK sequential per book, and the song-docid saga showed where
+	// trusting such an apparent formula ends.
+	private buildMepsDocumentIndex(db: Database): void {
+		const res = db.exec('SELECT MepsDocumentId, ChapterNumber FROM Document WHERE Type = 2');
+		if (!res[0]) return;
+		const cols = res[0].columns;
+		for (const row of res[0].values) {
+			const mepsId = Number(row[cols.indexOf('MepsDocumentId')]);
+			const book = Number(row[cols.indexOf('ChapterNumber')]);
+			if (mepsId && book >= 1 && book <= 66) this.bookByMepsDocumentId.set(mepsId, book);
+		}
+	}
+
+	/**
+	 * Parses a study-note cross-reference href ("jwpub://c/X:1001070144/5:18$p/…")
+	 * into the scripture it points at — or undefined for anything that isn't such
+	 * a link or whose target book document isn't in this Bible file. Verified
+	 * against all 3557 study notes of a real German nwtsty: every jwpub://c/ link
+	 * there starts with this <mepsDocId>/<chapter>:<verse> segment (single verse,
+	 * never a range); the $-suffixed tail is a paragraph anchor we don't need.
+	 */
+	parseCommentaryHref(href: string): Scripture | undefined {
+		const m = /^jwpub:\/\/c\/[^:/]+:(\d+)\/(\d+):(\d+)/.exec(href);
+		if (!m || !m[1] || !m[2] || !m[3]) return undefined;
+		const book = this.bookByMepsDocumentId.get(Number(m[1]));
+		if (book === undefined) return undefined;
+		return { book, chapter: Number(m[2]), verseStart: Number(m[3]) };
 	}
 
 	/**

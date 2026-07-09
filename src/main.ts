@@ -8,6 +8,7 @@ import { BibleReader } from './bible/BibleReader';
 import { BibleVerseModal } from './ui/BibleVerseModal';
 import { ScriptureNormalizer } from './normalizer/ScriptureNormalizer';
 import { Scripture } from './models/congress';
+import { L } from './i18n';
 // esbuild's "binary" loader embeds this as base64 in main.js and decodes it to a
 // Uint8Array at bundle time — no separate file needs to ship alongside main.js.
 import sqlWasmBinary from 'sql.js/dist/sql-wasm.wasm';
@@ -31,66 +32,127 @@ export default class JwCongregationPlugin extends Plugin {
 	private bibleReader: BibleReader | null = null;
 	private bibleReaderLoading: Promise<BibleReader | null> | null = null;
 
+	private get tr() {
+		return L[this.settings.lang];
+	}
+
 	async onload() {
 		await this.loadSettings();
 		await this.notifyOnUpdate();
 
-		this.addRibbonIcon('book-open', 'Kongressprogramm importieren', () => {
+		this.addRibbonIcon('book-open', this.tr.importCommand, () => {
 			new ImportModal(this.app, this).open();
 		});
 
 		this.addCommand({
 			id: 'import-congress-program',
-			name: 'Kongressprogramm importieren',
+			name: this.tr.importCommand,
 			callback: () => new ImportModal(this.app, this).open(),
 		});
 
 		this.addSettingTab(new JwSettingTab(this.app, this));
 
-		// A single WINDOW-level, CAPTURE-phase click listener handles both Reading
-		// View (real <a href> elements) and Live Preview (links rendered as
-		// decoration spans, e.g. span.cm-underline inside span.cm-link — no real
-		// href to read there).
+		// WINDOW-level, CAPTURE-phase listeners handle both Reading View (real
+		// <a href> elements) and Live Preview (links rendered as decoration
+		// spans, e.g. span.cm-underline inside span.cm-link — no real href).
 		//
 		// Registered on the *window*, not just `document`: inspecting Obsidian's
 		// own bundled app code (obsidian.asar) shows external-link clicks in
-		// Reading View are handled by a delegated click listener bound to the
-		// rendered content's container element, which calls `window.open(href)`
-		// directly — not the browser's native link-following default action, so
-		// `preventDefault()` alone cannot stop it, only intercepting the click
-		// before that delegated handler runs can. Capture phase strictly precedes
-		// bubble phase for the whole dispatch, so any capture-phase listener on
-		// an ancestor should already win against that container's (presumably
-		// bubble-phase) delegated listener — attaching at `window` instead of
-		// `document` additionally guards against the (unconfirmed, but possible)
-		// case of Obsidian having its own document-level capture listener
-		// registered before ours (core loads before plugins, so on the exact same
-		// node we'd otherwise lose that race). `stopImmediatePropagation()` (not
-		// just `stopPropagation()`) also guards against another listener on this
-		// exact same node/phase.
+		// Reading View are handled by a delegated click listener on the rendered
+		// content's container element, which calls `window.open(href)` directly —
+		// not the browser's native link default action, so `preventDefault()`
+		// alone cannot stop it; only intercepting before that handler runs can.
+		// Capture on window strictly precedes any bubble-phase handler anywhere.
 		//
-		// A 'mousedown' capture-phase listener (same detection, stopPropagation
-		// only) was tried here previously to beat a suspected mousedown-triggered
-		// Obsidian handler in Live Preview, but real-device testing showed no
-		// improvement — reverted. Do not reintroduce it without new evidence of
-		// exactly which event/handler is winning the race.
+		// The touch listeners are the MOBILE half of the story: on iOS/Android,
+		// Obsidian does not wait for a click at all — its bundled tap helper
+		// listens for `touchend`, applies its own tap heuristic (< 600 ms, < 5 px
+		// movement) and then calls the link handler DIRECTLY with a synthetic
+		// MouseEvent (`t(l, e.target)` — never `dispatchEvent`), so that synthetic
+		// "click" is invisible to every DOM listener, ours included; the real
+		// click that would follow is suppressed via preventDefault on the
+		// touchend. Confirmed by real-device testing: editing view on iPhone
+		// opened JW Library with no popup, while our click interception worked
+		// everywhere on desktop. The counter-move is the same trick one level
+		// earlier: our capture-phase `touchend` on window fires before Obsidian's
+		// bubble-phase one, replicates the same tap heuristic, and for scripture
+		// links stops propagation (kills Obsidian's tap helper) + prevents
+		// default (kills the native synthetic click) and opens the popup itself.
+		this.registerDomEvent(activeWindow, 'touchstart', this.onDocumentTouchStart.bind(this), true);
+		this.registerDomEvent(activeWindow, 'touchend', this.onDocumentTouchEnd.bind(this), true);
 		this.registerDomEvent(activeWindow, 'click', this.onDocumentClick.bind(this), true);
 	}
 
 	onunload() {}
 
-	private onDocumentClick(evt: MouseEvent): void {
-		if (!this.settings.bibleFileLoaded) return;
-		const found = this.findScriptureLinkForEvent(evt);
-		if (!found) return;
-		evt.preventDefault();
-		evt.stopImmediatePropagation(); // belt-and-braces: also stop any other click handler on this link/ancestor
-		this.showVersePopupOrFallback(found.scripture, found.href);
+	private touchStart: { x: number; y: number; time: number } | null = null;
+	// Set whenever a touchend was handled (intercepted OR hint-counted) — the
+	// browser may still deliver a synthetic click afterwards on some platforms,
+	// which must not trigger a second popup / a second hint count.
+	private lastTouchHandled = 0;
+
+	private onDocumentTouchStart(evt: TouchEvent): void {
+		if (evt.touches.length !== 1) {
+			this.touchStart = null;
+			return;
+		}
+		const touch = evt.touches[0]!;
+		this.touchStart = { x: touch.clientX, y: touch.clientY, time: Date.now() };
 	}
 
-	/** Finds the jwlibrary:// scripture link (if any) that a mouse event's target is part of — Reading View
+	private onDocumentTouchEnd(evt: TouchEvent): void {
+		const start = this.touchStart;
+		this.touchStart = null;
+		if (!start) return;
+		const touch = evt.changedTouches[0];
+		if (!touch) return;
+		// Same tap heuristic as Obsidian's own tap helper — anything longer or
+		// further is a scroll/long-press and must never be hijacked.
+		if (Date.now() - start.time > 600) return;
+		if (Math.abs(touch.clientX - start.x) > 5 || Math.abs(touch.clientY - start.y) > 5) return;
+		if (this.handleLinkActivation(evt)) {
+			this.lastTouchHandled = Date.now();
+		}
+	}
+
+	private onDocumentClick(evt: MouseEvent): void {
+		// A tap this listener already handled via touchend may still produce a
+		// trailing synthetic click — ignore it instead of double-firing.
+		if (Date.now() - this.lastTouchHandled < 500) return;
+		this.handleLinkActivation(evt);
+	}
+
+	/** Returns true when the event targeted a scripture link (whether it opened the popup or counted a hint). */
+	private handleLinkActivation(evt: MouseEvent | TouchEvent): boolean {
+		const found = this.findScriptureLinkForEvent(evt);
+		if (!found) return false;
+
+		if (!this.settings.bibleFileLoaded) {
+			// No Bible file: leave the click/tap to Obsidian (JW Library opens as
+			// usual), but occasionally point out that the in-app popup exists.
+			void this.maybeShowBibleHint();
+			return true;
+		}
+
+		evt.preventDefault();
+		evt.stopImmediatePropagation(); // belt-and-braces: also stop any other handler on this node/phase
+		new BibleVerseModal(this.app, found.scripture, this.settings.lang, () => this.getBibleReader()).open();
+		return true;
+	}
+
+	// Shown on the first three scripture clicks and every 20th one after that —
+	// often enough to be discovered, rare enough not to nag.
+	private async maybeShowBibleHint(): Promise<void> {
+		const count = ++this.settings.bibleHintClickCount;
+		await this.saveSettings();
+		if (count <= 3 || count % 20 === 0) {
+			new Notice(this.tr.noticeBibleHint, 12000);
+		}
+	}
+
+	/** Finds the jwlibrary:// scripture link (if any) that an event's target is part of — Reading View
 	 *  (a real `<a href>`) or Live Preview (a decoration span; resolved via the CM6 EditorView's raw source text). */
-	private findScriptureLinkForEvent(evt: MouseEvent): { scripture: Scripture; href: string } | undefined {
+	private findScriptureLinkForEvent(evt: Event): { scripture: Scripture; href: string } | undefined {
 		const target = evt.target;
 		if (!target || !(target instanceof HTMLElement)) return undefined;
 
@@ -101,9 +163,16 @@ export default class JwCongregationPlugin extends Plugin {
 			return scripture ? { scripture, href: link.href } : undefined;
 		}
 
-		// Live Preview: no real <a> to find — resolve the click position via the
-		// CM6 EditorView the click landed in (if any), then read the raw markdown
-		// source text at that position instead of the rendered (label-only) text.
+		// Live Preview: no real <a> to find. Only react when the click landed on
+		// a RENDERED link decoration — when the cursor is on the line, CM6 shows
+		// the raw markdown source instead, and a click there must keep its normal
+		// meaning (placing the cursor, e.g. to edit the link) rather than being
+		// hijacked into opening the popup.
+		if (!target.closest('.cm-underline, .cm-link')) return undefined;
+
+		// Resolve the click position via the CM6 EditorView the click landed in
+		// (if any), then read the raw markdown source text at that position
+		// instead of the rendered (label-only) text.
 		const view = EditorView.findFromDOM(target);
 		if (!view) return undefined;
 
@@ -135,17 +204,6 @@ export default class JwCongregationPlugin extends Plugin {
 		return undefined;
 	}
 
-	private showVersePopupOrFallback(scripture: Scripture, href: string): void {
-		void (async () => {
-			const reader = await this.getBibleReader();
-			if (!reader) {
-				window.open(href); // Bible file failed to load — fall back to the normal link behaviour
-				return;
-			}
-			new BibleVerseModal(this.app, scripture, this.settings.lang, reader).open();
-		})();
-	}
-
 	private parseScriptureFromHref(href: string): Scripture | undefined {
 		try {
 			const bibleParam = new URL(href).searchParams.get('bible');
@@ -166,7 +224,7 @@ export default class JwCongregationPlugin extends Plugin {
 		this.settings.bibleFileLoaded = true;
 		await this.saveSettings();
 		this.bibleReader = null; // force a reload with the new file on next use
-		new Notice('Bibel-Datei gespeichert.');
+		new Notice(this.tr.noticeBibleSaved);
 	}
 
 	async removeBibleFile(): Promise<void> {
@@ -186,13 +244,22 @@ export default class JwCongregationPlugin extends Plugin {
 
 		this.bibleReaderLoading = (async () => {
 			try {
-				const data = await this.app.vault.adapter.readBinary(this.bibleFilePath());
+				// Missing file gets its own, actionable message: data.json (with
+				// bibleFileLoaded: true) syncs between devices, the Bible file in
+				// the plugin folder does not necessarily — so this is the expected
+				// state on a freshly synced second device, not an exotic error.
+				const path = this.bibleFilePath();
+				if (!(await this.app.vault.adapter.exists(path))) {
+					new Notice(this.tr.noticeBibleMissingOnDevice, 0);
+					return null;
+				}
+				const data = await this.app.vault.adapter.readBinary(path);
 				const reader = new BibleReader(this.sqlWasmBinary);
 				await reader.load(new Uint8Array(data));
 				this.bibleReader = reader;
 				return reader;
 			} catch (err) {
-				new Notice(`Bibel-Datei konnte nicht geladen werden: ${String(err)}`);
+				new Notice(this.tr.noticeBibleLoadFailed(String(err)));
 				return null;
 			} finally {
 				this.bibleReaderLoading = null;
@@ -217,10 +284,7 @@ export default class JwCongregationPlugin extends Plugin {
 		this.settings.lastVersion = current;
 		await this.saveSettings();
 		if (isUpdate) {
-			new Notice(
-				`JW Kongressprogramm wurde auf Version ${current} aktualisiert.\n\nVerbesserungen an den Notiz-Vorlagen erreichen bereits importierte Kongresse nicht automatisch: Um sie zu übernehmen, den Kongress-Ordner löschen und die Programmdatei neu importieren.\n\n(Zum Schließen klicken)`,
-				0,
-			);
+			new Notice(this.tr.noticeUpdated(current), 0);
 		}
 	}
 
@@ -256,12 +320,12 @@ export default class JwCongregationPlugin extends Plugin {
 		try {
 			result = await router.route(filename, data);
 		} catch (err) {
-			new Notice(`Import fehlgeschlagen: ${String(err)}`);
+			new Notice(this.tr.noticeImportFailed(String(err)));
 			return;
 		}
 
 		if (result.source === 'rtf' && result.fallback) {
-			new Notice('Jwpub-Parsing fehlgeschlagen – RTF-Fallback verwendet.');
+			new Notice(this.tr.noticeRtfFallback);
 		}
 
 		const { congressFolder, notes, attachments } = builder.buildNotes(result.congress);
@@ -286,7 +350,7 @@ export default class JwCongregationPlugin extends Plugin {
 
 		const total = notes.length + attachments.length;
 		let done = 0;
-		const progress = total > 3 ? new Notice(`Import läuft … 0/${total}`, 0) : null;
+		const progress = total > 3 ? new Notice(this.tr.noticeImportProgress(0, total), 0) : null;
 
 		try {
 			if (baseFolder) await this.ensureFolder(baseFolder);
@@ -307,7 +371,7 @@ export default class JwCongregationPlugin extends Plugin {
 					createdPaths.push(notePath);
 				}
 				done++;
-				progress?.setMessage(`Import läuft … ${done}/${total}`);
+				progress?.setMessage(this.tr.noticeImportProgress(done, total));
 			}
 
 			for (const attachment of attachments) {
@@ -327,7 +391,7 @@ export default class JwCongregationPlugin extends Plugin {
 					createdPaths.push(attachPath);
 				}
 				done++;
-				progress?.setMessage(`Import läuft … ${done}/${total}`);
+				progress?.setMessage(this.tr.noticeImportProgress(done, total));
 			}
 
 			progress?.hide();
@@ -341,7 +405,7 @@ export default class JwCongregationPlugin extends Plugin {
 				const file = this.app.vault.getAbstractFileByPath(path);
 				if (file) await this.app.fileManager.trashFile(file);
 			}
-			new Notice(`Import fehlgeschlagen, bereits erstellte Dateien wurden zurückgerollt: ${String(err)}`);
+			new Notice(this.tr.noticeImportRolledBack(String(err)));
 		}
 	}
 
@@ -357,7 +421,7 @@ export default class JwCongregationPlugin extends Plugin {
 		if (!existing) {
 			await this.app.vault.createFolder(path);
 		} else if (!(existing instanceof TFolder)) {
-			throw new Error(`„${path}" ist keine Ordner-Datei.`);
+			throw new Error(this.tr.noticeNotAFolder(path));
 		}
 	}
 }

@@ -1,6 +1,7 @@
 import { App, PluginSettingTab, requireApiVersion, Setting, SettingDefinitionItem } from 'obsidian';
 import type JwCongregationPlugin from './main';
 import { SupportedLang } from './normalizer/bookNames';
+import { L, Strings } from './i18n';
 
 export interface JwPluginSettings {
 	targetFolder: string;
@@ -19,6 +20,10 @@ export interface JwPluginSettings {
 	 *  changes don't reach existing congress folders on their own). Not a user
 	 *  setting; intentionally has no settings-tab UI. */
 	lastVersion: string;
+	/** Number of scripture-link clicks made WITHOUT a Bible file loaded — used
+	 *  to occasionally surface the "add a Bible file for the in-app popup" hint
+	 *  (first three clicks, then every 20th). No settings-tab UI. */
+	bibleHintClickCount: number;
 }
 
 export const DEFAULT_SETTINGS: JwPluginSettings = {
@@ -33,6 +38,7 @@ export const DEFAULT_SETTINGS: JwPluginSettings = {
 	extraFields: '',
 	bibleFileLoaded: false,
 	lastVersion: '',
+	bibleHintClickCount: 0,
 };
 
 export class JwSettingTab extends PluginSettingTab {
@@ -40,61 +46,67 @@ export class JwSettingTab extends PluginSettingTab {
 		super(app, plugin);
 	}
 
+	private get t(): Strings {
+		return L[this.plugin.settings.lang];
+	}
+
 	// Declarative settings (Obsidian ≥ 1.13.0) — makes every setting below searchable
 	// from the app-wide settings search. getControlValue()/setControlValue() are left
 	// at their PluginSettingTab default (read/write this.plugin.settings directly),
-	// which already matches our settings shape. display() below is kept as the
-	// fallback for Obsidian < 1.13.0 (minAppVersion is 1.6.6) — the base class only
-	// calls it when getSettingDefinitions() isn't present at all, so both paths never
-	// run at once; keep the two in sync when changing a setting.
+	// which already matches our settings shape — except for the language override
+	// below. display() further down is kept as the fallback for Obsidian < 1.13.0
+	// (minAppVersion is 1.6.6) — the base class only calls it when
+	// getSettingDefinitions() isn't present at all, so both paths never run at
+	// once; keep the two in sync when changing a setting.
 	getSettingDefinitions(): SettingDefinitionItem[] {
+		const t = this.t;
 		return [
 			{
-				name: 'Zielordner',
-				desc: 'Übergeordneter Ordner, in dem der Kongressordner angelegt wird. Leer lassen, damit jeder Kongress direkt als eigener Ordner in der Vault-Wurzel entsteht (kein zusätzlicher Wrapper-Ordner).',
-				control: { type: 'text', key: 'targetFolder', placeholder: '(Vault-Wurzel)' },
+				name: t.setTargetFolder,
+				desc: t.setTargetFolderDesc,
+				control: { type: 'text', key: 'targetFolder', placeholder: t.setTargetFolderPlaceholder },
 			},
 			{
-				name: 'Sprache des Bibeltext-Popups',
-				desc: 'Bibelbuch-Namen und Beschriftungen im Popup. Notizen folgen automatisch der Sprache der importierten Programmdatei.',
+				name: t.setLang,
+				desc: t.setLangDesc,
 				control: { type: 'dropdown', key: 'lang', options: { de: 'Deutsch', en: 'English' } },
 			},
 			{
-				name: 'Bibelstellen verlinken',
-				desc: 'Erzeugt klickbare JW-Library-Links auf jede Bibelstelle.',
+				name: t.setScriptureLinks,
+				desc: t.setScriptureLinksDesc,
 				control: { type: 'toggle', key: 'scriptureLinks' },
 			},
 			{
-				name: 'Wiederholungs-Notiz erstellen',
-				desc: 'Legt zusätzlich eine "Wiederholung"-Notiz mit den drei Standard-Reflexionsfragen an (bei Kreiskongressen mit Link zu den gedruckten Wiederholungsfragen, bei Regionalen Kongressen mit Hinweis auf das Video).',
+				name: t.setReviewNote,
+				desc: t.setReviewNoteDesc,
 				control: { type: 'toggle', key: 'reviewNote' },
 			},
 			{
 				type: 'group',
-				heading: 'Notiz-Felder',
+				heading: t.headNoteFields,
 				items: [
 					{
-						name: 'Feld "Tag" anzeigen',
-						desc: 'Nur bei Regionalen Kongressen relevant (Kreiskongresse sind eintägig).',
+						name: t.setShowDay,
+						desc: t.setShowDayDesc,
 						control: { type: 'toggle', key: 'showTagField' },
 					},
-					{ name: 'Feld "Uhrzeit" anzeigen', control: { type: 'toggle', key: 'showTimeField' } },
-					{ name: 'Feld "Bibeltexte" anzeigen', control: { type: 'toggle', key: 'showScriptureField' } },
-					{ name: 'Feld "Redner" anzeigen', control: { type: 'toggle', key: 'showSpeakerField' } },
+					{ name: t.setShowTime, control: { type: 'toggle', key: 'showTimeField' } },
+					{ name: t.setShowScriptures, control: { type: 'toggle', key: 'showScriptureField' } },
+					{ name: t.setShowSpeaker, control: { type: 'toggle', key: 'showSpeakerField' } },
 					{
-						name: 'Zusätzliche Felder',
-						desc: 'Jede Zeile wird als eigenes Feld mit eigenem Schreibplatz an jede Programmpunkt-Notiz angehängt (z. B. "**Notizen:**").',
+						name: t.setExtraFields,
+						desc: t.setExtraFieldsDesc,
 						control: { type: 'textarea', key: 'extraFields', placeholder: '**Notizen:**' },
 					},
 				],
 			},
 			{
 				type: 'group',
-				heading: 'Bibeltext-Popup',
+				heading: t.headPopup,
 				items: [
 					{
-						name: 'Bibel-Datei',
-						desc: this.bibleFileDesc(),
+						name: t.setBibleFile,
+						desc: this.plugin.settings.bibleFileLoaded ? t.bibleDescLoaded : t.bibleDescMissing,
 						// this.update() is only ever reachable here on Obsidian ≥ 1.13.0 (only
 						// such versions call getSettingDefinitions()/render() in the first
 						// place), but the requireApiVersion() guard is still needed to satisfy
@@ -108,10 +120,17 @@ export class JwSettingTab extends PluginSettingTab {
 		];
 	}
 
-	private bibleFileDesc(): string {
-		return this.plugin.settings.bibleFileLoaded
-			? 'Bibel-Datei ist geladen. Ein Klick auf eine Bibelstelle zeigt den Vers-Text direkt in Obsidian an (mit einem Button zum Öffnen in JW Library).'
-			: 'Optional: eine Bibel-jwpub-Datei auswählen (z. B. von jw.org heruntergeladen), damit ein Klick auf eine Bibelstelle den Vers-Text direkt in Obsidian anzeigt, statt nur JW Library zu öffnen. Empfehlung: die Studienbibel (nwtsty) statt der einfachen Ausgabe (nwt) – sie enthält zusätzliche Studienanmerkungen und mehr Fußnoten. Die Datei wird lokal im Plugin-Ordner gespeichert, nicht ins Vault kopiert.';
+	// The whole tab is language-dependent — re-render it right after the user
+	// switches the language so the change is visible immediately, not only on
+	// the next opening of the settings. Obsidian only ever calls
+	// setControlValue on ≥ 1.13.0 (the declarative-settings API that includes
+	// it), so the guard can never actually fail — it exists to satisfy the
+	// static minAppVersion check.
+	async setControlValue(key: string, value: unknown): Promise<void> {
+		if (requireApiVersion('1.13.0')) {
+			await super.setControlValue(key, value);
+			if (key === 'lang') this.update();
+		}
 	}
 
 	// Shared between the declarative "render" escape hatch (above — needed since a
@@ -122,9 +141,10 @@ export class JwSettingTab extends PluginSettingTab {
 	// since only one of the two rendering paths is ever active for a given
 	// Obsidian version.
 	private renderBibleFileSetting(setting: Setting, refresh: () => void): void {
+		const t = this.t;
 		setting
 			.addButton(btn =>
-				btn.setButtonText(this.plugin.settings.bibleFileLoaded ? 'Datei ersetzen …' : 'Datei wählen …').onClick(() => {
+				btn.setButtonText(this.plugin.settings.bibleFileLoaded ? t.btnReplaceFile : t.btnChooseFile).onClick(() => {
 					const input = createEl('input', { type: 'file' });
 					input.accept = '.jwpub';
 					input.onchange = async () => {
@@ -137,7 +157,7 @@ export class JwSettingTab extends PluginSettingTab {
 				}),
 			)
 			.addExtraButton(btn => {
-				btn.setIcon('trash').setTooltip('Bibel-Datei entfernen').onClick(async () => {
+				btn.setIcon('trash').setTooltip(t.btnRemoveBible).onClick(async () => {
 					await this.plugin.removeBibleFile();
 					refresh();
 				});
@@ -147,14 +167,15 @@ export class JwSettingTab extends PluginSettingTab {
 
 	display(): void {
 		const { containerEl } = this;
+		const t = this.t;
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Zielordner')
-			.setDesc('Übergeordneter Ordner, in dem der Kongressordner angelegt wird. Leer lassen, damit jeder Kongress direkt als eigener Ordner in der Vault-Wurzel entsteht (kein zusätzlicher Wrapper-Ordner).')
+			.setName(t.setTargetFolder)
+			.setDesc(t.setTargetFolderDesc)
 			.addText(text =>
 				text
-					.setPlaceholder('(Vault-Wurzel)')
+					.setPlaceholder(t.setTargetFolderPlaceholder)
 					.setValue(this.plugin.settings.targetFolder)
 					.onChange(async value => {
 						this.plugin.settings.targetFolder = value.trim();
@@ -163,8 +184,8 @@ export class JwSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('Sprache des Bibeltext-Popups')
-			.setDesc('Bibelbuch-Namen und Beschriftungen im Popup. Notizen folgen automatisch der Sprache der importierten Programmdatei.')
+			.setName(t.setLang)
+			.setDesc(t.setLangDesc)
 			.addDropdown(drop =>
 				drop
 					.addOption('de', 'Deutsch')
@@ -173,12 +194,13 @@ export class JwSettingTab extends PluginSettingTab {
 					.onChange(async (value: string) => {
 						this.plugin.settings.lang = value as SupportedLang;
 						await this.plugin.saveSettings();
+						this.display();
 					}),
 			);
 
 		new Setting(containerEl)
-			.setName('Bibelstellen verlinken')
-			.setDesc('Erzeugt klickbare JW-Library-Links auf jede Bibelstelle.')
+			.setName(t.setScriptureLinks)
+			.setDesc(t.setScriptureLinksDesc)
 			.addToggle(toggle =>
 				toggle
 					.setValue(this.plugin.settings.scriptureLinks)
@@ -189,8 +211,8 @@ export class JwSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('Wiederholungs-Notiz erstellen')
-			.setDesc('Legt zusätzlich eine "Wiederholung"-Notiz mit den drei Standard-Reflexionsfragen an (bei Kreiskongressen mit Link zu den gedruckten Wiederholungsfragen, bei Regionalen Kongressen mit Hinweis auf das Video).')
+			.setName(t.setReviewNote)
+			.setDesc(t.setReviewNoteDesc)
 			.addToggle(toggle =>
 				toggle
 					.setValue(this.plugin.settings.reviewNote)
@@ -200,11 +222,11 @@ export class JwSettingTab extends PluginSettingTab {
 					}),
 			);
 
-		new Setting(containerEl).setName('Notiz-Felder').setHeading();
+		new Setting(containerEl).setName(t.headNoteFields).setHeading();
 
 		new Setting(containerEl)
-			.setName('Feld "Tag" anzeigen')
-			.setDesc('Nur bei Regionalen Kongressen relevant (Kreiskongresse sind eintägig).')
+			.setName(t.setShowDay)
+			.setDesc(t.setShowDayDesc)
 			.addToggle(toggle =>
 				toggle
 					.setValue(this.plugin.settings.showTagField)
@@ -215,7 +237,7 @@ export class JwSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('Feld "Uhrzeit" anzeigen')
+			.setName(t.setShowTime)
 			.addToggle(toggle =>
 				toggle
 					.setValue(this.plugin.settings.showTimeField)
@@ -226,7 +248,7 @@ export class JwSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('Feld "Bibeltexte" anzeigen')
+			.setName(t.setShowScriptures)
 			.addToggle(toggle =>
 				toggle
 					.setValue(this.plugin.settings.showScriptureField)
@@ -237,7 +259,7 @@ export class JwSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('Feld "Redner" anzeigen')
+			.setName(t.setShowSpeaker)
 			.addToggle(toggle =>
 				toggle
 					.setValue(this.plugin.settings.showSpeakerField)
@@ -248,8 +270,8 @@ export class JwSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('Zusätzliche Felder')
-			.setDesc('Jede Zeile wird als eigenes Feld mit eigenem Schreibplatz an jede Programmpunkt-Notiz angehängt (z. B. "**Notizen:**").')
+			.setName(t.setExtraFields)
+			.setDesc(t.setExtraFieldsDesc)
 			.addTextArea(text =>
 				text
 					.setPlaceholder('**Notizen:**')
@@ -260,9 +282,11 @@ export class JwSettingTab extends PluginSettingTab {
 					}),
 			);
 
-		new Setting(containerEl).setName('Bibeltext-Popup').setHeading();
+		new Setting(containerEl).setName(t.headPopup).setHeading();
 
-		const bibleFileSetting = new Setting(containerEl).setName('Bibel-Datei').setDesc(this.bibleFileDesc());
+		const bibleFileSetting = new Setting(containerEl)
+			.setName(t.setBibleFile)
+			.setDesc(this.plugin.settings.bibleFileLoaded ? t.bibleDescLoaded : t.bibleDescMissing);
 		// This whole method only runs on Obsidian < 1.13.0 (see class-level comment
 		// above), where display() is the only way to refresh the tab — the resulting
 		// "display is deprecated" lint warning below is the documented fallback

@@ -50,7 +50,7 @@ src/
     ImportModal.ts           # Dateiauswahl, Zielordner-Dropdown, Vorschau, Import-Bestätigung
     BibleVerseModal.ts       # Popup mit Vers-Text + "In JW Library öffnen"-Button
 scripts/
-  analyze-jwpub.mjs          # Entwickler-Tool: DB + HTML ausgeben (eigenständiges, einfaches Decrypt, keine Parser-Logik)
+  dump-structure.mjs         # Entwickler-Tool: Publication-Zeile + h1/h2/li-Struktur je Dokument ausgeben (nutzt util/jwpubCrypto)
   test-parse.mjs             # Entwickler-Test: importiert den echten JwpubParser per jiti und parst übergebene .jwpub-Dateien
 ```
 
@@ -89,6 +89,13 @@ Echte Testdateien für beide Sprachen (alle 3 Kongresstypen + Studienbibel) lieg
 unter `C:\Users\LukasSchütter\Obsidian\.dateien\{Deutsch,Englisch}\` — nach Parser-Änderungen
 immer alle 6 Kongressdateien durch `node scripts/test-parse.mjs` schicken und die
 Programmpunkt-Zahlen zwischen den Sprachen vergleichen (müssen identisch sein).
+
+## Bewusst zurückgestellt
+
+- **Import in einen Web Worker auslagern:** Entpacken/Entschlüsseln der jwpub läuft synchron
+  im Haupt-Thread; Obsidian friert dabei 1–3 s ein. Mit dem Nutzer besprochen (Juli 2026) und
+  bewusst zurückgestellt, bis es bei großen Dateien real stört — der Umbau (Worker-Bundling in
+  main.js, sql.js/WASM im Worker) wäre unverhältnismäßig zum aktuellen Leidensdruck.
 
 ## Wichtige Implementierungsdetails
 

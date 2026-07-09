@@ -95,3 +95,74 @@ test('parseBibleDrama strips the scripture citation from the episode subtitle in
 	assert.ok(!item.subtitle.includes('Testbuch'), 'citation must not remain in the subtitle text');
 	assert.deepEqual(item.scriptures, [{ book: 40, chapter: 5, verseStart: 3, verseEnd: 3 }]);
 });
+
+// ── English programme structures (synthetic fixtures, no copyrighted text) ──
+
+test('parseLi recognizes an English song line (jwpub://p/E: link, "Song No. NNN")', () => {
+	const dom = parseHtml(`
+		<ul><li>
+			<p>9:30 <a href="jwpub://p/E:1102022960/">Song No. 160</a> and Prayer</p>
+		</li></ul>
+	`);
+	const item = parser()['parseLi'](dom.querySelector('li'));
+	assert.equal(item.itemType, 'song');
+	assert.equal(item.songNumber, 160);
+	// The real docid must come from the href — the language symbol before the
+	// colon varies per language (X/E/…) and must not be hardcoded.
+	assert.equal(item.songDocid, 1102022960);
+	assert.equal(item.title, '9:30 Song No. 160 and Prayer'.replace('9:30 ', ''));
+});
+
+test('parseLi treats English music/break lines as asides', () => {
+	const p = parser();
+	for (const text of ['Music-Video Presentation', 'Music', 'Intermission']) {
+		const dom = parseHtml(`<ul><li><p>9:20 ${text}</p></li></ul>`);
+		const item = p['parseLi'](dom.querySelector('li'));
+		assert.equal(item.itemType, 'aside', `"${text}" should be an aside`);
+		assert.equal(item.title, text);
+	}
+});
+
+test('parseLi strips English type markers (CHAIRMAN’S ADDRESS, PUBLIC BIBLE DISCOURSE) from the title', () => {
+	const p = parser();
+	for (const marker of ['CHAIRMAN’S ADDRESS:', 'PUBLIC BIBLE DISCOURSE:']) {
+		const dom = parseHtml(`
+			<ul><li>
+				<p>9:40 <span class="du-color--gold"><strong>${marker}</strong></span> An Example Title (<a href="jwpub://b/NWTR/19:16:11-19:16:11">Testbook 16:11</a>)</p>
+			</li></ul>
+		`);
+		const item = p['parseLi'](dom.querySelector('li'));
+		assert.equal(item.itemType, 'talk');
+		assert.equal(item.title, 'An Example Title', `marker "${marker}" must be stripped`);
+	}
+});
+
+test('extractDayName finds English weekdays and falls back per language for CA files', () => {
+	const p = parser();
+	const friday = parseHtml('<h1>Friday</h1><div class="bodyTxt"><h2>Morning</h2></div>');
+	assert.equal(p['extractDayName'](friday), 'Friday');
+
+	// CA files: h1 holds the theme, not a weekday — fallback follows the
+	// detected file language.
+	const ca = parseHtml('<h1>“An Example Theme”</h1><div class="bodyTxt"><h2>Morning</h2></div>');
+	p['lang'] = 'en';
+	assert.equal(p['extractDayName'](ca), 'Saturday');
+	p['lang'] = 'de';
+	assert.equal(p['extractDayName'](ca), 'Samstag');
+});
+
+test('extractQuestionsDocument matches the English "Find Answers to These Questions:" heading', () => {
+	const p = parser();
+	p['lang'] = 'en';
+	const dom = parseHtml(`
+		<header><h1>Find Answers to These Questions:</h1></header>
+		<div class="bodyTxt"><ul class="source">
+			<li><p>1. An example question? (<a href="jwpub://b/NWTR/19:16:11-19:16:11">Testbook 16:11</a>)</p></li>
+			<li><p>2. Another example question?</p></li>
+		</ul></div>
+	`);
+	const item = p['extractQuestionsDocument'](dom);
+	assert.ok(item, 'English questions document must be recognized');
+	assert.equal(item.title, 'Find Answers to These Questions');
+	assert.equal(item.parts.length, 2);
+});

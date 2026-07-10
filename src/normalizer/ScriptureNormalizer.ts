@@ -8,21 +8,25 @@ export class ScriptureNormalizer {
 	 * (book:chapter:verse from the jwpub://b/NWTR/ link).
 	 *
 	 * A real bible-drama citation can span chapters, e.g.
-	 * "41:1:21-41:3:19" (Mark 1:21–3:19) — a bug here previously took the end
-	 * segment's verse number regardless of its chapter, producing the
-	 * nonsensical "Markus 1:21-19" (verse 19 doesn't come after verse 21
-	 * within chapter 1; it's chapter 3's verse 19). Same guard as fromRtf():
-	 * verseEnd is only kept when the end segment is in the SAME chapter —
-	 * Scripture has no cross-chapter range representation, so a cross-chapter
-	 * citation is shown as just its start verse, consistent with fromRtf().
+	 * "41:1:21-41:3:19" (Mark 1:21–3:19) — an earlier version of this parser
+	 * took the end segment's verse number regardless of its chapter, producing
+	 * the nonsensical "Markus 1:21-19" (verse 19 doesn't come after verse 21
+	 * within chapter 1; it's chapter 3's verse 19), and a later fix dropped the
+	 * end segment entirely for cross-chapter ranges — losing the rest of the
+	 * cited passage. `chapterEnd` now captures the end segment's own chapter
+	 * when it differs, so the full range renders/resolves correctly (see
+	 * Scripture.chapterEnd, format(), toJwLibraryLink(), BibleReader). A
+	 * different BOOK for the end segment is not a real-world case for a single
+	 * citation — defensively dropped rather than guessed at.
 	 */
 	static fromJwpub(raw: string): Scripture {
 		const parts = raw.split('-');
 		const start = ScriptureNormalizer.parseJwpubSingle(parts[0] ?? '');
 		if (parts.length === 2) {
 			const end = ScriptureNormalizer.parseJwpubSingle(parts[1] ?? '');
-			if (end.book === start.book && end.chapter === start.chapter) {
+			if (end.book === start.book) {
 				start.verseEnd = end.verseStart;
+				if (end.chapter !== start.chapter) start.chapterEnd = end.chapter;
 			}
 		}
 		return start;
@@ -43,9 +47,10 @@ export class ScriptureNormalizer {
 		const start = ScriptureNormalizer.parseRtfSingle(parts[0] ?? '');
 		if (parts.length === 2) {
 			const end = ScriptureNormalizer.parseRtfSingle(parts[1] ?? '');
-			// Only store verseEnd when it differs from start
-			if (end.book === start.book && end.chapter === start.chapter) {
+			// Same cross-chapter handling as fromJwpub() — see its doc comment.
+			if (end.book === start.book) {
 				start.verseEnd = end.verseStart;
+				if (end.chapter !== start.chapter) start.chapterEnd = end.chapter;
 			}
 		}
 		return start;
@@ -85,8 +90,12 @@ export class ScriptureNormalizer {
 	static toJwLibraryLink(s: Scripture, lang: SupportedLang = 'de'): string {
 		const start = ScriptureNormalizer.toRtfCode(s.book, s.chapter, s.verseStart);
 		const params = `srcid=jwlshare&wtlocale=${ScriptureNormalizer.wtlocale(lang)}&prefer=lang`;
-		if (s.verseEnd !== undefined && s.verseEnd !== s.verseStart) {
-			const end = ScriptureNormalizer.toRtfCode(s.book, s.chapter, s.verseEnd);
+		const endChapter = s.chapterEnd ?? s.chapter;
+		if (s.verseEnd !== undefined && (endChapter !== s.chapter || s.verseEnd !== s.verseStart)) {
+			// The bible= param is just two BBCCCVVV codes — it already supports a
+			// cross-chapter range natively, no different handling needed here than
+			// for a same-chapter one.
+			const end = ScriptureNormalizer.toRtfCode(s.book, endChapter, s.verseEnd);
 			return `jwlibrary:///finder?${params}&bible=${start}-${end}&pub=nwtsty`;
 		}
 		return `jwlibrary:///finder?${params}&bible=${start}&pub=nwtsty`;
@@ -101,10 +110,16 @@ export class ScriptureNormalizer {
 	 * Formats a Scripture as human-readable string, e.g. "Sprüche 16:20" or
 	 * "Mt 5:1-12". Matches the official citation convention: exactly two
 	 * consecutive verses are separated by a comma ("34, 35"), a range of three
-	 * or more uses a hyphen ("34-38").
+	 * or more uses a hyphen ("34-38"). A cross-chapter range (chapterEnd set)
+	 * uses an en dash between the two chapter:verse pairs instead, e.g.
+	 * "Markus 1:21–3:19" — confirmed against real bible-drama citation text; a
+	 * plain hyphen there is reserved for a same-chapter verse range.
 	 */
 	static format(s: Scripture, lang: SupportedLang): string {
 		const bookName = getBookName(s.book, lang);
+		if (s.chapterEnd !== undefined && s.chapterEnd !== s.chapter) {
+			return `${bookName} ${s.chapter}:${s.verseStart}–${s.chapterEnd}:${s.verseEnd}`;
+		}
 		const base = `${bookName} ${s.chapter}:${s.verseStart}`;
 		if (s.verseEnd !== undefined && s.verseEnd !== s.verseStart) {
 			const separator = s.verseEnd - s.verseStart === 1 ? ', ' : '-';

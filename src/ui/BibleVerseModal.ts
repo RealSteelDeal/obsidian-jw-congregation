@@ -97,7 +97,15 @@ export class BibleVerseModal extends Modal {
 	// forward/whole-chapter buttons stay hidden, because verse ids continue
 	// seamlessly into the next chapter and an unbounded expansion would
 	// silently show foreign verses.
+	//
+	// Hidden entirely for a cross-chapter citation (chapterEnd set): this
+	// row's math (verseEnd compared against the START chapter's own verse
+	// count) assumes a single chapter — "widen by one verse"/"whole chapter"
+	// is also a fuzzier question here (which of the spanned chapters?) that
+	// hasn't been asked for; showing the full already-requested range is what
+	// this popup does regardless.
 	private renderContextControls(bodyEl: HTMLElement): void {
+		if (this.scripture.chapterEnd !== undefined && this.scripture.chapterEnd !== this.scripture.chapter) return;
 		const count = this.reader?.chapterVerseCount(this.scripture.book, this.scripture.chapter);
 		const start = this.scripture.verseStart;
 		const end = this.scripture.verseEnd ?? start;

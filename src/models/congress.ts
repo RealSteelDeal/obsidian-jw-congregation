@@ -15,6 +15,12 @@ export interface Scripture {
 	chapter: number;
 	verseStart: number;
 	verseEnd?: number;
+	/** Set only when the citation spans chapters (e.g. Mark 1:21–3:19), and only
+	 *  differs from `chapter` in that case — `verseEnd` then refers to a verse
+	 *  number WITHIN `chapterEnd`, not `chapter`. Real bible-drama scripture
+	 *  lists cite exactly this shape. Absent (or equal to `chapter`) for an
+	 *  ordinary single-chapter reference/range. */
+	chapterEnd?: number;
 }
 
 export interface ProgramItem {

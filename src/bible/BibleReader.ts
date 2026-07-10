@@ -185,36 +185,59 @@ export class BibleReader {
 	}
 
 	/**
-	 * Resolves the BibleVerseId of `scripture`'s first verse. Not every single
-	 * verse is directly indexed (only verses that happen to be cited somewhere
-	 * in this particular Bible edition are) — e.g. Matthew 13:34 isn't cited
-	 * anywhere in a real nwtsty file, even though its neighbour 13:35 is. Since
-	 * BibleVerseId is sequential within a chapter, any indexed verse inside the
-	 * requested range (or immediately adjacent to it) is enough to derive the
-	 * range's actual start id by a constant offset — no need for every verse to
-	 * be indexed individually.
+	 * Resolves the BibleVerseId of a single book:chapter:verse. Not every verse
+	 * is directly indexed (only verses that happen to be cited somewhere in
+	 * this particular Bible edition are) — e.g. Matthew 13:34 isn't cited
+	 * anywhere in a real nwtsty file, even though its neighbour 13:35 is.
+	 *
+	 * `scanTo` (inclusive, same chapter, may be below `verse` — direction
+	 * doesn't matter) additionally searches for any OTHER indexed verse in that
+	 * span to derive the target's id by a constant offset — BibleVerseId is
+	 * sequential within a chapter, so one indexed neighbour is enough. Pass it
+	 * only when a genuine same-chapter neighbour exists to scan towards; it's
+	 * meaningless across chapterEnd (see resolveStartId()/resolveEndId()).
+	 *
+	 * Falls back to the chapter's own BibleChapter row (verse 1 = FirstVerseId,
+	 * ids sequential within a chapter) when neither the direct lookup nor the
+	 * scan succeed — covers verses cited nowhere in the file, which otherwise
+	 * showed "no verse text available" even though the text exists.
 	 */
-	private resolveStartId(scripture: Scripture): number | undefined {
-		const { book, chapter, verseStart, verseEnd } = scripture;
-		const direct = this.verseIdByReference.get(`${book}:${chapter}:${verseStart}`);
+	private resolveVerseId(book: number, chapter: number, verse: number, scanTo?: number): number | undefined {
+		const direct = this.verseIdByReference.get(`${book}:${chapter}:${verse}`);
 		if (direct !== undefined) return direct;
 
-		for (let v = verseStart + 1; v <= (verseEnd ?? verseStart); v++) {
-			const id = this.verseIdByReference.get(`${book}:${chapter}:${v}`);
-			if (id !== undefined) return id - (v - verseStart);
+		if (scanTo !== undefined) {
+			const step = scanTo >= verse ? 1 : -1;
+			for (let v = verse + step; step > 0 ? v <= scanTo : v >= scanTo; v += step) {
+				const id = this.verseIdByReference.get(`${book}:${chapter}:${v}`);
+				if (id !== undefined) return id - (v - verse);
+			}
 		}
 
-		// Final fallback: derive the id from the chapter's own BibleChapter row
-		// (verse 1 = FirstVerseId; ids are sequential within a chapter). This
-		// covers verses that are cited nowhere in the file and therefore never
-		// entered the citation index — previously those showed "no verse text
-		// available" even though the text exists.
 		const bounds = this.chapterBounds(book, chapter);
 		if (bounds) {
-			const id = bounds.firstVerseId + verseStart - 1;
+			const id = bounds.firstVerseId + verse - 1;
 			if (id <= bounds.lastVerseId) return id;
 		}
 		return undefined;
+	}
+
+	/** Resolves the BibleVerseId of `scripture`'s first verse. */
+	private resolveStartId(scripture: Scripture): number | undefined {
+		const { book, chapter, verseStart, verseEnd, chapterEnd } = scripture;
+		// A same-chapter verseEnd is a genuine neighbour to scan towards; a
+		// cross-chapter one belongs to a different chapter's own numbering and
+		// would derive a meaningless offset.
+		const scanTo = chapterEnd === undefined || chapterEnd === chapter ? verseEnd : undefined;
+		return this.resolveVerseId(book, chapter, verseStart, scanTo);
+	}
+
+	/** Resolves the BibleVerseId of `scripture`'s last verse — same as its first
+	 *  verse when there's no range at all. */
+	private resolveEndId(scripture: Scripture): number | undefined {
+		if (scripture.verseEnd === undefined) return this.resolveStartId(scripture);
+		const endChapter = scripture.chapterEnd ?? scripture.chapter;
+		return this.resolveVerseId(scripture.book, endChapter, scripture.verseEnd);
 	}
 
 	/** First/last BibleVerseId of a chapter, from the file's BibleChapter table (cached). */
@@ -259,8 +282,10 @@ export class BibleReader {
 
 		const startId = this.resolveStartId(scripture);
 		if (startId === undefined) return undefined;
+		const endId = this.resolveEndId(scripture) ?? startId;
+		if (endId < startId) return undefined;
 
-		const verseCount = (scripture.verseEnd ?? scripture.verseStart) - scripture.verseStart + 1;
+		const verseCount = endId - startId + 1;
 		const verses: { number: string; html: string }[] = [];
 		for (let i = 0; i < verseCount; i++) {
 			const verse = await this.readVerseRow(startId + i);
@@ -282,29 +307,48 @@ export class BibleReader {
 		const startId = this.resolveStartId(scripture);
 		if (startId === undefined) return undefined;
 
-		let verseCount = (scripture.verseEnd ?? scripture.verseStart) - scripture.verseStart + 1;
-		// Verse ids continue seamlessly into the next chapter — clamp the range at
-		// the chapter end (when known) so an overlong citation can never silently
-		// bleed foreign verses into the popup.
-		const bounds = this.chapterBounds(scripture.book, scripture.chapter);
-		if (bounds) verseCount = Math.min(verseCount, bounds.lastVerseId - startId + 1);
+		let endId = this.resolveEndId(scripture) ?? startId;
+		// Verse ids continue seamlessly past a chapter's last verse — clamp to the
+		// true END chapter's bound (when known) so neither an overlong same-chapter
+		// citation (no chapterEnd) nor a cross-chapter one running past its own
+		// declared end chapter can silently bleed foreign verses into the popup.
+		const endChapter = scripture.chapterEnd ?? scripture.chapter;
+		const endBounds = this.chapterBounds(scripture.book, endChapter);
+		if (endBounds) endId = Math.min(endId, endBounds.lastVerseId);
+		if (endId < startId) return undefined;
+		const verseCount = endId - startId + 1;
 
 		const chapterDomCache = new Map<string, Document | undefined>();
 		const details: VerseDetail[] = [];
 
+		// Tracks (chapter, verse) across the range as ids are walked one by one,
+		// crossing chapter boundaries via each chapter's own BibleChapter bounds.
+		// Necessary now that a range can cross chapters, where "start chapter,
+		// verseStart + i" is only valid within the very first chapter of the
+		// range — this cursor is the general form of that, still falling back to
+		// arithmetic (not the citation index) for verses cited nowhere in the
+		// file, e.g. Psalm 117:2.
+		let cursorChapter = scripture.chapter;
+		let cursorVerse = scripture.verseStart;
+		let cursorBounds = this.chapterBounds(scripture.book, cursorChapter);
+
 		for (let i = 0; i < verseCount; i++) {
 			const verseId = startId + i;
+			if (i > 0) {
+				if (cursorBounds && verseId > cursorBounds.lastVerseId) {
+					cursorChapter++;
+					cursorVerse = 1;
+					cursorBounds = this.chapterBounds(scripture.book, cursorChapter);
+				} else {
+					cursorVerse++;
+				}
+			}
+
 			const verse = await this.readVerseRow(verseId);
 			if (!verse) continue;
 
-			// A Scripture is single-chapter by definition, so every verse of the
-			// range is verseStart + i in the same book/chapter. (Historically this
-			// was only assumed for i === 0 and otherwise required the verse to be
-			// in the citation index — verses cited nowhere, e.g. Psalm 117:2, then
-			// lost their inline markers/cross-references because the chapter DOM
-			// was never consulted for them.)
 			const ref = this.referenceByVerseId.get(verseId)
-				?? { book: scripture.book, chapter: scripture.chapter, verse: scripture.verseStart + i };
+				?? { book: scripture.book, chapter: cursorChapter, verse: cursorVerse };
 
 			let isChapterStart = false;
 			// Falls back to the (marker-free) BibleVerse.Content as a single text

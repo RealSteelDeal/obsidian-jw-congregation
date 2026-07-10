@@ -155,7 +155,9 @@ test('parse() builds a full day with song, aside, talk, bible-drama and talk-ser
 	const drama = items[3];
 	assert.equal(drama.title, 'Die Beispielserie');
 	assert.equal(drama.subtitle, 'Folge 1: „Ein Beispielzitat“');
-	assert.deepEqual(drama.scriptures, [{ book: 40, chapter: 5, verseStart: 3 }]);
+	// Matthäus 5:3–7:29 — a real cross-chapter citation shape; verseEnd/chapterEnd
+	// preserve the full range (see ScriptureNormalizer.fromRtf()).
+	assert.deepEqual(drama.scriptures, [{ book: 40, chapter: 5, verseStart: 3, verseEnd: 29, chapterEnd: 7 }]);
 
 	const series = items[4];
 	assert.equal(series.title, 'Eine Beispielreihe');

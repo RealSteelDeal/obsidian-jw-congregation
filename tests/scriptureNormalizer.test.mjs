@@ -18,10 +18,12 @@ test('fromRtf parses an 8-digit BBCCCVVV code', () => {
 	assert.deepEqual(ScriptureNormalizer.fromRtf('40005001'), { book: 40, chapter: 5, verseStart: 1 });
 });
 
-test('fromRtf drops verseEnd when the range crosses chapters (book:chapter differ)', () => {
-	// 40:005:003 - 40:007:029 → Matthäus 5:3-7:29 crosses chapters; verseEnd is
-	// only meaningful within the same chapter, so it's intentionally dropped.
-	assert.deepEqual(ScriptureNormalizer.fromRtf('40005003-40007029'), { book: 40, chapter: 5, verseStart: 3 });
+test('fromRtf captures the end chapter when a range crosses chapters (book:chapter differ)', () => {
+	// 40:005:003 - 40:007:029 → Matthäus 5:3–7:29 crosses chapters; chapterEnd
+	// captures the end segment's own chapter so the full range is preserved.
+	assert.deepEqual(ScriptureNormalizer.fromRtf('40005003-40007029'), {
+		book: 40, chapter: 5, verseStart: 3, verseEnd: 29, chapterEnd: 7,
+	});
 });
 
 test('format renders a single verse', () => {
@@ -76,12 +78,26 @@ test('toJwLibraryLink carries the language-matching wtlocale (X for German, E fo
 	assert.ok(ScriptureNormalizer.toJwLibraryLink(s).includes('wtlocale=X'));
 });
 
-test('fromJwpub drops verseEnd when a range crosses chapters (book:chapter differ)', () => {
+test('fromJwpub captures the full cross-chapter range (book:chapter differ)', () => {
 	// Real citation from a bible-drama scripture list: "Markus 1:21–3:19".
-	// A previous bug took the end segment's verse number regardless of its
-	// chapter, producing the nonsensical "Markus 1:21-19".
+	// Earlier bugs either mixed up the chapters (nonsensical "Markus 1:21-19")
+	// or dropped the end segment entirely (just "Markus 1:21") — chapterEnd
+	// now preserves the full cited passage.
 	assert.deepEqual(
 		ScriptureNormalizer.fromJwpub('41:1:21-41:3:19'),
-		{ book: 41, chapter: 1, verseStart: 21 },
+		{ book: 41, chapter: 1, verseStart: 21, verseEnd: 19, chapterEnd: 3 },
+	);
+});
+
+test('format renders a cross-chapter range with an en dash between chapter:verse pairs', () => {
+	const s = { book: 41, chapter: 1, verseStart: 21, verseEnd: 19, chapterEnd: 3 };
+	assert.equal(ScriptureNormalizer.format(s, 'de'), 'Markus 1:21–3:19');
+});
+
+test('toJwLibraryLink encodes a cross-chapter range as two full BBCCCVVV codes', () => {
+	const s = { book: 41, chapter: 1, verseStart: 21, verseEnd: 19, chapterEnd: 3 };
+	assert.equal(
+		ScriptureNormalizer.toJwLibraryLink(s),
+		'jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=41001021-41003019&pub=nwtsty',
 	);
 });

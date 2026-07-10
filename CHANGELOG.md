@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.2
+
+### Fixes
+
+- **Cross-chapter scripture citations showed a nonsensical verse range** (e.g. "Markus 1:21-19" for a real "Mark 1:21–3:19" citation) and failed to resolve in the verse popup. `fromJwpub()` took the end segment's verse number regardless of its chapter; it now drops `verseEnd` when the citation crosses chapters, matching the RTF parser's existing behaviour — the reference is shown as just its start verse.
+
 ## 1.8.1
 
 ### Fixes

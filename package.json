@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-jw-congregation-program",
-	"version": "1.8.1",
+	"version": "1.8.2",
 	"description": "Imports JW convention programs (.jwpub / RTF-ZIP) and creates structured, linked notes in Obsidian. Supports German and English program files.",
 	"main": "main.js",
 	"type": "module",

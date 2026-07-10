@@ -5,14 +5,25 @@ export class ScriptureNormalizer {
 
 	/**
 	 * Parses jwpub-HTML format: "20:16:20" or range "20:16:20-20:16:22"
-	 * (book:chapter:verse from the jwpub://b/NWTR/ link)
+	 * (book:chapter:verse from the jwpub://b/NWTR/ link).
+	 *
+	 * A real bible-drama citation can span chapters, e.g.
+	 * "41:1:21-41:3:19" (Mark 1:21–3:19) — a bug here previously took the end
+	 * segment's verse number regardless of its chapter, producing the
+	 * nonsensical "Markus 1:21-19" (verse 19 doesn't come after verse 21
+	 * within chapter 1; it's chapter 3's verse 19). Same guard as fromRtf():
+	 * verseEnd is only kept when the end segment is in the SAME chapter —
+	 * Scripture has no cross-chapter range representation, so a cross-chapter
+	 * citation is shown as just its start verse, consistent with fromRtf().
 	 */
 	static fromJwpub(raw: string): Scripture {
 		const parts = raw.split('-');
 		const start = ScriptureNormalizer.parseJwpubSingle(parts[0] ?? '');
 		if (parts.length === 2) {
 			const end = ScriptureNormalizer.parseJwpubSingle(parts[1] ?? '');
-			start.verseEnd = end.verseStart;
+			if (end.book === start.book && end.chapter === start.chapter) {
+				start.verseEnd = end.verseStart;
+			}
 		}
 		return start;
 	}

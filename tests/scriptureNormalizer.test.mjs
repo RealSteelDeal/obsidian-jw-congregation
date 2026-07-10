@@ -75,3 +75,13 @@ test('toJwLibraryLink carries the language-matching wtlocale (X for German, E fo
 	// Callers without a language context (default) keep the German locale.
 	assert.ok(ScriptureNormalizer.toJwLibraryLink(s).includes('wtlocale=X'));
 });
+
+test('fromJwpub drops verseEnd when a range crosses chapters (book:chapter differ)', () => {
+	// Real citation from a bible-drama scripture list: "Markus 1:21–3:19".
+	// A previous bug took the end segment's verse number regardless of its
+	// chapter, producing the nonsensical "Markus 1:21-19".
+	assert.deepEqual(
+		ScriptureNormalizer.fromJwpub('41:1:21-41:3:19'),
+		{ book: 41, chapter: 1, verseStart: 21 },
+	);
+});

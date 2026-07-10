@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.3
+
+### Fixes
+
+- **Cross-chapter scripture citations now show the complete passage** (e.g. the real bible-drama citation "Mark 1:21–3:19") instead of just the start verse. 1.8.2 fixed the nonsensical range display but dropped the rest of the citation to get there; `Scripture` now has a `chapterEnd` field that preserves the full range through parsing, display ("Markus 1:21–3:19", en dash), the JW Library link, and verse-popup resolution (which now correctly walks across the spanned chapters). Verified against a real study Bible: 72 verses resolve correctly across the three chapters, with accurate chapter-start markers. The popup's verse-by-verse context-expansion buttons are hidden for such a citation (showing the already-requested full range, same as before).
+
 ## 1.8.2
 
 ### Fixes

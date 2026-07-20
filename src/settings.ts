@@ -2,6 +2,8 @@ import { App, PluginSettingTab, requireApiVersion, Setting, SettingDefinitionIte
 import type JwCongregationPlugin from './main';
 import { SupportedLang } from './normalizer/bookNames';
 import { L, Strings } from './i18n';
+import { ImportModal } from './ui/ImportModal';
+import { UpdateNotesModal } from './ui/UpdateNotesModal';
 
 /** The four things the in-editor scripture suggester (ScriptureEditorSuggest)
  *  can do with a typed reference — see its own doc comment for what each does. */
@@ -102,6 +104,27 @@ export class JwSettingTab extends PluginSettingTab {
 		const t = this.t;
 		return [
 			{
+				// The two functions that turn a program file into notes
+				// (import-modal, update-notes-modal) previously only lived in the
+				// ribbon icon / command palette, invisible from the settings tab —
+				// surface them here too, with an explanation of how they differ.
+				type: 'group',
+				heading: t.headImport,
+				items: [
+					{ name: '', desc: t.headImportDesc, searchable: false },
+					{
+						name: t.importCommand,
+						desc: t.setImportActionDesc,
+						render: setting => this.renderOpenModalButton(setting, () => new ImportModal(this.app, this.plugin).open()),
+					},
+					{
+						name: t.updateCommand,
+						desc: t.updateExplanation,
+						render: setting => this.renderOpenModalButton(setting, () => new UpdateNotesModal(this.app, this.plugin).open()),
+					},
+				],
+			},
+			{
 				type: 'group',
 				heading: t.headGeneral,
 				items: [
@@ -113,7 +136,11 @@ export class JwSettingTab extends PluginSettingTab {
 					{
 						name: t.setLang,
 						desc: t.setLangDesc,
-						control: { type: 'dropdown', key: 'lang', options: { de: 'Deutsch', en: 'English' } },
+						control: {
+							type: 'dropdown',
+							key: 'lang',
+							options: { de: 'Deutsch', en: 'English', fr: 'Français', it: 'Italiano', pt: 'Português', ru: 'Русский', es: 'Español' },
+						},
 					},
 				],
 			},
@@ -252,6 +279,14 @@ export class JwSettingTab extends PluginSettingTab {
 		}
 	}
 
+	// A single "Open" button that launches one of the two note-generation
+	// modals (import/update) — shared between the declarative "render" escape
+	// hatch and the display() fallback, same as renderBibleFileSetting below.
+	// No refresh needed: opening a modal doesn't change any setting value.
+	private renderOpenModalButton(setting: Setting, onClick: () => void): void {
+		setting.addButton(btn => btn.setButtonText(this.t.btnOpen).onClick(onClick));
+	}
+
 	// Shared between the declarative "render" escape hatch (above — a
 	// file-upload button plus a conditional delete button has no direct
 	// declarative equivalent) and the display() fallback below. `refresh`
@@ -288,6 +323,18 @@ export class JwSettingTab extends PluginSettingTab {
 		const t = this.t;
 		containerEl.empty();
 
+		new Setting(containerEl).setName(t.headImport).setHeading();
+		new Setting(containerEl).setDesc(t.headImportDesc);
+
+		this.renderOpenModalButton(
+			new Setting(containerEl).setName(t.importCommand).setDesc(t.setImportActionDesc),
+			() => new ImportModal(this.app, this.plugin).open(),
+		);
+		this.renderOpenModalButton(
+			new Setting(containerEl).setName(t.updateCommand).setDesc(t.updateExplanation),
+			() => new UpdateNotesModal(this.app, this.plugin).open(),
+		);
+
 		new Setting(containerEl).setName(t.headGeneral).setHeading();
 
 		new Setting(containerEl)
@@ -310,6 +357,11 @@ export class JwSettingTab extends PluginSettingTab {
 				drop
 					.addOption('de', 'Deutsch')
 					.addOption('en', 'English')
+					.addOption('fr', 'Français')
+					.addOption('it', 'Italiano')
+					.addOption('pt', 'Português')
+					.addOption('ru', 'Русский')
+					.addOption('es', 'Español')
 					.setValue(this.plugin.settings.lang)
 					.onChange(async (value: string) => {
 						this.plugin.settings.lang = value as SupportedLang;

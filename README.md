@@ -2,7 +2,7 @@
 
 An Obsidian community plugin that imports official convention program files of Jehovah's Witnesses and turns them into structured, linked Markdown notes in your vault.
 
-**Language note:** The plugin supports German, English, French, Italian, Portuguese, Russian and Spanish program files. Generated notes automatically follow the language of the imported file — a German jwpub file produces German notes, a French one French notes, and so on. The plugin interface itself (settings, import dialog, Bible-verse popup) can be switched between German and English only.
+**Language note:** The plugin supports German, English, French, Italian, Portuguese, Russian and Spanish program files. Generated notes automatically follow the language of the imported file — a German jwpub file produces German notes, a French one French notes, and so on. The plugin interface itself (settings, import dialog, Bible-verse popup) can independently be switched between all seven languages.
 
 ## Features
 
@@ -10,7 +10,7 @@ An Obsidian community plugin that imports official convention program files of J
   - `CO` – Regional Convention (Friday / Saturday / Sunday)
   - `CA-copgm` – Circuit Assembly With Circuit Overseer (one day)
   - `CA-brpgm` – Circuit Assembly With Branch Representative (one day)
-- **Supported languages: German, English, French, Italian, Portuguese, Russian and Spanish** – the language of the program file is detected automatically (via its `MepsLanguageIndex`), and all generated notes, labels, file and folder names follow it. The plugin's own interface (settings, import dialog, Bible-verse popup) stays German/English.
+- **Supported languages: German, English, French, Italian, Portuguese, Russian and Spanish** – the language of the program file is detected automatically (via its `MepsLanguageIndex`), and all generated notes, labels, file and folder names follow it. The plugin's own interface (settings, import dialog, Bible-verse popup) can independently be set to any of the same seven languages.
 - **Primary source: `.jwpub`** – full decryption (AES-128-CBC + zlib) and HTML parsing
 - **Fallback: RTF-ZIP** – used automatically when no jwpub is available (German exports only)
 - **One folder per convention**, named after type, year/season and theme – created directly in the vault root by default, without an extra wrapper folder
@@ -61,7 +61,7 @@ The [JW Library Linker](https://github.com/msakowski/obsidian-library-linker) pl
 
 ## Usage
 
-1. **Ribbon icon** (book symbol) or **command palette** → "Import convention program"
+1. **Ribbon icon** (book symbol), **command palette** or the **"Import & update convention programs"** section at the top of the plugin's settings → "Import convention program"
 2. Pick a program file (`.jwpub` or RTF-ZIP)
 3. Pick a target folder (vault root is the default; an existing folder or "new folder" can be chosen instead)
 4. Check the preview (convention type, theme, detected days/program items)
@@ -71,16 +71,18 @@ Re-importing into an existing convention folder only refreshes purely derived fi
 
 ### Updating notes after a plugin fix
 
-If a plugin update fixes a bug in the generated notes themselves (e.g. a wrong weekday or a broken scripture link), you don't have to delete anything to pick it up. **Command palette → "Update convention notes"** re-parses the same program file and patches an already-imported convention folder in place: every automatically generated field (day, time, scripture links, headings, the "Anschließend"/"Next" hint) is refreshed, while anything you typed yourself — speaker name, personal notes — is left completely untouched, even in the very same note.
+If a plugin update fixes a bug in the generated notes themselves (e.g. a wrong weekday or a broken scripture link), you don't have to delete anything to pick it up. **Command palette → "Update convention notes"** (also reachable from the same settings-tab section as import) re-parses the same program file and patches an already-imported convention folder in place: every automatically generated field (day, time, scripture links, headings, the "Anschließend"/"Next" hint) is refreshed, while anything you typed yourself — speaker name, personal notes — is left completely untouched, even in the very same note.
 
 This works because every generated note carries invisible markers (Obsidian's own `%%…%%` comment syntax, never shown in Reading View or Live Preview) around each derived field. Only notes created by this plugin version or later have them — older notes fall back to being left alone, reported separately in the result notice, and still need a full delete-and-reimport to pick up template changes.
 
 ## Settings
 
+The very top of the tab, **"Import & update convention programs"**, explains the difference between the two functions described above and offers an "Open" button for each — so both are discoverable without knowing the ribbon icon or command palette.
+
 | Setting | Default | Description |
 |---|---|---|
 | Target folder | *(vault root)* | Parent folder for new convention folders (overridable per import); empty = no wrapper folder |
-| Language of the interface and Bible-verse popup | `Deutsch` | Plugin labels and Bible book names in the popup. Generated notes follow the imported file's language automatically |
+| Language of the interface and Bible-verse popup | `Deutsch` | Plugin labels and Bible book names in the popup, selectable from all 7 supported languages independently of any note's own language. Generated notes follow the imported file's language automatically |
 | Create review note | on | Creates the additional review note |
 | Note fields | all on | Show/hide the Day/Time/Scriptures/Speaker fields individually, plus free-form extra fields |
 

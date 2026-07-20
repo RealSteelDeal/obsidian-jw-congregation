@@ -1,8 +1,13 @@
-export type SupportedLang = 'de' | 'en';
-// Widened set for note generation (Congress.lang) — the plugin's UI/popup
-// language (settings.lang) stays SupportedLang; a note's own language follows
-// whatever the imported programme file was written in.
-export type CongressLang = SupportedLang | 'fr' | 'it' | 'pt' | 'ru' | 'es';
+// Every language the plugin understands, for both roles: the UI/popup
+// language (settings.lang) and a note's own language (Congress.lang, which
+// follows whatever the imported programme file was written in). The two
+// roles are independent of each other — a French UI can still import a
+// German programme file — but since every language is supported for both,
+// the two type names are now the same set; kept separate for readability at
+// call sites (SupportedLang = "the user's chosen interface language",
+// CongressLang = "this note's language").
+export type SupportedLang = 'de' | 'en' | 'fr' | 'it' | 'pt' | 'ru' | 'es';
+export type CongressLang = SupportedLang;
 
 interface BookEntry {
 	de: string;

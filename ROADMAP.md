@@ -23,6 +23,15 @@ Nothing queued right now — suggestions welcome via GitHub issues.
 
 ## Recently shipped
 
+- **The plugin interface itself now supports all 7 languages**, not only
+  German/English: settings tab, Bible-verse popup, import/update dialogs
+  and every notice are fully translated into French, Italian, Portuguese,
+  Russian and Spanish too. Independent of a note's own language — the
+  interface language is a separate setting from what a given imported
+  program file is written in. Also surfaced the "Import & update convention
+  programs" functions directly in the settings tab (previously only in the
+  ribbon icon / command palette), with an explanation of the difference
+  between the two and an "Open" button for each.
 - **Reorganized the settings tab into consistent groups**: "General" (target
   folder, interface language), "Note fields" (now also including "Create
   review note") and "Scripture references" — every setting now belongs to a

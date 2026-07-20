@@ -2,8 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { jiti } from './_setup.mjs';
 
-const { findFirstScriptureLinkInText, findLineWithScripture, findQuoteBlockRange, findScriptureLinkInText, parseScriptureFromHref } =
-	await jiti.import('../src/util/scriptureLinkScan.ts');
+const {
+	findFirstScriptureLinkInText, findLineWithScripture, findQuoteBlockRange, findQuoteInsertionPoint,
+	findScriptureLinkInText, parseScriptureFromHref,
+} = await jiti.import('../src/util/scriptureLinkScan.ts');
 
 const PSALM_1_1_LINK = '[Psalm 1:1](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19001001&pub=nwtsty)';
 const MATTHEW_5_1_HTML_LINK = '<a href="jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=40005001&pub=nwtsty">Matthäus 5:1</a>';
@@ -102,4 +104,32 @@ test('findQuoteBlockRange extends to the end of the document when the callout is
 	const lines = [`> [!quote] ${PSALM_1_1_LINK}`, '> 1 Glücklich ist der Mensch …'];
 	const range = findQuoteBlockRange(lines, { book: 19, chapter: 1, verseStart: 1 });
 	assert.deepEqual(range, { start: 0, end: 2 });
+});
+
+// Regression test for a reported bug: opening the popup by clicking an
+// EXISTING quote's title, navigating to a cross-reference inside it, then
+// "insert as quote" for that cross-reference landed the new callout right
+// after the existing one's TITLE line — inside its own blockquote — instead
+// of after the whole callout, corrupting both (the existing callout's body
+// ended up orphaned into its own bare, title-less blockquote underneath).
+test('findQuoteInsertionPoint skips past an existing quote callout entirely, not just its title line', () => {
+	const lines = [
+		`> [!quote] ${PSALM_1_1_LINK}`,
+		'> 1 Glücklich ist der Mensch …',
+		'Nächster Absatz',
+	];
+	const point = findQuoteInsertionPoint(lines, { book: 19, chapter: 1, verseStart: 1 });
+	assert.deepEqual(point, { line: 1, separator: '\n\n' });
+});
+
+test('findQuoteInsertionPoint uses a single-newline separator for a plain inline reference (not a callout)', () => {
+	const lines = ['Bibeltexte: (Matthäus 12:1-14)', PSALM_1_1_LINK, 'Redner:'];
+	const point = findQuoteInsertionPoint(lines, { book: 19, chapter: 1, verseStart: 1 });
+	assert.deepEqual(point, { line: 1, separator: '\n' });
+});
+
+test('findQuoteInsertionPoint returns undefined when the target scripture is not linked anywhere', () => {
+	const lines = ['Kein Link hier.'];
+	const point = findQuoteInsertionPoint(lines, { book: 19, chapter: 1, verseStart: 1 });
+	assert.equal(point, undefined);
 });

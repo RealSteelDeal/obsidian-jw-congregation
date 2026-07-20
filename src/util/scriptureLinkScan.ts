@@ -117,3 +117,41 @@ export function findQuoteBlockRange(lines: string[], target: Scripture): { start
 	}
 	return undefined;
 }
+
+/**
+ * Computes where a NEW quote (for some OTHER scripture) should be appended
+ * relative to wherever `target` is found — used by BibleVerseModal's "insert
+ * as quote" so it lands next to the reference the popup itself was opened
+ * for, even after navigating to a different verse inside the popup (e.g. via
+ * a cross-reference).
+ *
+ * If `target` is itself an EXISTING quote callout's title (the popup was
+ * opened by clicking that quote — see util/quoteBuilder.ts — then navigated
+ * elsewhere), the returned line skips past the callout's LAST line, not just
+ * its title: Markdown callouts are just consecutive "> " lines with no blank
+ * line between them, so appending right after the title would land the new
+ * "> [!quote]" marker *inside* the existing callout's own blockquote —
+ * Obsidian doesn't treat a second "[!quote]" mid-block as a nested callout,
+ * it only honours the very first line's marker, rendering everything after
+ * (including that second marker) as the first callout's own literal body
+ * text, while the blank line a naive insertion would add next then splits
+ * the ORIGINAL body off into its own bare, title-less blockquote underneath
+ * (confirmed by real-world testing — this was a genuine reported bug).
+ *
+ * `separator` is `"\n\n"` (a blank line) instead of `"\n"` whenever the
+ * target line itself already starts a blockquote — appending directly
+ * adjacent to another blockquote/callout without one would merge the two
+ * into a single blockquote, the same corruption described above, whether or
+ * not `target` resolved via the callout branch above.
+ *
+ * Returns undefined when `target` isn't found as a link anywhere (the popup
+ * was opened via some other route) — the caller falls back to inserting at
+ * the current cursor position in that case.
+ */
+export function findQuoteInsertionPoint(lines: string[], target: Scripture): { line: number; separator: string } | undefined {
+	const quoteRange = findQuoteBlockRange(lines, target);
+	const line = quoteRange ? quoteRange.end - 1 : findLineWithScripture(lines, target);
+	if (line === undefined) return undefined;
+	const separator = lines[line]!.startsWith('>') ? '\n\n' : '\n';
+	return { line, separator };
+}

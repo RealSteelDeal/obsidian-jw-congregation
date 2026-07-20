@@ -5,7 +5,7 @@ import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 import { SupportedLang } from '../normalizer/bookNames';
 import { L } from '../i18n';
 import { buildScriptureQuoteBlock, stripHtml } from '../util/quoteBuilder';
-import { findLineWithScripture, findQuoteBlockRange } from '../util/scriptureLinkScan';
+import { findQuoteBlockRange, findQuoteInsertionPoint } from '../util/scriptureLinkScan';
 
 // The scheme used by embedded scripture links *inside* footnote/cross-reference/
 // study-note HTML (e.g. `<a href="jwpub://b/NWTR/43:5:7-43:5:7">Joh 5:7</a>`) —
@@ -257,10 +257,11 @@ export class BibleVerseModal extends Modal {
 
 		const lines: string[] = [];
 		for (let i = 0; i < editor.lineCount(); i++) lines.push(editor.getLine(i));
-		const targetLine = findLineWithScripture(lines, this.initialScripture);
+		const insertionPoint = findQuoteInsertionPoint(lines, this.initialScripture);
 
-		if (targetLine !== undefined) {
-			const inserted = `\n${quote}`;
+		if (insertionPoint) {
+			const { line: targetLine, separator } = insertionPoint;
+			const inserted = `${separator}${quote}`;
 			const lineLength = editor.getLine(targetLine).length;
 			editor.replaceRange(inserted, { line: targetLine, ch: lineLength });
 			// Obsidian's Live Preview renders whichever line the cursor is

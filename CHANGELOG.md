@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- **"Insert as quote" for a cross-reference could corrupt an existing quote
+  callout**: opening the popup by clicking an already-inserted quote,
+  navigating to one of its cross-references, then inserting THAT verse as a
+  separate new quote landed the new callout right after the existing one's
+  title line — inside its own blockquote, since Markdown callouts are just
+  consecutive "> " lines with no blank line between them. Obsidian doesn't
+  treat a second "[!quote]" marker mid-block as a nested callout; it renders
+  it as the first callout's own literal body text, while the blank line the
+  insertion added then split the ORIGINAL quote's body off into its own bare,
+  title-less blockquote underneath. The insertion point now skips past the
+  whole existing callout instead of just its title, with a blank-line
+  separator whenever appending directly after any blockquote.
+
 ## 1.16.1
 
 ### Fixes

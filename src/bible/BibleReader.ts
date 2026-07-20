@@ -88,7 +88,7 @@ export class BibleReader {
 	private referenceByVerseId = new Map<number, { book: number; chapter: number; verse: number }>();
 	private bookDocumentId = new Map<number, number>();
 	private bookByMepsDocumentId = new Map<number, number>();
-	private chapterBoundsCache = new Map<string, { firstVerseId: number; lastVerseId: number } | null>();
+	private chapterBoundsCache = new Map<string, { firstVerseId: number; firstNumberedVerseId: number; lastVerseId: number } | null>();
 
 	constructor(private readonly sqlWasmBinary: Uint8Array) {}
 
@@ -216,7 +216,10 @@ export class BibleReader {
 
 		const bounds = this.chapterBounds(book, chapter);
 		if (bounds) {
-			const id = bounds.firstVerseId + verse - 1;
+			// firstNumberedVerseId, not firstVerseId: a psalm superscription
+			// occupies the chapter's first row without being verse 1 (see
+			// chapterBounds()).
+			const id = bounds.firstNumberedVerseId + verse - 1;
 			if (id <= bounds.lastVerseId) return id;
 		}
 		return undefined;
@@ -240,13 +243,25 @@ export class BibleReader {
 		return this.resolveVerseId(scripture.book, endChapter, scripture.verseEnd);
 	}
 
-	/** First/last BibleVerseId of a chapter, from the file's BibleChapter table (cached). */
-	private chapterBounds(book: number, chapter: number): { firstVerseId: number; lastVerseId: number } | null {
+	/**
+	 * First/last BibleVerseId of a chapter, from the file's BibleChapter table
+	 * (cached). `firstNumberedVerseId` is where verse 1 actually sits: psalms
+	 * with a superscription ("Ein Psalm Davids." / "Von David.") carry it as an
+	 * extra BibleVerse row BEFORE verse 1 — inside the chapter's id range but
+	 * with an empty Label, since it isn't a numbered verse (confirmed against a
+	 * real nwtsty: Psalm 15's FirstVerseId row has Label '' and the
+	 * superscription as its text; Psalm 1, which has no superscription, starts
+	 * straight at verse 1). Naive `firstVerseId + verse - 1` arithmetic was
+	 * off by one for every such psalm, resolving Psalm 15:2 to verse 1's row.
+	 * Detected from the row's own Label rather than a hardcoded psalm list —
+	 * the file says which chapters have one.
+	 */
+	private chapterBounds(book: number, chapter: number): { firstVerseId: number; firstNumberedVerseId: number; lastVerseId: number } | null {
 		const key = `${book}:${chapter}`;
 		const cached = this.chapterBoundsCache.get(key);
 		if (cached !== undefined) return cached;
 
-		let bounds: { firstVerseId: number; lastVerseId: number } | null = null;
+		let bounds: { firstVerseId: number; firstNumberedVerseId: number; lastVerseId: number } | null = null;
 		if (this.db) {
 			const res = this.db.exec(
 				`SELECT FirstVerseId, LastVerseId FROM BibleChapter
@@ -254,7 +269,12 @@ export class BibleReader {
 			);
 			const row = res[0]?.values[0];
 			if (row && row[0] != null && row[1] != null) {
-				bounds = { firstVerseId: Number(row[0]), lastVerseId: Number(row[1]) };
+				const firstVerseId = Number(row[0]);
+				const lastVerseId = Number(row[1]);
+				const labelRes = this.db.exec(`SELECT Label FROM BibleVerse WHERE BibleVerseId = ${firstVerseId}`);
+				const label = String(labelRes[0]?.values[0]?.[0] ?? '').trim();
+				const firstNumberedVerseId = label === '' && firstVerseId < lastVerseId ? firstVerseId + 1 : firstVerseId;
+				bounds = { firstVerseId, firstNumberedVerseId, lastVerseId };
 			}
 		}
 		this.chapterBoundsCache.set(key, bounds);
@@ -268,7 +288,7 @@ export class BibleReader {
 	chapterVerseCount(book: number, chapter: number): number | undefined {
 		const bounds = this.chapterBounds(book, chapter);
 		if (!bounds) return undefined;
-		return bounds.lastVerseId - bounds.firstVerseId + 1;
+		return bounds.lastVerseId - bounds.firstNumberedVerseId + 1;
 	}
 
 	/**
@@ -442,6 +462,24 @@ export class BibleReader {
 		const crossRefMarkers: { id: number; symbol: string }[] = [];
 
 		for (const span of spans) {
+			// A continuation span (poetic line break within the same verse, e.g.
+			// Psalm 1:1's three lines) carries no separating whitespace of its
+			// own — the line break itself was the visual separator in the
+			// source, lost once every span's text becomes one flat segment
+			// list. Without this, adjacent lines run together ("folgtund"
+			// instead of "folgt und") in both the popup's own verse text and
+			// the "insert as quote" output, which share these segments.
+			// The last segment before a new span may just as well be a footnote/
+			// crossref marker (e.g. verse 1 ends its second line with a
+			// cross-reference letter right before the third line's span
+			// starts) — only a 'text' segment already ending in whitespace
+			// means the boundary is genuinely already separated; anything
+			// else (a marker, or text with no trailing space) still needs one.
+			const lastSegment = segments[segments.length - 1];
+			const alreadySeparated = lastSegment?.kind === 'text' && /\s$/.test(lastSegment.text);
+			if (lastSegment && !alreadySeparated) {
+				segments.push({ kind: 'text', text: ' ' });
+			}
 			for (const child of Array.from(span.childNodes)) {
 				if (child.nodeType === Node.TEXT_NODE) {
 					const text = child.textContent ?? '';

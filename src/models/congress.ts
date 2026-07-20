@@ -1,3 +1,5 @@
+import { CongressLang } from '../normalizer/bookNames';
+
 export type CongressType = 'CO' | 'CA-copgm' | 'CA-brpgm';
 
 export type ItemType =
@@ -72,5 +74,5 @@ export interface Congress {
 	 *  exports are the only ones it understands). Drives the language of all
 	 *  generated notes — labels, file and folder names — independently of the
 	 *  plugin's UI language setting. */
-	lang: 'de' | 'en';
+	lang: CongressLang;
 }

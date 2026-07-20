@@ -4,6 +4,14 @@ import { jiti } from './_setup.mjs';
 
 const { NoteBuilder } = await jiti.import('../src/builder/NoteBuilder.ts');
 
+// Strips the invisible %%jw:id%% / %%/jw:id%% merge markers (see
+// src/util/noteMerge.ts) so positional assertions (line[0], exact-slice
+// equality, startsWith) keep testing the actual rendered content rather than
+// having to know which fields happen to be marker-wrapped.
+function stripMarkers(content) {
+	return content.split('\n').filter(l => !/^%%\/?jw:/.test(l.trim())).join('\n');
+}
+
 function builder(opts = {}) {
 	return new NoteBuilder({
 		scriptureLinks: true,
@@ -146,7 +154,7 @@ test('review note starts with the italic type-specific "Hinweis" and has no dupl
 	// body rendered as a duplicate second title.
 	const co = builder({ reviewNote: true }).buildNotes(coCongress([coDay()]));
 	const coReview = co.notes.find(n => n.filename === 'Wiederholung.md');
-	const coLines = coReview.content.split('\n');
+	const coLines = stripMarkers(coReview.content).split('\n');
 	assert.equal(
 		coLines[0],
 		'*Hinweis: Bei der Kongress-Wiederholung für den regionalen Kongress wird der Bruder beim Programmpunkt das Video mit Auszügen aus dem Kongressprogramm abspielen.*',
@@ -161,7 +169,7 @@ test('review note starts with the italic type-specific "Hinweis" and has no dupl
 		days: [coDay({ sessions: [{ name: 'Vormittag', items: [questions] }] })],
 	});
 	const caReview = ca.notes.find(n => n.filename === 'Wiederholung.md');
-	const caLines = caReview.content.split('\n');
+	const caLines = stripMarkers(caReview.content).split('\n');
 	assert.equal(
 		caLines[0],
 		'*Hinweis: Der Versammlungsleiter stellt außerdem die gedruckten Wiederholungsfragen: [[01. Beantworte die folgenden Fragen|Beantworte die folgenden Fragen]]*',
@@ -172,7 +180,7 @@ test('review note starts with the italic type-specific "Hinweis" and has no dupl
 test('per-item note links back to its day\'s overview, on the first content line', () => {
 	const result = builder().buildNotes(coCongress([coDay()]));
 	const itemNote = result.notes.find(n => n.filename !== '00. Übersicht.md');
-	const lines = itemNote.content.split('\n');
+	const lines = stripMarkers(itemNote.content).split('\n');
 	assert.equal(lines[0], '[[Samstag/00. Übersicht|↩ Zur Übersicht]]');
 });
 
@@ -197,9 +205,10 @@ test('the "Anschließend" hint has 3 rendered blank lines above it, after "Redne
 		coCongress([coDay({ sessions: [{ name: 'Vormittag', items: [talk, song] }] })]),
 	);
 	const itemNote = result.notes.find(n => n.filename !== '00. Übersicht.md');
-	const rednerIndex = itemNote.content.indexOf('**Redner:**');
-	const anschliessendIndex = itemNote.content.indexOf('**Anschließend:**');
-	const between = itemNote.content.slice(rednerIndex, anschliessendIndex);
+	const content = stripMarkers(itemNote.content);
+	const rednerIndex = content.indexOf('**Redner:**');
+	const anschliessendIndex = content.indexOf('**Anschließend:**');
+	const between = content.slice(rednerIndex, anschliessendIndex);
 	// The gap lines must be a no-break space (escape \u00A0, not truly empty): Markdown collapses runs of
 	// blank lines to a single paragraph break in Reading View, so plain empty
 	// lines render as no visible gap at all.
@@ -223,7 +232,7 @@ test('a talk-series note also picks up its trailing song, after the last part', 
 	// The gap must be exactly the 3 no-break-space lines — the series path pushes its
 	// writing space as one '\n\n\n' element, which the gap's trim must also
 	// swallow (a plain === '' check walked past it, doubling the gap).
-	assert.ok(itemNote.content.includes('**Redner:**\n\n\u00A0\n\u00A0\n\u00A0\n\n**Anschließend:**'));
+	assert.ok(stripMarkers(itemNote.content).includes('**Redner:**\n\n\u00A0\n\u00A0\n\u00A0\n\n**Anschließend:**'));
 });
 
 test('a regular programme item following another is linked to its note in the "Anschließend" hint', () => {
@@ -293,7 +302,7 @@ test('an English congress produces English folder name, filenames and labels', (
 	assert.ok(overview.content.includes('Luke 6:24-26'));
 
 	const itemNote = result.notes.find(n => n.filename.startsWith('01.'));
-	assert.equal(itemNote.content.split('\n')[0], '[[Saturday/00. Overview|↩ Back to Overview]]');
+	assert.equal(stripMarkers(itemNote.content).split('\n')[0], '[[Saturday/00. Overview|↩ Back to Overview]]');
 	assert.ok(itemNote.content.includes('**Day:** Saturday'));
 	assert.ok(itemNote.content.includes('**Time:** 9:40'));
 	assert.ok(itemNote.content.includes('**Scriptures:** ([Luke 6:24-26]'));
@@ -305,7 +314,7 @@ test('an English congress produces English folder name, filenames and labels', (
 
 	const review = result.notes.find(n => n.filename === 'Review.md');
 	assert.ok(review, 'review note must be named "Review.md" for English files');
-	assert.ok(review.content.startsWith('*Note: For the convention review'));
+	assert.ok(stripMarkers(review.content).startsWith('*Note: For the convention review'));
 	assert.ok(review.content.includes('**Which thoughts drew you closer to Jehovah?**'));
 });
 
@@ -317,7 +326,7 @@ test('an English circuit assembly links the printed questions note in its review
 	});
 	assert.equal(result.congressFolder, '2026-2027 Circuit Assembly – With Circuit Overseer – “Happy Is the One Trusting In Jehovah”');
 	const review = result.notes.find(n => n.filename === 'Review.md');
-	assert.ok(review.content.startsWith(
+	assert.ok(stripMarkers(review.content).startsWith(
 		'*Note: The meeting chairman will also consider the printed review questions: [[01. Find Answers to These Questions|Find Answers to These Questions]]*',
 	));
 });
@@ -342,4 +351,35 @@ test('frontmatter option prepends stable English keys to every generated note', 
 	// Off by default: no frontmatter anywhere.
 	const plain = builder().buildNotes(coCongress([coDay()]));
 	assert.ok(plain.notes.every(n => !n.content.startsWith('---')));
+});
+
+// End-to-end check of the actual "update congress notes" workflow (see
+// src/util/noteMerge.ts): render a note, simulate a user having typed a
+// speaker name and personal notes into it, then render a SECOND version (as
+// if a parser bug had just been fixed and the weekday changed) and merge —
+// the fix must land, but not a single character of what the user wrote.
+test('a corrected day/scripture re-render merges into a user-edited note without touching their text', async () => {
+	const { mergeNoteContent } = await jiti.import('../src/util/noteMerge.ts');
+
+	const originalDay = coDay({ weekday: 'Freitag', name: 'Freitag' }); // bug: wrong weekday
+	const v1 = builder().buildNotes(coCongress([originalDay]));
+	const itemNoteV1 = v1.notes.find(n => n.filename.startsWith('01.'));
+
+	// The user opens the freshly imported note and writes into it.
+	const userEdited = itemNoteV1.content.replace(
+		'**Redner:**\n',
+		'**Redner:** Bruder Müller\n',
+	) + '\nMeine eigenen Gedanken zum Vortrag, die niemals verloren gehen dürfen.\n';
+
+	const correctedDay = coDay({ weekday: 'Samstag', name: 'Samstag' }); // the fix
+	const v2 = builder().buildNotes(coCongress([correctedDay]));
+	const itemNoteV2 = v2.notes.find(n => n.filename.startsWith('01.'));
+
+	const merged = mergeNoteContent(userEdited, itemNoteV2.content);
+	assert.ok(merged, 'merge must succeed — both versions share the same marker structure');
+	assert.match(merged, /\*\*Tag:\*\* Samstag/);
+	assert.doesNotMatch(merged, /\*\*Tag:\*\* Freitag/);
+	assert.match(merged, /Bruder Müller/);
+	assert.match(merged, /Meine eigenen Gedanken zum Vortrag, die niemals verloren gehen dürfen\./);
+	assert.match(merged, /\[\[Samstag\/00\. Übersicht\|↩ Zur Übersicht\]\]/);
 });

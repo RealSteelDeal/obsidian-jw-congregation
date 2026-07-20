@@ -2,7 +2,7 @@
 
 An Obsidian community plugin that imports official convention program files of Jehovah's Witnesses and turns them into structured, linked Markdown notes in your vault.
 
-**Language note:** The plugin supports German and English program files. Generated notes automatically follow the language of the imported file — a German jwpub file produces German notes, an English one English notes. The plugin interface itself can be switched between German and English in the settings.
+**Language note:** The plugin supports German, English, French, Italian, Portuguese, Russian and Spanish program files. Generated notes automatically follow the language of the imported file — a German jwpub file produces German notes, a French one French notes, and so on. The plugin interface itself (settings, import dialog, Bible-verse popup) can be switched between German and English only.
 
 ## Features
 
@@ -10,7 +10,7 @@ An Obsidian community plugin that imports official convention program files of J
   - `CO` – Regional Convention (Friday / Saturday / Sunday)
   - `CA-copgm` – Circuit Assembly With Circuit Overseer (one day)
   - `CA-brpgm` – Circuit Assembly With Branch Representative (one day)
-- **Supported languages: German and English** – the language of the program file is detected automatically (via its `MepsLanguageIndex`), and all generated notes, labels, file and folder names follow it
+- **Supported languages: German, English, French, Italian, Portuguese, Russian and Spanish** – the language of the program file is detected automatically (via its `MepsLanguageIndex`), and all generated notes, labels, file and folder names follow it. The plugin's own interface (settings, import dialog, Bible-verse popup) stays German/English.
 - **Primary source: `.jwpub`** – full decryption (AES-128-CBC + zlib) and HTML parsing
 - **Fallback: RTF-ZIP** – used automatically when no jwpub is available (German exports only)
 - **One folder per convention**, named after type, year/season and theme – created directly in the vault root by default, without an extra wrapper folder
@@ -28,9 +28,14 @@ An Obsidian community plugin that imports official convention program files of J
 - **Back link to the day's overview** at the top of every program-item note
 - **"Next:" hint** at the end of every note – the following song (linked), the next program item (linked to its note) or the break
 - **Clickable scriptures** as JW Library deep links in every note
-- **Bible-verse popup** (optional): with a user-supplied Bible jwpub file (`nwt`/`nwtsty`), clicking a scripture opens the verse text directly in Obsidian – including footnotes, cross-references and study notes – instead of jumping to JW Library
+- **Bible-verse popup** (optional): with a user-supplied Bible jwpub file (`nwt`/`nwtsty`), clicking a scripture opens the verse text directly in Obsidian – including footnotes, cross-references and study notes – instead of jumping to JW Library. A button in the popup can also insert the shown passage as a quote into the note last focused before the popup opened.
+- **Type a scripture reference anywhere, in any note** (e.g. `Psalm 12:1`) and a suggestion pops up right after typing it, offering to either turn it into a `jwlibrary://` link (opens the popup above) or insert the verse text directly as a quote – both fully offline, using the loaded Bible file.
 - **Review note** (`Review.md`; `Wiederholung.md` for German imports) with the three standard reflection questions for the congregation's convention review
 - **Printed review questions** ("Find Answers to These Questions") become their own note with one heading per question, always numbered last
+
+### Tip: pairs well with JW Library Linker
+
+The [JW Library Linker](https://github.com/msakowski/obsidian-library-linker) plugin lets you turn scriptures you type yourself (anywhere in your vault, not just in imported convention notes) into clickable `jwlibrary://` links. Both plugins use the same link format, so once you've loaded a Bible file here, clicking a Library-Linker-created link also opens this plugin's offline verse popup — you get typed-reference linking from one plugin and the in-app verse popup from the other, together.
 
 ## Requirements
 
@@ -62,7 +67,13 @@ An Obsidian community plugin that imports official convention program files of J
 4. Check the preview (convention type, theme, detected days/program items)
 5. **Import** – the convention folder with all notes is created
 
-Re-importing into an existing convention folder only refreshes purely derived files (overview, cover image). Notes with your own entries (speaker, personal notes) are never overwritten – to pick up template improvements after a plugin update, delete the convention folder and import again (the plugin reminds you once after each update).
+Re-importing into an existing convention folder only refreshes purely derived files (overview, cover image). Notes with your own entries (speaker, personal notes) are never overwritten.
+
+### Updating notes after a plugin fix
+
+If a plugin update fixes a bug in the generated notes themselves (e.g. a wrong weekday or a broken scripture link), you don't have to delete anything to pick it up. **Command palette → "Update convention notes"** re-parses the same program file and patches an already-imported convention folder in place: every automatically generated field (day, time, scripture links, headings, the "Anschließend"/"Next" hint) is refreshed, while anything you typed yourself — speaker name, personal notes — is left completely untouched, even in the very same note.
+
+This works because every generated note carries invisible markers (Obsidian's own `%%…%%` comment syntax, never shown in Reading View or Live Preview) around each derived field. Only notes created by this plugin version or later have them — older notes fall back to being left alone, reported separately in the result notice, and still need a full delete-and-reimport to pick up template changes.
 
 ## Settings
 
@@ -107,7 +118,7 @@ By default (target folder = vault root), each convention is its own top-level fo
 - **ZIP handling:** `fflate` (pure JS)
 - **sql.js runs with an embedded WASM binary**: the `.wasm` file is embedded into `main.js` as base64 at build time (esbuild `binary` loader) – no network access, no separate file
 - **Parsing strategy:** `DOMParser` over the decrypted HTML content
-- **Language detection:** `Publication.MepsLanguageIndex` (0 = English, 2 = German); parsing patterns (session headings, type markers such as `SYMPOSIUM:`/`VORTRAGSREIHE:`, music/break lines) accept both languages
+- **Language detection:** `Publication.MepsLanguageIndex` (0 = English, 1 = Spanish, 2 = German, 3 = French, 4 = Italian, 207 = Russian, 785 = Portuguese); parsing patterns (session headings, type markers such as `SYMPOSIUM:`/`VORTRAGSREIHE:`/`SIMPOSIO:`, music/break lines) accept all seven languages
 - **Scriptures:** taken directly from `<a href="jwpub://b/NWTR/...">` links in the HTML
 - **Songs:** recognized via `<a href="jwpub://p/…">` links without an accompanying Bible link; the real jw.org `docid` is read from that very href (never computed – the docid is not a linear function of the song number)
 - **Cover images:** resolved per day document via the `Multimedia`/`DocumentMultimedia` tables (`CategoryType 8`)
@@ -138,26 +149,32 @@ node scripts/test-parse.mjs <file.jwpub> ...   # parse real files with the actua
 src/
   main.ts                    # plugin entry point
   settings.ts                # settings
-  i18n.ts                    # all language-dependent strings (de/en)
+  i18n.ts                    # UI strings (de/en) + note-generation strings (all 7 languages)
   models/
     congress.ts              # data model (Congress, Day, ProgramItem, …)
   normalizer/
     ScriptureNormalizer.ts   # scripture normalization & link generation
-    bookNames.ts             # Bible book names de/en
+    ScriptureTextParser.ts   # recognizes a scripture reference typed as plain text
+    bookNames.ts             # Bible book names for all 7 supported languages
   parser/
     JwpubParser.ts           # jwpub → data model (primary)
     RtfParser.ts             # RTF-ZIP → data model (fallback, German only)
     SourceRouter.ts          # format detection & routing
   builder/
-    NoteBuilder.ts           # data model → Markdown notes
+    NoteBuilder.ts           # data model → Markdown notes (wraps derived fields in merge markers)
   bible/
     BibleReader.ts           # Bible jwpub → verse text/footnotes/cross-references
   ui/
     ImportModal.ts           # import dialog with target-folder picker & preview
-    BibleVerseModal.ts       # verse popup with "Open in JW Library" button
+    UpdateNotesModal.ts      # re-parses a file and patches an already-imported folder
+    BibleVerseModal.ts       # verse popup ("Open in JW Library" / "insert as quote")
+    ScriptureEditorSuggest.ts # as-you-type scripture reference → link/quote suggestion
   util/
     jwpubCrypto.ts           # shared jwpub crypto
     bytes.ts                 # hex/latin1 helpers
+    noteMerge.ts             # marker-based merge for the "update notes" command
+    quoteBuilder.ts          # verse text → Obsidian quote callout
+    scriptureLinkScan.ts     # finds jwlibrary:// links in note text
 ```
 
 ## Roadmap

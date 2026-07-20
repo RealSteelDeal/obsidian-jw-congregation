@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.12.0
+
+### Improvements
+
+- **Reorganized the settings tab into consistent groups**: "General" (target
+  folder, interface language), "Note fields" (now also including "Create
+  review note", moved out of the ungrouped top section) and "Scripture
+  references". Previously only some settings were grouped under a heading
+  while others sat loose at the top — every setting now belongs to a named
+  group. Available in both the declarative settings UI (Obsidian ≥ 1.13)
+  and the older fallback tab.
+
 ## 1.11.0
 
 ### New features

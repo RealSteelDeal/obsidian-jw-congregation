@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.11.0
+
+### New features
+
+- **A new "Enable Bible-verse popup" toggle**: previously the popup was
+  implicitly active whenever a Bible file was loaded. It can now be switched
+  off independently, without removing the (potentially large) Bible file.
+- **All scripture-related settings now live under one "Scripture references"
+  heading**: linking scriptures, the Bible-verse popup (its new enable
+  toggle plus the Bible file itself) and the typed-scripture suggestions are
+  grouped together, since they're all facets of the same feature area.
+  Available in both the declarative settings UI (Obsidian ≥ 1.13) and the
+  older fallback tab.
+
 ## 1.10.0
 
 ### New features

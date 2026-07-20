@@ -5,7 +5,7 @@ import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 import { SupportedLang } from '../normalizer/bookNames';
 import { L } from '../i18n';
 import { buildScriptureQuoteBlock, stripHtml } from '../util/quoteBuilder';
-import { findLineWithScripture } from '../util/scriptureLinkScan';
+import { findLineWithScripture, findQuoteBlockRange } from '../util/scriptureLinkScan';
 
 // The scheme used by embedded scripture links *inside* footnote/cross-reference/
 // study-note HTML (e.g. `<a href="jwpub://b/NWTR/43:5:7-43:5:7">Joh 5:7</a>`) —
@@ -43,6 +43,12 @@ export class BibleVerseModal extends Modal {
 		scripture: Scripture,
 		private readonly lang: SupportedLang,
 		private readonly getReader: () => Promise<BibleReader | null>,
+		// True when this popup was opened by clicking an already-inserted quote
+		// callout's title link (see util/quoteBuilder.ts), not a plain inline
+		// scripture reference — only then does renderActionButtons() offer
+		// "remove quote", since that's the only case where one unambiguously
+		// exists to remove (see removeQuote()/findQuoteBlockRange()).
+		private readonly openedFromQuote: boolean = false,
 	) {
 		super(app);
 		this.scripture = scripture;
@@ -173,6 +179,10 @@ export class BibleVerseModal extends Modal {
 	// and only in source mode (raw/Live Preview editing): Reading View has no
 	// place to insert into, so the button would just silently do nothing there;
 	// per user feedback it's clearer to hide it than to show a dead button.
+	// "Remove quote" needs the same editor access, plus openedFromQuote — it
+	// only makes sense (and only has an unambiguous target, see
+	// findQuoteBlockRange()) when this popup was opened by clicking an
+	// existing quote's own title link in the first place.
 	private renderActionButtons(container: HTMLElement, verses: VerseDetail[] | undefined): void {
 		const setting = new Setting(container);
 		const canInsert = this.app.workspace.getActiveViewOfType(MarkdownView)?.getMode() === 'source';
@@ -181,6 +191,13 @@ export class BibleVerseModal extends Modal {
 				btn
 					.setButtonText(L[this.lang].btnInsertAsQuote)
 					.onClick(() => this.insertAsQuote(verses)),
+			);
+		}
+		if (this.openedFromQuote && canInsert) {
+			setting.addButton(btn =>
+				btn
+					.setButtonText(L[this.lang].btnRemoveQuote)
+					.onClick(() => this.removeQuote()),
 			);
 		}
 		setting.addButton(btn =>
@@ -227,7 +244,8 @@ export class BibleVerseModal extends Modal {
 			return;
 		}
 		const reference = ScriptureNormalizer.format(this.scripture, this.lang);
-		const quote = buildScriptureQuoteBlock(reference, verses);
+		const href = ScriptureNormalizer.toJwLibraryLink(this.scripture, this.lang);
+		const quote = buildScriptureQuoteBlock(reference, href, verses);
 
 		const lines: string[] = [];
 		for (let i = 0; i < editor.lineCount(); i++) lines.push(editor.getLine(i));
@@ -254,6 +272,31 @@ export class BibleVerseModal extends Modal {
 			this.moveCursorPastInsertion(editor, cursorBefore.line, quote);
 		}
 		new Notice(L[this.lang].noticeVerseInserted);
+	}
+
+	// The inverse of insertAsQuote(): removes the quote callout this popup was
+	// opened from (this.initialScripture stays the ORIGINAL clicked reference
+	// across any in-popup cross-reference navigation, same as insertAsQuote()
+	// relies on). Locates the callout fresh from the editor's current lines
+	// rather than trusting a position captured when the popup opened — the
+	// note may have been edited in the meantime — so a block that's since been
+	// edited away is reported instead of deleting the wrong lines.
+	private removeQuote(): void {
+		const editor = this.app.workspace.getActiveViewOfType(MarkdownView)?.editor;
+		if (!editor) {
+			new Notice(L[this.lang].noticeNoActiveNote);
+			return;
+		}
+		const lines: string[] = [];
+		for (let i = 0; i < editor.lineCount(); i++) lines.push(editor.getLine(i));
+		const range = findQuoteBlockRange(lines, this.initialScripture);
+		if (!range) {
+			new Notice(L[this.lang].noticeQuoteRemoveNotFound);
+			return;
+		}
+		editor.replaceRange('', { line: range.start, ch: 0 }, { line: range.end, ch: 0 });
+		new Notice(L[this.lang].noticeQuoteRemoved);
+		this.close();
 	}
 
 	private moveCursorPastInsertion(editor: Editor, startLine: number, insertedText: string): void {

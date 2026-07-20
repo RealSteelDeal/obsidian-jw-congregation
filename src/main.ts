@@ -172,7 +172,7 @@ export default class JwCongregationPlugin extends Plugin {
 
 		evt.preventDefault();
 		evt.stopImmediatePropagation(); // belt-and-braces: also stop any other handler on this node/phase
-		new BibleVerseModal(this.app, found.scripture, this.settings.lang, () => this.getBibleReader()).open();
+		new BibleVerseModal(this.app, found.scripture, this.settings.lang, () => this.getBibleReader(), found.isQuote).open();
 		return true;
 	}
 
@@ -204,16 +204,23 @@ export default class JwCongregationPlugin extends Plugin {
 	}
 
 	/** Finds the jwlibrary:// scripture link (if any) that an event's target is part of — Reading View
-	 *  (a real `<a href>`) or Live Preview (a decoration span; resolved via the CM6 EditorView's raw source text). */
-	private findScriptureLinkForEvent(evt: Event): { scripture: Scripture; href: string } | undefined {
+	 *  (a real `<a href>`) or Live Preview (a decoration span; resolved via the CM6 EditorView's raw source text).
+	 *  `isQuote` flags a link that's the title of an inserted quote callout (see util/quoteBuilder.ts) rather
+	 *  than a plain inline reference — BibleVerseModal uses it to decide whether to offer "remove quote". */
+	private findScriptureLinkForEvent(evt: Event): { scripture: Scripture; href: string; isQuote: boolean } | undefined {
 		const target = evt.target;
 		if (!target || !(target instanceof HTMLElement)) return undefined;
 
-		// Reading View: a real <a href="jwlibrary://...">.
+		// Reading View: a real <a href="jwlibrary://...">. A quote callout's
+		// title renders as `<div class="callout" data-callout="quote">…<a>…`
+		// — the exact same "data-callout" attribute/value Obsidian's built-in
+		// callout renderer always produces for a "> [!quote]" block.
 		const link = target.closest<HTMLAnchorElement>('a[href^="jwlibrary://"]');
 		if (link) {
 			const scripture = parseScriptureFromHref(link.href);
-			return scripture ? { scripture, href: link.href } : undefined;
+			if (!scripture) return undefined;
+			const isQuote = !!link.closest('.callout[data-callout="quote" i]');
+			return { scripture, href: link.href, isQuote };
 		}
 
 		// Live Preview: no real <a> to find. Only react when the click landed on
@@ -237,7 +244,11 @@ export default class JwCongregationPlugin extends Plugin {
 		}
 
 		const line = view.state.doc.lineAt(pos);
-		return findScriptureLinkInText(line.text, pos - line.from);
+		const found = findScriptureLinkInText(line.text, pos - line.from);
+		if (!found) return undefined;
+		// A quote callout's title is always "> [!quote] [Reference](href)" on
+		// one raw source line — the same line the matched link itself is on.
+		return { ...found, isQuote: /^>\s*\[!quote\]/i.test(line.text) };
 	}
 
 	private bibleFilePath(): string {

@@ -43,6 +43,21 @@ function scripturesEqual(a: Scripture, b: Scripture): boolean {
 		&& (a.chapterEnd ?? null) === (b.chapterEnd ?? null);
 }
 
+/** Whether `text` contains a jwlibrary:// scripture link (markdown or raw-HTML form) matching `target`. */
+function lineContainsScripture(text: string, target: Scripture): boolean {
+	for (const re of [MARKDOWN_LINK_RE, HTML_LINK_RE]) {
+		re.lastIndex = 0;
+		let m: RegExpExecArray | null;
+		while ((m = re.exec(text))) {
+			const href = m[1];
+			if (!href) continue;
+			const scripture = parseScriptureFromHref(href);
+			if (scripture && scripturesEqual(scripture, target)) return true;
+		}
+	}
+	return false;
+}
+
 /**
  * Finds the 0-based index of the first line in `lines` containing a
  * jwlibrary:// scripture link (markdown or raw-HTML form) whose parsed
@@ -54,17 +69,34 @@ function scripturesEqual(a: Scripture, b: Scripture): boolean {
  */
 export function findLineWithScripture(lines: string[], target: Scripture): number | undefined {
 	for (let i = 0; i < lines.length; i++) {
+		if (lineContainsScripture(lines[i]!, target)) return i;
+	}
+	return undefined;
+}
+
+const QUOTE_CALLOUT_START_RE = /^>\s*\[!quote\]/i;
+
+/**
+ * Finds the [start, end) line range of the quote callout (see
+ * util/quoteBuilder.ts) that was inserted for `target` — the callout's own
+ * title line carries the same jwlibrary:// link a plain inline reference
+ * would, so its start line is found the same way findLineWithScripture()
+ * finds those, restricted to lines that actually open a "> [!quote]"
+ * callout (the verse-text line below has no link to match on its own).
+ * `end` extends past every immediately-following blockquote line ("> …"),
+ * covering the callout's body regardless of how many lines it spans.
+ *
+ * Used by the popup's "remove quote" button (BibleVerseModal) — undefined
+ * when the block has already been removed or edited away since the popup
+ * opened (e.g. the user deleted it manually in the meantime).
+ */
+export function findQuoteBlockRange(lines: string[], target: Scripture): { start: number; end: number } | undefined {
+	for (let i = 0; i < lines.length; i++) {
 		const text = lines[i]!;
-		for (const re of [MARKDOWN_LINK_RE, HTML_LINK_RE]) {
-			re.lastIndex = 0;
-			let m: RegExpExecArray | null;
-			while ((m = re.exec(text))) {
-				const href = m[1];
-				if (!href) continue;
-				const scripture = parseScriptureFromHref(href);
-				if (scripture && scripturesEqual(scripture, target)) return i;
-			}
-		}
+		if (!QUOTE_CALLOUT_START_RE.test(text) || !lineContainsScripture(text, target)) continue;
+		let end = i + 1;
+		while (end < lines.length && lines[end]!.startsWith('>')) end++;
+		return { start: i, end };
 	}
 	return undefined;
 }

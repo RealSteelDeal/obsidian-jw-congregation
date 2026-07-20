@@ -125,7 +125,8 @@ export class ScriptureEditorSuggest extends EditorSuggest<ScriptureSuggestItem> 
 			return;
 		}
 		const reference = ScriptureNormalizer.format(scripture, this.lang);
-		const quote = buildScriptureQuoteBlock(reference, verses);
+		const href = ScriptureNormalizer.toJwLibraryLink(scripture, this.lang);
+		const quote = buildScriptureQuoteBlock(reference, href, verses);
 
 		if (keepLink) {
 			this.insertLink(editor, start, end, rawText, scripture);

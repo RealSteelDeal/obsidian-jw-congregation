@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { jiti } from './_setup.mjs';
 
-const { findLineWithScripture, findScriptureLinkInText, parseScriptureFromHref } =
+const { findLineWithScripture, findQuoteBlockRange, findScriptureLinkInText, parseScriptureFromHref } =
 	await jiti.import('../src/util/scriptureLinkScan.ts');
 
 const PSALM_1_1_LINK = '[Psalm 1:1](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19001001&pub=nwtsty)';
@@ -50,4 +50,45 @@ test('findLineWithScripture does not match a link for a different verse range of
 	const lines = ['[Psalm 1:1-3](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&bible=19001001-19001003&pub=nwtsty)'];
 	const line = findLineWithScripture(lines, { book: 19, chapter: 1, verseStart: 1 });
 	assert.equal(line, undefined);
+});
+
+test('findQuoteBlockRange finds a single-line quote callout body (start inclusive, end exclusive)', () => {
+	const lines = [
+		'Ist ewiges Glück möglich?',
+		`> [!quote] ${PSALM_1_1_LINK}`,
+		'> 1 Glücklich ist der Mensch …',
+		'',
+		'Nächster Absatz',
+	];
+	const range = findQuoteBlockRange(lines, { book: 19, chapter: 1, verseStart: 1 });
+	assert.deepEqual(range, { start: 1, end: 3 });
+});
+
+test('findQuoteBlockRange consumes every immediately-following blockquote line', () => {
+	const lines = [
+		`> [!quote] ${PSALM_1_1_LINK}`,
+		'> 1 Erste Zeile',
+		'> 2 Zweite Zeile',
+		'Kein Blockquote mehr',
+	];
+	const range = findQuoteBlockRange(lines, { book: 19, chapter: 1, verseStart: 1 });
+	assert.deepEqual(range, { start: 0, end: 3 });
+});
+
+test('findQuoteBlockRange ignores a plain inline reference (no "> [!quote]" start)', () => {
+	const lines = [PSALM_1_1_LINK];
+	const range = findQuoteBlockRange(lines, { book: 19, chapter: 1, verseStart: 1 });
+	assert.equal(range, undefined);
+});
+
+test('findQuoteBlockRange returns undefined once the callout no longer matches (e.g. edited away)', () => {
+	const lines = ['Kein Zitat hier', 'auch keins'];
+	const range = findQuoteBlockRange(lines, { book: 19, chapter: 1, verseStart: 1 });
+	assert.equal(range, undefined);
+});
+
+test('findQuoteBlockRange extends to the end of the document when the callout is the last content', () => {
+	const lines = [`> [!quote] ${PSALM_1_1_LINK}`, '> 1 Glücklich ist der Mensch …'];
+	const range = findQuoteBlockRange(lines, { book: 19, chapter: 1, verseStart: 1 });
+	assert.deepEqual(range, { start: 0, end: 2 });
 });

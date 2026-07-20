@@ -65,6 +65,13 @@ export interface Strings extends NoteStrings {
 	btnInsertAsQuote: string;
 	noticeVerseInserted: string;
 	noticeNoActiveNote: string;
+	/** Only shown when the popup was opened by clicking an already-inserted
+	 *  quote callout's own title link, never for a plain inline reference. */
+	btnRemoveQuote: string;
+	noticeQuoteRemoved: string;
+	/** Shown instead of noticeQuoteRemoved when the callout can no longer be
+	 *  found (e.g. edited or deleted manually since the popup was opened). */
+	noticeQuoteRemoveNotFound: string;
 	/** Suggestion label shown right after typing a scripture reference (e.g.
 	 *  "Psalm 12:1") in any note — turns it into a jwlibrary:// link instead of
 	 *  inserting the verse text (see `btnInsertAsQuote` for the other option). */
@@ -237,6 +244,9 @@ export const L: Record<SupportedLang, Strings> = {
 		btnInsertAsQuote: 'Als Zitat einfügen',
 		noticeVerseInserted: 'Vers als Zitat eingefügt.',
 		noticeNoActiveNote: 'Keine aktive Notiz zum Einfügen gefunden. Bitte zuerst eine Notiz öffnen.',
+		btnRemoveQuote: 'Zitat entfernen',
+		noticeQuoteRemoved: 'Zitat entfernt.',
+		noticeQuoteRemoveNotFound: 'Zitat nicht gefunden – wurde es zwischenzeitlich bearbeitet oder gelöscht?',
 		scriptureSuggestLink: 'Verlinken',
 		scriptureSuggestLinkAndOpen: 'Verlinken & JW Library öffnen',
 		scriptureSuggestQuoteKeepLink: 'Zitat einfügen & Verlinkung behalten',
@@ -403,6 +413,9 @@ export const L: Record<SupportedLang, Strings> = {
 		btnInsertAsQuote: 'Insert as quote',
 		noticeVerseInserted: 'Verse inserted as a quote.',
 		noticeNoActiveNote: 'No active note to insert into. Please open a note first.',
+		btnRemoveQuote: 'Remove quote',
+		noticeQuoteRemoved: 'Quote removed.',
+		noticeQuoteRemoveNotFound: 'Quote not found – was it edited or deleted in the meantime?',
 		scriptureSuggestLink: 'Link',
 		scriptureSuggestLinkAndOpen: 'Link & Open JW Library',
 		scriptureSuggestQuoteKeepLink: 'Insert as quote & keep the link',
@@ -567,6 +580,9 @@ export const L: Record<SupportedLang, Strings> = {
 		btnInsertAsQuote: 'Insérer comme citation',
 		noticeVerseInserted: 'Verset inséré comme citation.',
 		noticeNoActiveNote: 'Aucune note active où insérer. Veuillez d’abord ouvrir une note.',
+		btnRemoveQuote: 'Supprimer la citation',
+		noticeQuoteRemoved: 'Citation supprimée.',
+		noticeQuoteRemoveNotFound: 'Citation introuvable – a-t-elle été modifiée ou supprimée entre-temps ?',
 		scriptureSuggestLink: 'Lier',
 		scriptureSuggestLinkAndOpen: 'Lier et ouvrir JW Library',
 		scriptureSuggestQuoteKeepLink: 'Insérer comme citation et conserver le lien',
@@ -731,6 +747,9 @@ export const L: Record<SupportedLang, Strings> = {
 		btnInsertAsQuote: 'Inserisci come citazione',
 		noticeVerseInserted: 'Versetto inserito come citazione.',
 		noticeNoActiveNote: 'Nessuna nota attiva in cui inserire. Apri prima una nota.',
+		btnRemoveQuote: 'Rimuovi citazione',
+		noticeQuoteRemoved: 'Citazione rimossa.',
+		noticeQuoteRemoveNotFound: 'Citazione non trovata – è stata modificata o eliminata nel frattempo?',
 		scriptureSuggestLink: 'Collega',
 		scriptureSuggestLinkAndOpen: 'Collega e apri JW Library',
 		scriptureSuggestQuoteKeepLink: 'Inserisci come citazione e mantieni il collegamento',
@@ -895,6 +914,9 @@ export const L: Record<SupportedLang, Strings> = {
 		btnInsertAsQuote: 'Inserir como citação',
 		noticeVerseInserted: 'Versículo inserido como citação.',
 		noticeNoActiveNote: 'Nenhuma nota ativa para inserir. Abra primeiro uma nota.',
+		btnRemoveQuote: 'Remover citação',
+		noticeQuoteRemoved: 'Citação removida.',
+		noticeQuoteRemoveNotFound: 'Citação não encontrada – foi editada ou excluída nesse meio tempo?',
 		scriptureSuggestLink: 'Vincular',
 		scriptureSuggestLinkAndOpen: 'Vincular e abrir no JW Library',
 		scriptureSuggestQuoteKeepLink: 'Inserir como citação e manter o link',
@@ -1059,6 +1081,9 @@ export const L: Record<SupportedLang, Strings> = {
 		btnInsertAsQuote: 'Вставить как цитату',
 		noticeVerseInserted: 'Стих вставлен как цитата.',
 		noticeNoActiveNote: 'Нет активной заметки для вставки. Сначала откройте заметку.',
+		btnRemoveQuote: 'Удалить цитату',
+		noticeQuoteRemoved: 'Цитата удалена.',
+		noticeQuoteRemoveNotFound: 'Цитата не найдена — возможно, она была изменена или удалена.',
 		scriptureSuggestLink: 'Ссылка',
 		scriptureSuggestLinkAndOpen: 'Ссылка и открытие JW Library',
 		scriptureSuggestQuoteKeepLink: 'Вставить как цитату и сохранить ссылку',
@@ -1223,6 +1248,9 @@ export const L: Record<SupportedLang, Strings> = {
 		btnInsertAsQuote: 'Insertar como cita',
 		noticeVerseInserted: 'Versículo insertado como cita.',
 		noticeNoActiveNote: 'No hay ninguna nota activa en la que insertar. Abra primero una nota.',
+		btnRemoveQuote: 'Eliminar cita',
+		noticeQuoteRemoved: 'Cita eliminada.',
+		noticeQuoteRemoveNotFound: 'No se encontró la cita – ¿se editó o eliminó mientras tanto?',
 		scriptureSuggestLink: 'Enlazar',
 		scriptureSuggestLinkAndOpen: 'Enlazar y abrir JW Library',
 		scriptureSuggestQuoteKeepLink: 'Insertar como cita y mantener el enlace',

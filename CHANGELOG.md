@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### New features
+
+- **An inserted quote is now clickable, and removable from its own popup**:
+  the callout title of an "insert as quote" block (from either the popup's
+  own button or the in-editor scripture suggester) is now itself a
+  `jwlibrary://` link, exactly like a plain inline scripture reference —
+  clicking it opens the usual verse popup. That popup, when opened this way
+  (and only this way — not for a plain reference), also offers a "remove
+  quote" button that deletes the whole callout in place.
+
 ## 1.14.1
 
 ### Fixes

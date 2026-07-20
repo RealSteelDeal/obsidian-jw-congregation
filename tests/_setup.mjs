@@ -8,7 +8,16 @@ import { createJiti } from 'jiti';
 
 globalThis.DOMParser = class {
 	parseFromString(html) {
-		return parseHTML(html).document;
+		// linkedom's parseHTML() infers document structure from the input
+		// instead of always guaranteeing one, unlike a real browser DOMParser:
+		// a single top-level element (e.g. "<strong>5</strong>") becomes the
+		// document's root itself (no <body> at all, so .body.textContent silently
+		// reads as ''), and plain text with no tag at all (e.g. a bare verse
+		// number like "1") produces no documentElement whatsoever (.body throws).
+		// Wrapping every input in an explicit <html><body> forces linkedom to
+		// always parse it as fragment content instead, matching how a real
+		// DOMParser behaves regardless of what's inside.
+		return parseHTML(`<html><body>${html}</body></html>`).document;
 	}
 };
 

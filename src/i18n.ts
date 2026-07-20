@@ -92,6 +92,7 @@ export interface Strings extends NoteStrings {
 	noticeNotAFolder: (path: string) => string;
 
 	// ── Settings tab (settings.lang) ────────────────────────────────────────
+	headGeneral: string;
 	setTargetFolder: string;
 	setTargetFolderDesc: string;
 	setTargetFolderPlaceholder: string;
@@ -246,6 +247,7 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeOpenOverviewHint: '(Klicken, um die Übersicht zu öffnen)',
 		noticeNotAFolder: path => `„${path}" ist keine Ordner-Datei.`,
 
+		headGeneral: 'Allgemein',
 		setTargetFolder: 'Zielordner',
 		setTargetFolderDesc: 'Übergeordneter Ordner, in dem der Kongressordner angelegt wird. Leer lassen, damit jeder Kongress direkt als eigener Ordner in der Vault-Wurzel entsteht (kein zusätzlicher Wrapper-Ordner).',
 		setTargetFolderPlaceholder: '(Vault-Wurzel)',
@@ -395,6 +397,7 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeOpenOverviewHint: '(Click to open the overview)',
 		noticeNotAFolder: path => `“${path}” is not a folder.`,
 
+		headGeneral: 'General',
 		setTargetFolder: 'Target folder',
 		setTargetFolderDesc: 'Parent folder in which convention folders are created. Leave empty so each convention becomes its own top-level folder in the vault root (no extra wrapper folder).',
 		setTargetFolderPlaceholder: '(vault root)',

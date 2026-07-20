@@ -102,24 +102,30 @@ export class JwSettingTab extends PluginSettingTab {
 		const t = this.t;
 		return [
 			{
-				name: t.setTargetFolder,
-				desc: t.setTargetFolderDesc,
-				control: { type: 'text', key: 'targetFolder', placeholder: t.setTargetFolderPlaceholder },
-			},
-			{
-				name: t.setLang,
-				desc: t.setLangDesc,
-				control: { type: 'dropdown', key: 'lang', options: { de: 'Deutsch', en: 'English' } },
-			},
-			{
-				name: t.setReviewNote,
-				desc: t.setReviewNoteDesc,
-				control: { type: 'toggle', key: 'reviewNote' },
+				type: 'group',
+				heading: t.headGeneral,
+				items: [
+					{
+						name: t.setTargetFolder,
+						desc: t.setTargetFolderDesc,
+						control: { type: 'text', key: 'targetFolder', placeholder: t.setTargetFolderPlaceholder },
+					},
+					{
+						name: t.setLang,
+						desc: t.setLangDesc,
+						control: { type: 'dropdown', key: 'lang', options: { de: 'Deutsch', en: 'English' } },
+					},
+				],
 			},
 			{
 				type: 'group',
 				heading: t.headNoteFields,
 				items: [
+					{
+						name: t.setReviewNote,
+						desc: t.setReviewNoteDesc,
+						control: { type: 'toggle', key: 'reviewNote' },
+					},
 					{
 						name: t.setShowDay,
 						desc: t.setShowDayDesc,
@@ -282,6 +288,8 @@ export class JwSettingTab extends PluginSettingTab {
 		const t = this.t;
 		containerEl.empty();
 
+		new Setting(containerEl).setName(t.headGeneral).setHeading();
+
 		new Setting(containerEl)
 			.setName(t.setTargetFolder)
 			.setDesc(t.setTargetFolderDesc)
@@ -310,6 +318,8 @@ export class JwSettingTab extends PluginSettingTab {
 					}),
 			);
 
+		new Setting(containerEl).setName(t.headNoteFields).setHeading();
+
 		new Setting(containerEl)
 			.setName(t.setReviewNote)
 			.setDesc(t.setReviewNoteDesc)
@@ -321,8 +331,6 @@ export class JwSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}),
 			);
-
-		new Setting(containerEl).setName(t.headNoteFields).setHeading();
 
 		new Setting(containerEl)
 			.setName(t.setShowDay)

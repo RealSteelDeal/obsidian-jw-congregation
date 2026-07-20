@@ -23,6 +23,10 @@ Nothing queued right now — suggestions welcome via GitHub issues.
 
 ## Recently shipped
 
+- **Reorganized the settings tab into consistent groups**: "General" (target
+  folder, interface language), "Note fields" (now also including "Create
+  review note") and "Scripture references" — every setting now belongs to a
+  named group instead of some sitting loose at the top.
 - **Bible-verse popup can now be switched off on its own**, independent of
   whether a Bible file is loaded — a new "Enable Bible-verse popup" toggle
   next to the existing scripture-linking and typed-suggestion settings.

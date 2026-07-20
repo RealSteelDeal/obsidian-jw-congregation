@@ -23,6 +23,18 @@ Nothing queued right now — suggestions welcome via GitHub issues.
 
 ## Recently shipped
 
+- **An inserted quote is now clickable, and removable from its own popup**:
+  the callout title is a `jwlibrary://` link, same as any inline reference,
+  and the verse-text body is one too (de-styled back to plain quote text, not
+  the usual blue/underline) — the WHOLE callout box (background, padding,
+  icon, title or body text) is one click target, opening the verse popup
+  regardless of exactly where inside it was clicked. Opened that way, the
+  popup offers "Remove quote" instead of "Insert as quote" (re-inserting the
+  very quote already shown would just be a redundant copy) — deletes the
+  whole callout block in place. Fixed a related bug where inserting a
+  cross-reference as a separate new quote, from a popup opened via an
+  existing quote, could land the new callout inside the existing one's own
+  blockquote and corrupt both.
 - **"Update convention notes" can propose field corrections for pre-1.9.0
   notes**, which have no merge markers and previously could only be
   reported as needing a full re-import. A conservative label-anchored

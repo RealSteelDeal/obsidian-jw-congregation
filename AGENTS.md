@@ -443,6 +443,64 @@ Testdateien (`nwt_X.jwpub`, `nwtsty_X.jwpub`) verifiziert.
   dieselbe AES-128-CBC+zlib-Entschlüsselung nutzt, ohne sie zu duplizieren — jedes jwpub-Format
   (Kongressprogramm, Bibel, …) nutzt exakt dasselbe Schema.
 
+### Eingefügte Zitate anklickbar machen (quoteBuilder, scriptureLinkScan, main.ts, BibleVerseModal)
+
+Ein per „Als Zitat einfügen" erzeugtes Callout (`util/quoteBuilder.ts`) ist komplett
+klickbar und öffnet dabei wieder das Vers-Popup – nicht nur die Titelzeile:
+
+- **Format**: `> [!quote] [Referenz](href)\n> [Verstext](href)\n` – **sowohl** Titel
+  **als auch** Verstext sind `jwlibrary://`-Links auf dieselbe Stelle. `styles.css`
+  setzt die Optik des Body-Links zurück auf normalen Zitat-Text (`color: inherit;
+  text-decoration: none;`), damit ein mehrsätziger Vers nicht wie eine Wand aus
+  blauem Link-Text aussieht – nur der Titel behält die normale Link-Optik als
+  sichtbarer Hinweis „hier öffnet sich etwas".
+- **Ganzer Rahmen als Klickziel, nicht nur die beiden Textstellen**:
+  `main.ts.findScriptureLinkForEvent()` behandelt einen Klick irgendwo innerhalb
+  von `.callout[data-callout="quote" i]` (Hintergrund, Innenabstand, Icon) als
+  Klick auf den Titel-Link dieses Callouts.
+  - **Reading View**: `target.closest('.callout[data-callout="quote" i]')` liefert
+    ein echtes DOM-Element, darin per `querySelector('a[href^="jwlibrary://"]')`
+    der Link (Titel **oder** Body – beide zeigen auf dieselbe Stelle, egal welcher
+    zuerst gefunden wird).
+  - **Live Preview**: kein echtes `<a>`/`.callout`-Element mit Href zum Auslesen –
+    stattdessen wird die geklickte Zeile per `EditorView.posAtDOM()` ermittelt und
+    dann **zeilenweise nach oben gelaufen**, solange die Zeile mit `>` beginnt, bis
+    die Titelzeile `> [!quote] …` (`QUOTE_CALLOUT_START_RE`) gefunden ist – ein
+    Klick auf den Verstext (Body-Zeile) oder auf reine Polsterung landet so
+    trotzdem auf der Titelzeile mit dem eigentlichen Link.
+  - `styles.css`: `cursor: pointer` auf der ganzen `.callout[data-callout="quote"
+    i]`-Box (nicht nur auf den Link-Textstellen) als visueller Hinweis auf den
+    erweiterten Klickbereich.
+- **„Zitat entfernen"-Button** (`BibleVerseModal.removeQuote()`) erscheint nur,
+  wenn das Popup genau so geöffnet wurde (`openedFromQuote`) **und** aktuell genau
+  die ursprünglich zitierte Stelle angezeigt wird (`this.history.length === 0`) –
+  navigiert man im Popup zu einem Querverweis, verschwindet er wieder (dafür
+  erscheint „Als Zitat einfügen" erneut, da diese Stelle ja noch nicht zitiert
+  ist; s. u.). Löscht per `util/scriptureLinkScan.ts.findQuoteBlockRange()` den
+  kompletten Callout-Block (Titelzeile + alle folgenden `>`-Zeilen), gesucht
+  anhand von `this.initialScripture` (bleibt über die ganze Popup-Lebensdauer die
+  ursprünglich angeklickte Stelle, unabhängig von In-Popup-Navigation).
+- **„Als Zitat einfügen" und „Zitat entfernen" schließen sich gegenseitig aus**:
+  beide gleichzeitig anzuzeigen wäre irreführend (das eine würde eine redundante
+  zweite Kopie des schon sichtbaren Zitats erzeugen) – siehe
+  `BibleVerseModal.renderActionButtons()`s `showingOriginalQuotedVerse`-Flag.
+- **Bug (behoben)**: „Als Zitat einfügen" nutzt `util/scriptureLinkScan.ts.
+  findQuoteInsertionPoint()`, um die Einfügeposition anhand von
+  `this.initialScripture` zu finden. Ist diese Stelle selbst ein bestehendes
+  Zitat-Callout (Popup wurde durch Klick auf ein Zitat geöffnet, dann zu einem
+  Querverweis navigiert und **dieser** als neues Zitat eingefügt), reicht es
+  **nicht**, nur die Titelzeile zu finden und direkt danach einzufügen –
+  Markdown-Callouts sind nur aufeinanderfolgende `>`-Zeilen ohne Leerzeile
+  dazwischen, ein zweiter `[!quote]`-Marker mittendrin wird von Obsidian **nicht**
+  als verschachtelter Callout erkannt, sondern als reiner Text des ersten Callouts
+  gerendert, während die dabei eingefügte Leerzeile den ursprünglichen
+  Zitat-Body vom eigenen Titel abtrennt (per echtem Test bestätigt).
+  `findQuoteInsertionPoint()` springt deshalb über `findQuoteBlockRange()` hinter
+  das **komplette** bestehende Callout (nicht nur dessen Titelzeile) und liefert
+  zusätzlich einen `separator` (`"\n\n"` statt `"\n"`), sobald direkt nach einer
+  bestehenden Blockquote-Zeile angehängt wird – sonst verschmelzen zwei
+  aufeinanderfolgende Zitate ebenfalls zu einem einzigen, kaputten Block.
+
 ### Notiz- & Ordnerbenennung (NoteBuilder)
 
 - **Kein Frontmatter** in Notizen – nur sichtbare Felder (`**Tag:**`, `**Uhrzeit:**`,

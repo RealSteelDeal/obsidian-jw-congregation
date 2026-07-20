@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { jiti } from './_setup.mjs';
 
-const { findLineWithScripture, findQuoteBlockRange, findScriptureLinkInText, parseScriptureFromHref } =
+const { findFirstScriptureLinkInText, findLineWithScripture, findQuoteBlockRange, findScriptureLinkInText, parseScriptureFromHref } =
 	await jiti.import('../src/util/scriptureLinkScan.ts');
 
 const PSALM_1_1_LINK = '[Psalm 1:1](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19001001&pub=nwtsty)';
@@ -19,6 +19,17 @@ test('findScriptureLinkInText finds a markdown-form link covering the given offs
 	const found = findScriptureLinkInText(text, offset);
 	assert.ok(found);
 	assert.deepEqual(found.scripture, { book: 19, chapter: 1, verseStart: 1 });
+});
+
+test('findFirstScriptureLinkInText finds a link regardless of the given position (unlike findScriptureLinkInText)', () => {
+	const text = `> [!quote] ${PSALM_1_1_LINK}`;
+	const found = findFirstScriptureLinkInText(text);
+	assert.ok(found);
+	assert.deepEqual(found.scripture, { book: 19, chapter: 1, verseStart: 1 });
+});
+
+test('findFirstScriptureLinkInText returns undefined when the text has no scripture link at all', () => {
+	assert.equal(findFirstScriptureLinkInText('Kein Link hier.'), undefined);
 });
 
 test('findLineWithScripture finds the line whose markdown link matches the target scripture', () => {

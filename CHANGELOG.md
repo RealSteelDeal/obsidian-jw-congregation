@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+
+- **The whole inserted quote is now clickable, not just its title**: the
+  verse-text body of a quote callout is now itself a `jwlibrary://` link too
+  (styled back to plain quote text, not the usual blue/underline, so it
+  doesn't read as a wall of link text), and clicking anywhere inside the
+  callout's box — background, padding, icon, title or body text, not only
+  directly on one of those two link runs — opens the verse popup.
+
 ## 1.15.0
 
 ### New features

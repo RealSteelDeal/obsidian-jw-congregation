@@ -18,20 +18,43 @@ export function parseScriptureFromHref(href: string): Scripture | undefined {
 	}
 }
 
-/** Finds a jwlibrary:// scripture link (markdown or raw-HTML form) whose span covers `offset` within `text`. */
-export function findScriptureLinkInText(text: string, offset: number): { scripture: Scripture; href: string } | undefined {
+interface ScriptureLinkMatch {
+	index: number;
+	length: number;
+	scripture: Scripture;
+	href: string;
+}
+
+/** Yields every jwlibrary:// scripture link (markdown or raw-HTML form) found in `text`, in order — shared core for every other function in this module. */
+function* iterateScriptureLinks(text: string): Generator<ScriptureLinkMatch> {
 	for (const re of [MARKDOWN_LINK_RE, HTML_LINK_RE]) {
 		re.lastIndex = 0;
 		let m: RegExpExecArray | null;
 		while ((m = re.exec(text))) {
-			if (offset >= m.index && offset <= m.index + m[0].length) {
-				const href = m[1];
-				if (!href) continue;
-				const scripture = parseScriptureFromHref(href);
-				if (scripture) return { scripture, href };
-			}
+			const href = m[1];
+			if (!href) continue;
+			const scripture = parseScriptureFromHref(href);
+			if (scripture) yield { index: m.index, length: m[0].length, scripture, href };
 		}
 	}
+}
+
+/** Finds a jwlibrary:// scripture link (markdown or raw-HTML form) whose span covers `offset` within `text`. */
+export function findScriptureLinkInText(text: string, offset: number): { scripture: Scripture; href: string } | undefined {
+	for (const m of iterateScriptureLinks(text)) {
+		if (offset >= m.index && offset <= m.index + m.length) return { scripture: m.scripture, href: m.href };
+	}
+	return undefined;
+}
+
+/**
+ * Finds the first jwlibrary:// scripture link anywhere in `text`, ignoring
+ * position — for callers that already know which line to look at (e.g. a
+ * quote callout's title, see QUOTE_CALLOUT_START_RE below) rather than
+ * resolving a specific click offset within it.
+ */
+export function findFirstScriptureLinkInText(text: string): { scripture: Scripture; href: string } | undefined {
+	for (const m of iterateScriptureLinks(text)) return { scripture: m.scripture, href: m.href };
 	return undefined;
 }
 
@@ -45,18 +68,14 @@ function scripturesEqual(a: Scripture, b: Scripture): boolean {
 
 /** Whether `text` contains a jwlibrary:// scripture link (markdown or raw-HTML form) matching `target`. */
 function lineContainsScripture(text: string, target: Scripture): boolean {
-	for (const re of [MARKDOWN_LINK_RE, HTML_LINK_RE]) {
-		re.lastIndex = 0;
-		let m: RegExpExecArray | null;
-		while ((m = re.exec(text))) {
-			const href = m[1];
-			if (!href) continue;
-			const scripture = parseScriptureFromHref(href);
-			if (scripture && scripturesEqual(scripture, target)) return true;
-		}
+	for (const m of iterateScriptureLinks(text)) {
+		if (scripturesEqual(m.scripture, target)) return true;
 	}
 	return false;
 }
+
+/** A quote callout's title line (see util/quoteBuilder.ts), e.g. `> [!quote] [Psalm 1:1](href)`. */
+export const QUOTE_CALLOUT_START_RE = /^>\s*\[!quote\]/i;
 
 /**
  * Finds the 0-based index of the first line in `lines` containing a
@@ -73,8 +92,6 @@ export function findLineWithScripture(lines: string[], target: Scripture): numbe
 	}
 	return undefined;
 }
-
-const QUOTE_CALLOUT_START_RE = /^>\s*\[!quote\]/i;
 
 /**
  * Finds the [start, end) line range of the quote callout (see

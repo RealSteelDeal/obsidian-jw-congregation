@@ -9,18 +9,21 @@ export function stripHtml(html: string): string {
 }
 
 /**
- * Builds an Obsidian quote callout (`> [!quote] [Reference](href)\n> text`)
+ * Builds an Obsidian quote callout (`> [!quote] [Reference](href)\n> [text](href)`)
  * from resolved verse text — shared by the popup's "insert as quote" button
  * (BibleVerseModal) and the in-editor scripture suggester (ScriptureEditorSuggest),
  * so both produce byte-identical output. Footnote/cross-reference markers are
  * deliberately left out: the lettered superscripts only mean something next to
  * a footnote/cross-reference list, which isn't inserted alongside them.
  *
- * The callout title is itself a `jwlibrary://` link — exactly the same
- * markdown-link shape a plain inline reference already uses (see
- * util/scriptureLinkScan.ts), so an inserted quote is clickable the same way:
- * it opens the verse popup, and BibleVerseModal recognizes the click came
- * from inside a quote callout to offer a "remove quote" button there.
+ * BOTH the title and the verse-text body are `jwlibrary://` links to the same
+ * href — exactly the same markdown-link shape a plain inline reference
+ * already uses (see util/scriptureLinkScan.ts) — so the whole callout is
+ * clickable, not just its title, and opens the verse popup either way.
+ * styles.css strips the body link's usual blue/underline styling back to
+ * plain quote text (title keeps it, as the visible "this is a link" cue);
+ * BibleVerseModal recognizes the click came from inside a quote callout
+ * either way, to offer a "remove quote" button there.
  */
 export function buildScriptureQuoteBlock(reference: string, href: string, verses: VerseDetail[]): string {
 	const text = verses
@@ -28,5 +31,6 @@ export function buildScriptureQuoteBlock(reference: string, href: string, verses
 		.join(' ')
 		.replace(/\s+/g, ' ')
 		.trim();
-	return `> [!quote] [${reference}](${href})\n${text.split('\n').map(line => `> ${line}`).join('\n')}\n`;
+	const body = text.split('\n').map(line => `> [${line}](${href})`).join('\n');
+	return `> [!quote] [${reference}](${href})\n${body}\n`;
 }

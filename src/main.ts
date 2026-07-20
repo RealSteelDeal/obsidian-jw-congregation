@@ -9,7 +9,7 @@ import { BibleVerseModal } from './ui/BibleVerseModal';
 import { ScriptureEditorSuggest } from './ui/ScriptureEditorSuggest';
 import { Scripture } from './models/congress';
 import { L, NL } from './i18n';
-import { findScriptureLinkInText, parseScriptureFromHref } from './util/scriptureLinkScan';
+import { findFirstScriptureLinkInText, findScriptureLinkInText, parseScriptureFromHref, QUOTE_CALLOUT_START_RE } from './util/scriptureLinkScan';
 import { hasNoMarkers, mergeNoteContent } from './util/noteMerge';
 import { UpdateNotesModal } from './ui/UpdateNotesModal';
 import { applyLegacyCorrections, findLegacyCorrections, LegacyFieldCorrection } from './util/legacyFieldPatch';
@@ -205,34 +205,43 @@ export default class JwCongregationPlugin extends Plugin {
 
 	/** Finds the jwlibrary:// scripture link (if any) that an event's target is part of — Reading View
 	 *  (a real `<a href>`) or Live Preview (a decoration span; resolved via the CM6 EditorView's raw source text).
-	 *  `isQuote` flags a link that's the title of an inserted quote callout (see util/quoteBuilder.ts) rather
-	 *  than a plain inline reference — BibleVerseModal uses it to decide whether to offer "remove quote". */
+	 *  A quote callout's ENTIRE box (see util/quoteBuilder.ts) is one click target, not just its text runs —
+	 *  a click anywhere inside it (background, padding, icon, title or body text) resolves to its own link.
+	 *  `isQuote` flags exactly that case — BibleVerseModal uses it to decide whether to offer "remove quote". */
 	private findScriptureLinkForEvent(evt: Event): { scripture: Scripture; href: string; isQuote: boolean } | undefined {
 		const target = evt.target;
 		if (!target || !(target instanceof HTMLElement)) return undefined;
 
-		// Reading View: a real <a href="jwlibrary://...">. A quote callout's
-		// title renders as `<div class="callout" data-callout="quote">…<a>…`
-		// — the exact same "data-callout" attribute/value Obsidian's built-in
-		// callout renderer always produces for a "> [!quote]" block.
+		// Reading View: if the click landed anywhere inside a quote callout's
+		// rendered box, use that callout's own title link regardless of exactly
+		// where the click was — `<div class="callout" data-callout="quote">…<a>…`
+		// is the same "data-callout" attribute/value Obsidian's built-in callout
+		// renderer always produces for a "> [!quote]" block.
+		const callout = target.closest('.callout[data-callout="quote" i]');
+		if (callout) {
+			const innerLink = callout.querySelector<HTMLAnchorElement>('a[href^="jwlibrary://"]');
+			const scripture = innerLink && parseScriptureFromHref(innerLink.href);
+			if (innerLink && scripture) return { scripture, href: innerLink.href, isQuote: true };
+		}
+
+		// Reading View: a plain inline reference — a real <a href="jwlibrary://...">.
 		const link = target.closest<HTMLAnchorElement>('a[href^="jwlibrary://"]');
 		if (link) {
 			const scripture = parseScriptureFromHref(link.href);
-			if (!scripture) return undefined;
-			const isQuote = !!link.closest('.callout[data-callout="quote" i]');
-			return { scripture, href: link.href, isQuote };
+			return scripture ? { scripture, href: link.href, isQuote: false } : undefined;
 		}
 
-		// Live Preview: no real <a> to find. Only react when the click landed on
-		// a RENDERED link decoration — when the cursor is on the line, CM6 shows
-		// the raw markdown source instead, and a click there must keep its normal
-		// meaning (placing the cursor, e.g. to edit the link) rather than being
-		// hijacked into opening the popup.
-		if (!target.closest('.cm-underline, .cm-link')) return undefined;
+		// Live Preview: no real <a>/.callout DOM to read an href from — resolve
+		// everything from the raw markdown source via the CM6 EditorView instead.
+		// Only react when the click landed on a RENDERED link decoration OR
+		// inside Obsidian's own Live Preview callout wrapper (its box styling
+		// applies there too, independent of whether the exact click point has a
+		// link decoration under it) — when the cursor is just sitting on a plain
+		// line, CM6 shows raw markdown source instead, and a click there must
+		// keep its normal meaning (placing the cursor) rather than being hijacked.
+		const inCalloutBox = !!target.closest('.callout');
+		if (!inCalloutBox && !target.closest('.cm-underline, .cm-link')) return undefined;
 
-		// Resolve the click position via the CM6 EditorView the click landed in
-		// (if any), then read the raw markdown source text at that position
-		// instead of the rendered (label-only) text.
 		const view = EditorView.findFromDOM(target);
 		if (!view) return undefined;
 
@@ -243,12 +252,23 @@ export default class JwCongregationPlugin extends Plugin {
 			return undefined;
 		}
 
-		const line = view.state.doc.lineAt(pos);
-		const found = findScriptureLinkInText(line.text, pos - line.from);
-		if (!found) return undefined;
-		// A quote callout's title is always "> [!quote] [Reference](href)" on
-		// one raw source line — the same line the matched link itself is on.
-		return { ...found, isQuote: /^>\s*\[!quote\]/i.test(line.text) };
+		let line = view.state.doc.lineAt(pos);
+		if (!inCalloutBox) {
+			const found = findScriptureLinkInText(line.text, pos - line.from);
+			return found ? { ...found, isQuote: false } : undefined;
+		}
+
+		// Inside the callout box, but not directly on the title's own link
+		// decoration (e.g. clicked the body text, the icon, or plain padding) —
+		// walk upward to the callout's title line ("> [!quote] …"), which is
+		// always at or above wherever the click landed, and use ITS link
+		// instead of trying to match the exact clicked position.
+		while (line.text.startsWith('>') && !QUOTE_CALLOUT_START_RE.test(line.text) && line.number > 1) {
+			line = view.state.doc.line(line.number - 1);
+		}
+		if (!QUOTE_CALLOUT_START_RE.test(line.text)) return undefined;
+		const found = findFirstScriptureLinkInText(line.text);
+		return found ? { ...found, isQuote: true } : undefined;
 	}
 
 	private bibleFilePath(): string {

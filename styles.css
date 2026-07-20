@@ -275,3 +275,22 @@ a.external-link[href*="jw.org/finder"]:not(#_)::after {
 	color: var(--text-normal);
 	background-color: var(--background-modifier-hover);
 }
+
+/* An inserted verse quote (see util/quoteBuilder.ts) is a "> [!quote]" callout
+   whose title AND body are both jwlibrary:// links to the same verse popup,
+   and main.ts treats the WHOLE box as one click target (background, padding,
+   icon — not just those two text runs). The pointer cursor on the box itself
+   is the visual match for that: hovering anywhere in it, not only directly
+   over link text, shows it's clickable. The body link's usual blue/underline
+   is stripped back to plain quote text here, so a multi-sentence verse
+   doesn't turn into a wall of link-styled text — the title keeps its normal
+   link styling as the visible "this opens something" cue. */
+.callout[data-callout="quote" i] {
+	cursor: pointer;
+}
+
+.callout[data-callout="quote" i] .callout-content a {
+	color: inherit;
+	text-decoration: none;
+	cursor: pointer;
+}

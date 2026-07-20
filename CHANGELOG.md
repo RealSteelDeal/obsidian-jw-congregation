@@ -1,5 +1,91 @@
 # Changelog
 
+## 1.9.0
+
+### New features
+
+- **Five more program-file languages**: French, Italian, Portuguese, Russian
+  and Spanish jwpub programme files now parse and generate notes in their own
+  language, detected automatically from `Publication.MepsLanguageIndex` (0 =
+  English, 1 = Spanish, 2 = German, 3 = French, 4 = Italian, 207 = Russian,
+  785 = Portuguese) — the same mechanism German/English already used. Book
+  names are read verbatim from each language's own Bible jwpub file
+  (`BibleBook.BookDocumentId` → `Document.Title`) rather than hand-translated,
+  and every language-specific parsing pattern (weekday names, session
+  headings, type markers like `SYMPOSIUM:`/`VORTRAGSREIHE:`/`SIMPOSIO:`,
+  music/break lines, the printed review-questions heading) was matched
+  against real CO and CA program files in all seven languages. `settings.lang`
+  (the interface and Bible-verse popup language) intentionally stays
+  German/English only — a note's own language always follows the imported
+  file, independent of the UI language.
+- **Insert a Bible verse as a quote**: a button in the verse popup ("Insert as
+  quote", next to "Open in JW Library") inserts the shown passage into the
+  active note as an `> [!quote]` callout — sourced entirely from the local
+  Bible file, no network access, mirroring what JW Library Linker's own
+  quote-insertion does but fully offline.
+- **Type a scripture reference anywhere and get a link/quote suggestion**:
+  typing e.g. `Psalm 12:1` or an abbreviation like `Matth. 5:2-4` in any note
+  triggers a suggestion right after the last character (as-you-type, like the
+  built-in wikilink/tag autocomplete), offering to turn it into a
+  `jwlibrary://` link (opens the offline popup above) or insert the verse
+  text as a quote directly. Recognizes full book names in the interface
+  language plus common truncated abbreviations ("Ps", "1 Mo", "Kol.", …) via
+  prefix matching against the already-verified full names — an ambiguous
+  prefix (e.g. "Jo", which could mean Johannes, Joel or Jona) is safely left
+  unrecognized rather than guessed at.
+- **Update convention notes without touching your own text**: a new "Update
+  convention notes" command re-parses the same program file (e.g. after this
+  very release fixes a bug in the notes) and patches an already-imported
+  convention folder in place. Every automatically generated field — day,
+  time, scripture links, headings, the "Anschließend"/"Next" hint, each
+  talk-series part — is refreshed, while anything already typed into the
+  note (speaker name, personal notes) is left completely untouched, even
+  inside the very same file. This works via invisible `%%jw:id%%` markers
+  (Obsidian's own comment syntax, never rendered) that `NoteBuilder` now
+  wraps around every derived block; a note's YAML frontmatter, being fully
+  machine-generated, is replaced outright. Notes created by a plugin version
+  before this feature have no markers and are safely left alone, counted
+  separately in the result notice — those still need a full delete-and-
+  reimport to pick up template changes.
+- Documented the JW Library Linker synergy in the README: links created by
+  the [JW Library Linker](https://github.com/msakowski/obsidian-library-linker)
+  plugin already open this plugin's offline verse popup, since both use the
+  same `jwlibrary://` finder link format.
+
+### Fixes
+
+- **Psalms with a superscription resolved every verse one off**: a
+  superscription like Psalm 15's "A melody of David." occupies the chapter's
+  first row in the Bible file without being verse 1, so the previous
+  `firstVerseId + verse - 1` arithmetic silently resolved "Psalm 15:2" to
+  verse 1's text and showed the chapter number where the verse number
+  belonged. Detected from the row's own empty `Label` rather than a
+  hardcoded list of which psalms have a superscription, so it generalizes to
+  every affected psalm without guessing.
+- **Poetic verses lost the spaces between their printed lines** (e.g. Psalm
+  1:1's three lines): the jwpub chapter HTML splits such a verse across
+  several continuation spans with no separating whitespace of its own — the
+  line break itself was the separator in the source. Both the popup's own
+  verse display and every "insert as quote" output ran the lines together
+  ("…folgt**und** nicht…") until now, since both share the same underlying
+  text segments.
+- **"Insert as quote" (popup button) inserted the passage in the wrong
+  place**: clicking a scripture link is intercepted before it can move the
+  editor's cursor there, so inserting "at the current selection" landed
+  wherever the cursor happened to be left over from the last time the note
+  was actively edited — often far from the clicked reference. It now locates
+  the actual clicked reference's own line in the note (by re-parsing the
+  note's scripture links, so it also survives navigating to a cross-reference
+  inside the popup before inserting) and inserts right after it. The button
+  is also hidden entirely while the note is in Reading View, where there is
+  no reliable place to insert into at all.
+- Obsidian's Live Preview shows whichever line the cursor is on as raw
+  markdown source rather than rendering it — since a text insertion leaves
+  the cursor sitting inside what it just inserted, a freshly inserted quote
+  callout could show as unstyled "> [!quote] …" text until clicking
+  elsewhere. Both insertion paths now move the cursor past the whole
+  inserted block afterwards, so the callout renders immediately.
+
 ## 1.8.3
 
 ### Fixes

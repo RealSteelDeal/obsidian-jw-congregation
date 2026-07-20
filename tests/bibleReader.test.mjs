@@ -123,6 +123,33 @@ test('resolveVerseId skips a psalm superscription row when resolving a numbered 
 	assert.equal(r.chapterVerseCount(19, 15), 5);
 });
 
+// getVerses()/getVerseDetails() are the only two entry points every db.exec()
+// call in this class is ultimately reached through — none of the private
+// helpers below them handle a query failure on their own. A schema mismatch
+// (e.g. a plain `nwt` file missing the VerseCommentary/VerseCommentaryMap
+// tables `resolveStudyNotes()` queries, which were found investigating a
+// `nwtsty` file specifically) must not reach the caller as an unhandled
+// rejection — every caller already treats `undefined` as "nothing to show".
+test('getVerses returns undefined (not a rejected promise) when a query throws', async () => {
+	const r = reader();
+	r['db'] = { exec: () => { throw new Error('no such table: BibleChapter'); } };
+	r['key'] = new Uint8Array(16);
+	r['iv'] = new Uint8Array(16);
+
+	const result = await r.getVerses({ book: 19, chapter: 15, verseStart: 1 });
+	assert.equal(result, undefined);
+});
+
+test('getVerseDetails returns undefined (not a rejected promise) when a query throws', async () => {
+	const r = reader();
+	r['db'] = { exec: () => { throw new Error('no such table: BibleChapter'); } };
+	r['key'] = new Uint8Array(16);
+	r['iv'] = new Uint8Array(16);
+
+	const result = await r.getVerseDetails({ book: 19, chapter: 15, verseStart: 1 });
+	assert.equal(result, undefined);
+});
+
 test('resolveVerseId treats a chapter with no superscription unchanged (regression check)', () => {
 	const db = fakeDb(
 		[{ book: 19, chapter: 1, firstVerseId: 2000, lastVerseId: 2005 }],

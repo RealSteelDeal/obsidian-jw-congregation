@@ -57,6 +57,7 @@ src/
 scripts/
   dump-structure.mjs         # Entwickler-Tool: Publication-Zeile + h1/h2/li-Struktur je Dokument ausgeben (nutzt util/jwpubCrypto)
   test-parse.mjs             # Entwickler-Test: importiert den echten JwpubParser per jiti und parst übergebene .jwpub-Dateien
+  extract-changelog.mjs      # Release-Tool: extrahiert den Abschnitt einer Version aus CHANGELOG.md für die GitHub-Release-Notes
 ```
 
 **`scripts/test-parse.mjs`** importiert `src/parser/JwpubParser.ts` direkt über `jiti`
@@ -146,11 +147,11 @@ Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohn
   `TextDecoder('iso-8859-1')`), da die WHATWG-Encoding-Spec dieses Label auf windows-1252
   aliast, was sich im Bereich 0x80–0x9F von echtem Latin-1 unterscheidet (Node's
   `Buffer.toString('latin1')` macht eine echte 1:1-Abbildung).
-- **Verifiziert**: die neue `decrypt()`-Implementierung wurde gegen die unabhängige
-  Referenz-Implementierung in `scripts/analyze-jwpub.mjs` (eigenständiges, Node-`crypto`-
-  basiertes Decrypt, absichtlich **nicht** umgestellt – reines Dev-Tool, läuft nie im Plugin
-  selbst) auf Byte-Identität der entschlüsselten HTML-Dokumente getestet – alle 5 Dokumente
-  einer echten `.jwpub`-Datei stimmten exakt überein.
+- **Verifiziert (historisch)**: die `decrypt()`-Implementierung wurde einmalig gegen eine
+  unabhängige, Node-`crypto`-basierte Referenz-Implementierung (damals `scripts/analyze-jwpub.mjs`,
+  seither entfernt und durch `scripts/dump-structure.mjs` ersetzt) auf Byte-Identität der
+  entschlüsselten HTML-Dokumente getestet – alle 5 Dokumente einer echten `.jwpub`-Datei
+  stimmten exakt überein.
 
 ### sql.js WASM-Ladung (kritisch für Obsidian/Electron)
 
@@ -196,7 +197,7 @@ Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohn
   unverschlüsselt neben der `.db`-Datei). Bei CO hat **jedes** Tagesdokument (DocumentId 1/2/3)
   sein eigenes Bild; bei CA (eintägig) gibt es nur ein Bild auf dem Deckblatt (DocumentId 0) –
   `buildCongress()` merkt sich das als `congressCoverImage`-Fallback für Tage ohne eigenes Bild.
-  Per echten Testdateien verifiziert (siehe `scripts/analyze-jwpub.mjs`-Ausgabe).
+  Per echten Testdateien verifiziert (siehe `scripts/dump-structure.mjs`-Ausgabe).
 - **„Beantworte die folgenden Fragen"**: ist im jwpub ein **eigenständiges Dokument**
   (kein `<li>` innerhalb eines Tagesprogramms!), erkannt über `<h1>` bzw. `QUESTIONS_RE`
   (`extractQuestionsDocument()`). Wird der `Wiederholungsfragen`-Session des zuletzt
@@ -523,7 +524,7 @@ Manuell in Obsidian:
 Skripte (Node, ohne Obsidian):
 
 ```bash
-node scripts/analyze-jwpub.mjs <datei.jwpub>
+node scripts/dump-structure.mjs <datei.jwpub>
 node scripts/test-parse.mjs <datei1.jwpub> [datei2.jwpub ...]
 ```
 

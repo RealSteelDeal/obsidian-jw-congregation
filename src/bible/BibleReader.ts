@@ -295,23 +295,32 @@ export class BibleReader {
 	 * Returns each verse in the reference as `{ number, html }` (`number` is the
 	 * verse-number label, e.g. "15"; `html` is the still-marked-up, decrypted
 	 * verse text), in order — or undefined if the range can't be resolved at
-	 * all (see resolveStartId()) or no Bible file has been loaded.
+	 * all (see resolveStartId()), no Bible file has been loaded, or reading it
+	 * failed (see the try/catch note on getVerseDetails() below).
 	 */
 	async getVerses(scripture: Scripture): Promise<{ number: string; html: string }[] | undefined> {
 		if (!this.db || !this.key || !this.iv) return undefined;
+		try {
+			const startId = this.resolveStartId(scripture);
+			if (startId === undefined) return undefined;
+			const endId = this.resolveEndId(scripture) ?? startId;
+			if (endId < startId) return undefined;
 
-		const startId = this.resolveStartId(scripture);
-		if (startId === undefined) return undefined;
-		const endId = this.resolveEndId(scripture) ?? startId;
-		if (endId < startId) return undefined;
-
-		const verseCount = endId - startId + 1;
-		const verses: { number: string; html: string }[] = [];
-		for (let i = 0; i < verseCount; i++) {
-			const verse = await this.readVerseRow(startId + i);
-			if (verse) verses.push(verse);
+			const verseCount = endId - startId + 1;
+			const verses: { number: string; html: string }[] = [];
+			for (let i = 0; i < verseCount; i++) {
+				const verse = await this.readVerseRow(startId + i);
+				if (verse) verses.push(verse);
+			}
+			return verses.length > 0 ? verses : undefined;
+		} catch {
+			// A schema this code doesn't expect (e.g. a table only the study
+			// edition has) or a corrupt/truncated blob would otherwise throw all
+			// the way up into the popup — every caller already treats undefined
+			// as "nothing to show", so that's a strictly safer failure mode than
+			// an unhandled exception.
+			return undefined;
 		}
-		return verses.length > 0 ? verses : undefined;
 	}
 
 	/**
@@ -320,87 +329,101 @@ export class BibleReader {
 	 * decrypt+parse per distinct chapter touched, plus one small query per
 	 * footnote/cross-reference marker) — intended for the verse popup, which
 	 * already shows a loading state while this runs.
+	 *
+	 * Wrapped in a try/catch: this and getVerses() are the only two entry
+	 * points every `db.exec()` call in this class is ultimately reached
+	 * through (directly or via a private helper), none of which handle a
+	 * query failure themselves. A plain `nwt` file, for instance, is not
+	 * guaranteed to have the `VerseCommentary`/`VerseCommentaryMap` tables
+	 * `resolveStudyNotes()` queries (those were found while investigating a
+	 * `nwtsty` file specifically) — every caller already treats `undefined`
+	 * as "nothing to show" (see BibleVerseModal), so turning an unexpected
+	 * schema/data issue into that same "no result" outcome, instead of an
+	 * unhandled exception reaching the popup, is a strictly safer default.
 	 */
 	async getVerseDetails(scripture: Scripture): Promise<VerseDetail[] | undefined> {
 		if (!this.db || !this.key || !this.iv) return undefined;
+		try {
+			const startId = this.resolveStartId(scripture);
+			if (startId === undefined) return undefined;
 
-		const startId = this.resolveStartId(scripture);
-		if (startId === undefined) return undefined;
+			let endId = this.resolveEndId(scripture) ?? startId;
+			// Verse ids continue seamlessly past a chapter's last verse — clamp to the
+			// true END chapter's bound (when known) so neither an overlong same-chapter
+			// citation (no chapterEnd) nor a cross-chapter one running past its own
+			// declared end chapter can silently bleed foreign verses into the popup.
+			const endChapter = scripture.chapterEnd ?? scripture.chapter;
+			const endBounds = this.chapterBounds(scripture.book, endChapter);
+			if (endBounds) endId = Math.min(endId, endBounds.lastVerseId);
+			if (endId < startId) return undefined;
+			const verseCount = endId - startId + 1;
 
-		let endId = this.resolveEndId(scripture) ?? startId;
-		// Verse ids continue seamlessly past a chapter's last verse — clamp to the
-		// true END chapter's bound (when known) so neither an overlong same-chapter
-		// citation (no chapterEnd) nor a cross-chapter one running past its own
-		// declared end chapter can silently bleed foreign verses into the popup.
-		const endChapter = scripture.chapterEnd ?? scripture.chapter;
-		const endBounds = this.chapterBounds(scripture.book, endChapter);
-		if (endBounds) endId = Math.min(endId, endBounds.lastVerseId);
-		if (endId < startId) return undefined;
-		const verseCount = endId - startId + 1;
+			const chapterDomCache = new Map<string, Document | undefined>();
+			const details: VerseDetail[] = [];
 
-		const chapterDomCache = new Map<string, Document | undefined>();
-		const details: VerseDetail[] = [];
+			// Tracks (chapter, verse) across the range as ids are walked one by one,
+			// crossing chapter boundaries via each chapter's own BibleChapter bounds.
+			// Necessary now that a range can cross chapters, where "start chapter,
+			// verseStart + i" is only valid within the very first chapter of the
+			// range — this cursor is the general form of that, still falling back to
+			// arithmetic (not the citation index) for verses cited nowhere in the
+			// file, e.g. Psalm 117:2.
+			let cursorChapter = scripture.chapter;
+			let cursorVerse = scripture.verseStart;
+			let cursorBounds = this.chapterBounds(scripture.book, cursorChapter);
 
-		// Tracks (chapter, verse) across the range as ids are walked one by one,
-		// crossing chapter boundaries via each chapter's own BibleChapter bounds.
-		// Necessary now that a range can cross chapters, where "start chapter,
-		// verseStart + i" is only valid within the very first chapter of the
-		// range — this cursor is the general form of that, still falling back to
-		// arithmetic (not the citation index) for verses cited nowhere in the
-		// file, e.g. Psalm 117:2.
-		let cursorChapter = scripture.chapter;
-		let cursorVerse = scripture.verseStart;
-		let cursorBounds = this.chapterBounds(scripture.book, cursorChapter);
-
-		for (let i = 0; i < verseCount; i++) {
-			const verseId = startId + i;
-			if (i > 0) {
-				if (cursorBounds && verseId > cursorBounds.lastVerseId) {
-					cursorChapter++;
-					cursorVerse = 1;
-					cursorBounds = this.chapterBounds(scripture.book, cursorChapter);
-				} else {
-					cursorVerse++;
-				}
-			}
-
-			const verse = await this.readVerseRow(verseId);
-			if (!verse) continue;
-
-			const ref = this.referenceByVerseId.get(verseId)
-				?? { book: scripture.book, chapter: cursorChapter, verse: cursorVerse };
-
-			let isChapterStart = false;
-			// Falls back to the (marker-free) BibleVerse.Content as a single text
-			// segment when the chapter HTML isn't reachable at all — better than
-			// showing nothing.
-			let segments: VerseSegment[] = [{ kind: 'text', text: BibleReader.htmlToPlainText(verse.html) }];
-			let footnotes: FootnoteRef[] = [];
-			let crossReferences: CrossReference[] = [];
-
-			if (ref) {
-				const chapterKey = `${ref.book}:${ref.chapter}`;
-				let dom = chapterDomCache.get(chapterKey);
-				if (dom === undefined && !chapterDomCache.has(chapterKey)) {
-					dom = await this.loadChapterDom(ref.book, ref.chapter);
-					chapterDomCache.set(chapterKey, dom);
-				}
-				if (dom) {
-					const extracted = this.extractVerseContent(dom, ref.book, ref.chapter, ref.verse);
-					isChapterStart = extracted.isChapterStart;
-					if (extracted.segments.length > 0) segments = extracted.segments;
-					const bookDocId = this.bookDocumentId.get(ref.book);
-					if (bookDocId !== undefined) {
-						footnotes = await this.resolveFootnotes(bookDocId, extracted.footnoteMarkers);
+			for (let i = 0; i < verseCount; i++) {
+				const verseId = startId + i;
+				if (i > 0) {
+					if (cursorBounds && verseId > cursorBounds.lastVerseId) {
+						cursorChapter++;
+						cursorVerse = 1;
+						cursorBounds = this.chapterBounds(scripture.book, cursorChapter);
+					} else {
+						cursorVerse++;
 					}
-					crossReferences = await this.resolveCrossReferences(verseId, extracted.crossRefMarkers);
 				}
-			}
 
-			const studyNotes = await this.resolveStudyNotes(verseId);
-			details.push({ number: verse.number, isChapterStart, segments, footnotes, crossReferences, studyNotes });
+				const verse = await this.readVerseRow(verseId);
+				if (!verse) continue;
+
+				const ref = this.referenceByVerseId.get(verseId)
+					?? { book: scripture.book, chapter: cursorChapter, verse: cursorVerse };
+
+				let isChapterStart = false;
+				// Falls back to the (marker-free) BibleVerse.Content as a single text
+				// segment when the chapter HTML isn't reachable at all — better than
+				// showing nothing.
+				let segments: VerseSegment[] = [{ kind: 'text', text: BibleReader.htmlToPlainText(verse.html) }];
+				let footnotes: FootnoteRef[] = [];
+				let crossReferences: CrossReference[] = [];
+
+				if (ref) {
+					const chapterKey = `${ref.book}:${ref.chapter}`;
+					let dom = chapterDomCache.get(chapterKey);
+					if (dom === undefined && !chapterDomCache.has(chapterKey)) {
+						dom = await this.loadChapterDom(ref.book, ref.chapter);
+						chapterDomCache.set(chapterKey, dom);
+					}
+					if (dom) {
+						const extracted = this.extractVerseContent(dom, ref.book, ref.chapter, ref.verse);
+						isChapterStart = extracted.isChapterStart;
+						if (extracted.segments.length > 0) segments = extracted.segments;
+						const bookDocId = this.bookDocumentId.get(ref.book);
+						if (bookDocId !== undefined) {
+							footnotes = await this.resolveFootnotes(bookDocId, extracted.footnoteMarkers);
+						}
+						crossReferences = await this.resolveCrossReferences(verseId, extracted.crossRefMarkers);
+					}
+				}
+
+				const studyNotes = await this.resolveStudyNotes(verseId);
+				details.push({ number: verse.number, isChapterStart, segments, footnotes, crossReferences, studyNotes });
+			}
+			return details.length > 0 ? details : undefined;
+		} catch {
+			return undefined;
 		}
-		return details.length > 0 ? details : undefined;
 	}
 
 	private async readVerseRow(verseId: number): Promise<{ number: string; html: string } | undefined> {

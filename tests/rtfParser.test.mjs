@@ -109,6 +109,33 @@ test('extractCongressThemeYear reads "Motto Kongress von Jehovas Zeugen YYYY"', 
 	assert.deepEqual(parser()['extractCongressThemeYear'](paragraphs), { theme: 'Beispielmotto', year: 2026 });
 });
 
+// RTF exports carry no equivalent of jwpub's Publication.Symbol (which is how
+// JwpubParser.detectType() tells the two one-day circuit-assembly variants
+// apart) — detectType() falls back to the cover-page title text instead, verified
+// against a real jwpub dump of both variants' cover pages (see RtfParser.detectType()).
+test('detectType recognizes the branch-representative cover-page title as CA-brpgm', () => {
+	const p = parser();
+	const days = [{ name: 'Samstag', weekday: 'Samstag', sessions: [] }];
+	const text = 'Kreiskongressprogramm 2026/2027 – mit dem Vertreter des Zweigbüros';
+	assert.equal(p['detectType'](days, text), 'CA-brpgm');
+});
+
+test('detectType falls back to CA-copgm when there is no branch-representative marker', () => {
+	const p = parser();
+	const days = [{ name: 'Samstag', weekday: 'Samstag', sessions: [] }];
+	const text = 'Kreiskongressprogramm 2026/2027 – mit dem Kreisaufseher';
+	assert.equal(p['detectType'](days, text), 'CA-copgm');
+});
+
+test('detectType returns CO for multiple days regardless of text content', () => {
+	const p = parser();
+	const days = [
+		{ name: 'Freitag', weekday: 'Freitag', sessions: [] },
+		{ name: 'Samstag', weekday: 'Samstag', sessions: [] },
+	];
+	assert.equal(p['detectType'](days, 'ganz gleich was hier steht, auch Zweigbüro'), 'CO');
+});
+
 test('parse() builds a full day with song, aside, talk, bible-drama and talk-series items', async () => {
 	const bibleLink = (bible, label) => hyperlinkField(`https://example.invalid/finder?bible=${bible}`, label);
 	// Real exports always encode non-ASCII characters as \uNNNN escapes (RTF
@@ -135,6 +162,7 @@ test('parse() builds a full day with song, aside, talk, bible-drama and talk-ser
 
 	const congress = await parser().parse(Buffer.from(rtf, 'latin1'));
 
+	assert.equal(congress.type, 'CA-copgm'); // single day, no "Zweigbüro" marker anywhere in the text
 	assert.equal(congress.days.length, 1);
 	const day = congress.days[0];
 	assert.equal(day.weekday, 'Freitag');

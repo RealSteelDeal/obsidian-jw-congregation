@@ -70,12 +70,20 @@ export class LegacyMigrationModal extends Modal {
 	private async applySelected(): Promise<void> {
 		this.close();
 		let applied = 0;
+		let failed = 0;
 		for (const candidate of this.candidates) {
 			if (!this.included.get(candidate.path)) continue;
-			const wrote = await this.plugin.applyLegacyNoteCorrections(candidate.path, candidate.corrections);
-			if (wrote) applied++;
+			try {
+				const wrote = await this.plugin.applyLegacyNoteCorrections(candidate.path, candidate.corrections);
+				if (wrote) applied++;
+			} catch {
+				// Keep going — one note failing (e.g. moved/deleted since the
+				// preview was built) shouldn't silently abort every other note
+				// still queued for migration.
+				failed++;
+			}
 		}
-		new Notice(this.t.noticeLegacyApplied(applied));
+		new Notice(this.t.noticeLegacyApplied(applied, failed));
 	}
 
 	onClose() {

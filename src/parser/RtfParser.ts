@@ -56,10 +56,12 @@ export class RtfParser {
 		const days: Day[] = [];
 		let theme = '';
 		let year = new Date().getFullYear(); // overwritten below when the cover page's own year is found
+		let combinedText = ''; // accumulated across all sources, used by detectType() below
 
 		for (const rawRtf of rtfSources) {
 			const paragraphs = this.splitParagraphs(rawRtf);
 			const wholeText = paragraphs.map(p => p.text).join(' ');
+			combinedText += ` ${wholeText}`;
 
 			const weekdayMatch = WEEKDAY_PATTERN.exec(wholeText);
 			if (!weekdayMatch) continue;
@@ -86,7 +88,7 @@ export class RtfParser {
 		// Sort days canonically: Freitag → Samstag → Sonntag
 		days.sort((a, b) => this.dayOrder(a.weekday) - this.dayOrder(b.weekday));
 
-		const type = this.detectType(days);
+		const type = this.detectType(days, combinedText);
 
 		// The RTF path only understands German exports (time format "H Uhr MM",
 		// "Lied"/"Pause" markers, German weekday names) — lang is therefore
@@ -431,8 +433,23 @@ export class RtfParser {
 		return sessions;
 	}
 
-	private detectType(days: Day[]): CongressType {
-		return days.length > 1 ? 'CO' : 'CA-copgm';
+	/**
+	 * Circuit assemblies come in two variants that jwpub distinguishes via
+	 * `Publication.Symbol` ("...brpgm" vs. "...copgm", see
+	 * `JwpubParser.detectType()`) — metadata RTF exports simply don't have.
+	 * Falls back to a text marker instead: a real jwpub dump of both
+	 * variants' cover pages (`scripts/out/CA-brpgm27_X` vs. `CA-copgm27_X`)
+	 * shows the title itself reads „... mit dem Vertreter des Zweigbüros"
+	 * for the branch-representative variant vs. „... mit dem Kreisaufseher"
+	 * for the regular one — the same title text a printed/RTF-exported
+	 * programme would carry on its own cover page. Not yet verified against
+	 * an actual CA-brpgm *RTF* export specifically (none has been available
+	 * as test material) — if this turns out wrong, the previous behaviour
+	 * (always 'CA-copgm') was strictly worse anyway (100% wrong for brpgm).
+	 */
+	private detectType(days: Day[], combinedText: string): CongressType {
+		if (days.length > 1) return 'CO';
+		return /Zweigbüro/i.test(combinedText) ? 'CA-brpgm' : 'CA-copgm';
 	}
 
 	private dayOrder(weekday: string): number {

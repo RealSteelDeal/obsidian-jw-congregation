@@ -78,6 +78,8 @@ export interface Strings extends NoteStrings {
 	// ── Notices (settings.lang) ─────────────────────────────────────────────
 	noticeUpdated: (version: string) => string;
 	noticeBibleSaved: string;
+	noticeBibleSaveFailed: (err: string) => string;
+	noticeBibleRemoveFailed: (err: string) => string;
 	noticeBibleMissingOnDevice: string;
 	noticeBibleLoadFailed: (err: string) => string;
 	noticeBibleHint: string;
@@ -172,7 +174,7 @@ export interface Strings extends NoteStrings {
 	legacyModalTitle: string;
 	legacyModalDesc: string;
 	noticeLegacyCorrectionsFound: (count: number) => string;
-	noticeLegacyApplied: (count: number) => string;
+	noticeLegacyApplied: (count: number, failed: number) => string;
 	btnApply: string;
 }
 
@@ -241,6 +243,8 @@ export const L: Record<SupportedLang, Strings> = {
 
 		noticeUpdated: version => `JW Kongressprogramm wurde auf Version ${version} aktualisiert.\n\nVerbesserungen an den Notiz-Vorlagen erreichen bereits importierte Kongresse nicht automatisch: Dafür „Kongress-Notizen aktualisieren" (Befehlspalette) mit derselben Programmdatei ausführen – eigene Einträge (Redner, Notizen) bleiben dabei erhalten. Nur bei Notizen aus einer sehr alten Plugin-Version hilft das nicht; dort den Kongress-Ordner löschen und neu importieren.\n\n(Zum Schließen klicken)`,
 		noticeBibleSaved: 'Bibel-Datei gespeichert.',
+		noticeBibleSaveFailed: err => `Bibel-Datei konnte nicht gespeichert werden: ${err}`,
+		noticeBibleRemoveFailed: err => `Bibel-Datei konnte nicht entfernt werden: ${err}`,
 		noticeBibleMissingOnDevice: 'Die Bibel-Datei fehlt auf diesem Gerät (Einstellungen werden synchronisiert, die Datei selbst nicht). Bitte in den Plugin-Einstellungen unter „Bibel-Datei" neu auswählen.',
 		noticeBibleLoadFailed: err => `Bibel-Datei konnte nicht geladen werden: ${err}`,
 		noticeQuoteNeedsBibleFile: 'Keine Bibel-Datei geladen – die Bibelstelle wurde stattdessen verlinkt. Für den Direkt-Zitat-Modus in den Plugin-Einstellungen eine Bibel-Datei hinterlegen.',
@@ -346,7 +350,11 @@ export const L: Record<SupportedLang, Strings> = {
 		legacyModalTitle: 'Mögliche Korrekturen für alte Notizen',
 		legacyModalDesc: 'Diese Notizen wurden mit einer Plugin-Version vor 1.9.0 erstellt und haben keine unsichtbaren Marker – deshalb werden hier nur Zeilen vorgeschlagen, die eindeutig einem bekannten Feld zugeordnet werden können. Nur Notizen mit aktiviertem Schalter werden beim Klick auf „Übernehmen" geändert; alles andere in jeder Notiz bleibt unangetastet.',
 		noticeLegacyCorrectionsFound: count => `${count} alte Notiz(en) mit möglichen Korrekturen gefunden. (Klicken zum Prüfen)`,
-		noticeLegacyApplied: count => `${count} Notiz(en) aktualisiert.`,
+		noticeLegacyApplied: (count, failed) => {
+			const parts = [`${count} Notiz(en) aktualisiert`];
+			if (failed > 0) parts.push(`${failed} fehlgeschlagen`);
+			return `${parts.join(', ')}.`;
+		},
 		btnApply: 'Übernehmen',
 	},
 	en: {
@@ -401,6 +409,8 @@ export const L: Record<SupportedLang, Strings> = {
 
 		noticeUpdated: version => `JW Convention Program was updated to version ${version}.\n\nNote-template improvements do not reach already imported conventions automatically: run "Update convention notes" (command palette) with the same program file to pick them up — anything you already typed (speaker, notes) is kept. Only notes from a very old plugin version can't be patched this way; delete the convention folder and re-import for those.\n\n(Click to dismiss)`,
 		noticeBibleSaved: 'Bible file saved.',
+		noticeBibleSaveFailed: err => `The Bible file could not be saved: ${err}`,
+		noticeBibleRemoveFailed: err => `The Bible file could not be removed: ${err}`,
 		noticeBibleMissingOnDevice: 'The Bible file is missing on this device (settings sync between devices, the file itself does not). Please re-select it under "Bible file" in the plugin settings.',
 		noticeBibleLoadFailed: err => `The Bible file could not be loaded: ${err}`,
 		noticeQuoteNeedsBibleFile: 'No Bible file loaded – the scripture was linked instead. Add a Bible file in the plugin settings to insert quotes directly.',
@@ -506,7 +516,11 @@ export const L: Record<SupportedLang, Strings> = {
 		legacyModalTitle: 'Possible corrections for old notes',
 		legacyModalDesc: 'These notes were created with a plugin version before 1.9.0 and have no invisible markers — so only lines that can be unambiguously matched to a known field are proposed here. Only notes with the toggle enabled are changed when clicking "Apply"; everything else in every note is left untouched.',
 		noticeLegacyCorrectionsFound: count => `${count} old note(s) with possible corrections found. (Click to review)`,
-		noticeLegacyApplied: count => `${count} note(s) updated.`,
+		noticeLegacyApplied: (count, failed) => {
+			const parts = [`${count} note(s) updated`];
+			if (failed > 0) parts.push(`${failed} failed`);
+			return `${parts.join(', ')}.`;
+		},
 		btnApply: 'Apply',
 	},
 	fr: {
@@ -559,6 +573,8 @@ export const L: Record<SupportedLang, Strings> = {
 
 		noticeUpdated: version => `JW Programme d’assemblée a été mis à jour vers la version ${version}.\n\nLes améliorations apportées aux modèles de notes n’atteignent pas automatiquement les assemblées déjà importées : exécutez « Mettre à jour les notes de l’assemblée » (palette de commandes) avec le même fichier de programme pour les appliquer — ce que vous avez déjà saisi (orateur, notes) est conservé. Seules les notes créées avec une version très ancienne du plugin ne peuvent pas être mises à jour ainsi ; dans ce cas, supprimez le dossier de l’assemblée et réimportez-le.\n\n(Cliquer pour fermer)`,
 		noticeBibleSaved: 'Fichier biblique enregistré.',
+		noticeBibleSaveFailed: err => `Le fichier biblique n’a pas pu être enregistré : ${err}`,
+		noticeBibleRemoveFailed: err => `Le fichier biblique n’a pas pu être supprimé : ${err}`,
 		noticeBibleMissingOnDevice: 'Le fichier biblique est absent sur cet appareil (les réglages se synchronisent entre les appareils, pas le fichier lui-même). Veuillez le sélectionner à nouveau sous « Fichier biblique » dans les réglages du plugin.',
 		noticeBibleLoadFailed: err => `Le fichier biblique n’a pas pu être chargé : ${err}`,
 		noticeQuoteNeedsBibleFile: 'Aucun fichier biblique chargé – le texte biblique a été lié à la place. Ajoutez un fichier biblique dans les réglages du plugin pour insérer directement les citations.',
@@ -664,7 +680,11 @@ export const L: Record<SupportedLang, Strings> = {
 		legacyModalTitle: 'Corrections possibles pour les anciennes notes',
 		legacyModalDesc: 'Ces notes ont été créées avec une version du plugin antérieure à la 1.9.0 et ne contiennent aucun marqueur invisible — seules les lignes pouvant être associées sans ambiguïté à un champ connu sont donc proposées ici. Seules les notes dont l’interrupteur est activé sont modifiées en cliquant sur « Appliquer » ; tout le reste de chaque note reste inchangé.',
 		noticeLegacyCorrectionsFound: count => `${count} ancienne(s) note(s) avec des corrections possibles trouvée(s). (Cliquer pour vérifier)`,
-		noticeLegacyApplied: count => `${count} note(s) mise(s) à jour.`,
+		noticeLegacyApplied: (count, failed) => {
+			const parts = [`${count} note(s) mise(s) à jour`];
+			if (failed > 0) parts.push(`${failed} échec(s)`);
+			return `${parts.join(', ')}.`;
+		},
 		btnApply: 'Appliquer',
 	},
 	it: {
@@ -717,6 +737,8 @@ export const L: Record<SupportedLang, Strings> = {
 
 		noticeUpdated: version => `JW Programma del congresso è stato aggiornato alla versione ${version}.\n\nI miglioramenti ai modelli di nota non raggiungono automaticamente i congressi già importati: esegui "Aggiorna le note del congresso" (palette dei comandi) con lo stesso file del programma per applicarli — quanto hai già scritto (oratore, note) viene mantenuto. Solo le note create con una versione molto vecchia del plugin non possono essere aggiornate in questo modo; in tal caso elimina la cartella del congresso e reimportala.\n\n(Clicca per chiudere)`,
 		noticeBibleSaved: 'File della Bibbia salvato.',
+		noticeBibleSaveFailed: err => `Non è stato possibile salvare il file della Bibbia: ${err}`,
+		noticeBibleRemoveFailed: err => `Non è stato possibile rimuovere il file della Bibbia: ${err}`,
 		noticeBibleMissingOnDevice: 'Il file della Bibbia non è presente su questo dispositivo (le impostazioni si sincronizzano tra i dispositivi, il file stesso no). Selezionalo di nuovo in "File della Bibbia" nelle impostazioni del plugin.',
 		noticeBibleLoadFailed: err => `Non è stato possibile caricare il file della Bibbia: ${err}`,
 		noticeQuoteNeedsBibleFile: 'Nessun file della Bibbia caricato – il testo biblico è stato collegato invece. Aggiungi un file della Bibbia nelle impostazioni del plugin per inserire le citazioni direttamente.',
@@ -822,7 +844,11 @@ export const L: Record<SupportedLang, Strings> = {
 		legacyModalTitle: 'Possibili correzioni per le note vecchie',
 		legacyModalDesc: 'Queste note sono state create con una versione del plugin precedente alla 1.9.0 e non contengono marcatori invisibili — vengono quindi proposte solo le righe che possono essere associate senza ambiguità a un campo noto. Vengono modificate solo le note con l’interruttore attivo, cliccando su "Applica"; tutto il resto di ogni nota resta invariato.',
 		noticeLegacyCorrectionsFound: count => `Trovate ${count} nota/e vecchia/e con possibili correzioni. (Clicca per controllare)`,
-		noticeLegacyApplied: count => `${count} nota/e aggiornata/e.`,
+		noticeLegacyApplied: (count, failed) => {
+			const parts = [`${count} nota/e aggiornata/e`];
+			if (failed > 0) parts.push(`${failed} non riuscita/e`);
+			return `${parts.join(', ')}.`;
+		},
 		btnApply: 'Applica',
 	},
 	pt: {
@@ -875,6 +901,8 @@ export const L: Record<SupportedLang, Strings> = {
 
 		noticeUpdated: version => `O JW Programa do Congresso foi atualizado para a versão ${version}.\n\nAs melhorias nos modelos de nota não chegam automaticamente aos congressos já importados: execute "Atualizar as notas do congresso" (paleta de comandos) com o mesmo arquivo do programa para aplicá-las — tudo o que você já escreveu (orador, notas) é mantido. Somente notas criadas com uma versão muito antiga do plugin não podem ser atualizadas dessa forma; nesse caso, exclua a pasta do congresso e reimporte-a.\n\n(Clique para fechar)`,
 		noticeBibleSaved: 'Arquivo da Bíblia salvo.',
+		noticeBibleSaveFailed: err => `Não foi possível salvar o arquivo da Bíblia: ${err}`,
+		noticeBibleRemoveFailed: err => `Não foi possível remover o arquivo da Bíblia: ${err}`,
 		noticeBibleMissingOnDevice: 'O arquivo da Bíblia não está presente neste dispositivo (as configurações são sincronizadas entre dispositivos, mas o arquivo em si não). Selecione-o novamente em "Arquivo da Bíblia" nas configurações do plugin.',
 		noticeBibleLoadFailed: err => `Não foi possível carregar o arquivo da Bíblia: ${err}`,
 		noticeQuoteNeedsBibleFile: 'Nenhum arquivo da Bíblia carregado – o texto bíblico foi vinculado em vez disso. Adicione um arquivo da Bíblia nas configurações do plugin para inserir as citações diretamente.',
@@ -980,7 +1008,11 @@ export const L: Record<SupportedLang, Strings> = {
 		legacyModalTitle: 'Possíveis correções para notas antigas',
 		legacyModalDesc: 'Estas notas foram criadas com uma versão do plugin anterior à 1.9.0 e não têm marcadores invisíveis — por isso, só são propostas aqui linhas que possam ser associadas sem ambiguidade a um campo conhecido. Apenas as notas com a chave ativada são alteradas ao clicar em "Aplicar"; todo o resto de cada nota permanece intocado.',
 		noticeLegacyCorrectionsFound: count => `${count} nota(s) antiga(s) com possíveis correções encontrada(s). (Clique para revisar)`,
-		noticeLegacyApplied: count => `${count} nota(s) atualizada(s).`,
+		noticeLegacyApplied: (count, failed) => {
+			const parts = [`${count} nota(s) atualizada(s)`];
+			if (failed > 0) parts.push(`${failed} com falha`);
+			return `${parts.join(', ')}.`;
+		},
 		btnApply: 'Aplicar',
 	},
 	ru: {
@@ -1033,6 +1065,8 @@ export const L: Record<SupportedLang, Strings> = {
 
 		noticeUpdated: version => `Плагин JW Convention Program обновлён до версии ${version}.\n\nУлучшения шаблонов заметок не применяются к уже импортированным конгрессам автоматически: чтобы получить их, выполните команду «Обновить заметки конгресса» (палитра команд) с тем же файлом программы — всё, что вы уже вписали (докладчик, заметки), сохранится. Только заметки из очень старой версии плагина нельзя обновить таким способом — для них удалите папку конгресса и импортируйте заново.\n\n(Нажмите, чтобы закрыть)`,
 		noticeBibleSaved: 'Файл Библии сохранён.',
+		noticeBibleSaveFailed: err => `Не удалось сохранить файл Библии: ${err}`,
+		noticeBibleRemoveFailed: err => `Не удалось удалить файл Библии: ${err}`,
 		noticeBibleMissingOnDevice: 'Файл Библии отсутствует на этом устройстве (настройки синхронизируются между устройствами, а сам файл — нет). Выберите его заново в разделе «Файл Библии» в настройках плагина.',
 		noticeBibleLoadFailed: err => `Не удалось загрузить файл Библии: ${err}`,
 		noticeQuoteNeedsBibleFile: 'Файл Библии не загружен — вместо цитаты добавлена ссылка. Чтобы вставлять цитаты напрямую, добавьте файл Библии в настройках плагина.',
@@ -1138,7 +1172,11 @@ export const L: Record<SupportedLang, Strings> = {
 		legacyModalTitle: 'Возможные исправления для старых заметок',
 		legacyModalDesc: 'Эти заметки были созданы в версии плагина до 1.9.0 и не содержат невидимых маркеров — поэтому здесь предлагаются только строки, которые можно однозначно сопоставить с известным полем. При нажатии «Применить» изменяются только заметки с включённым переключателем; всё остальное в каждой заметке остаётся без изменений.',
 		noticeLegacyCorrectionsFound: count => `Найдено старых заметок с возможными исправлениями: ${count}. (Нажмите, чтобы проверить)`,
-		noticeLegacyApplied: count => `Обновлено заметок: ${count}.`,
+		noticeLegacyApplied: (count, failed) => {
+			const parts = [`Обновлено заметок: ${count}`];
+			if (failed > 0) parts.push(`не удалось: ${failed}`);
+			return `${parts.join(', ')}.`;
+		},
 		btnApply: 'Применить',
 	},
 	es: {
@@ -1191,6 +1229,8 @@ export const L: Record<SupportedLang, Strings> = {
 
 		noticeUpdated: version => `JW Convention Program se actualizó a la versión ${version}.\n\nLas mejoras en las plantillas de notas no llegan automáticamente a los congresos ya importados: ejecute "Actualizar notas del congreso" (paleta de comandos) con el mismo archivo de programa para aplicarlas — todo lo que ya haya escrito (orador, notas) se conserva. Solo las notas de una versión muy antigua del plugin no se pueden actualizar así; para esas, elimine la carpeta del congreso y vuelva a importar.\n\n(Haga clic para cerrar)`,
 		noticeBibleSaved: 'Archivo de la Biblia guardado.',
+		noticeBibleSaveFailed: err => `No se pudo guardar el archivo de la Biblia: ${err}`,
+		noticeBibleRemoveFailed: err => `No se pudo eliminar el archivo de la Biblia: ${err}`,
 		noticeBibleMissingOnDevice: 'El archivo de la Biblia no está presente en este dispositivo (la configuración se sincroniza entre dispositivos, pero el archivo en sí no). Vuelva a seleccionarlo en "Archivo de la Biblia" en la configuración del plugin.',
 		noticeBibleLoadFailed: err => `No se pudo cargar el archivo de la Biblia: ${err}`,
 		noticeQuoteNeedsBibleFile: 'No hay ningún archivo de la Biblia cargado; en su lugar, se enlazó el texto bíblico. Agregue un archivo de la Biblia en la configuración del plugin para insertar citas directamente.',
@@ -1296,7 +1336,11 @@ export const L: Record<SupportedLang, Strings> = {
 		legacyModalTitle: 'Posibles correcciones para notas antiguas',
 		legacyModalDesc: 'Estas notas se crearon con una versión del plugin anterior a la 1.9.0 y no tienen marcadores invisibles — por eso aquí solo se proponen líneas que se puedan asociar sin ambigüedad a un campo conocido. Solo se modifican las notas con el interruptor activado al hacer clic en "Aplicar"; el resto de cada nota permanece intacto.',
 		noticeLegacyCorrectionsFound: count => `Se encontraron ${count} nota(s) antigua(s) con posibles correcciones. (Haga clic para revisar)`,
-		noticeLegacyApplied: count => `${count} nota(s) actualizada(s).`,
+		noticeLegacyApplied: (count, failed) => {
+			const parts = [`${count} nota(s) actualizada(s)`];
+			if (failed > 0) parts.push(`${failed} fallida(s)`);
+			return `${parts.join(', ')}.`;
+		},
 		btnApply: 'Aplicar',
 	},
 };

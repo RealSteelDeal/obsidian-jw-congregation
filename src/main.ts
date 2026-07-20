@@ -246,7 +246,12 @@ export default class JwCongregationPlugin extends Plugin {
 
 	async setBibleFile(data: Uint8Array): Promise<void> {
 		const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
-		await this.app.vault.adapter.writeBinary(this.bibleFilePath(), arrayBuffer);
+		try {
+			await this.app.vault.adapter.writeBinary(this.bibleFilePath(), arrayBuffer);
+		} catch (err) {
+			new Notice(this.tr.noticeBibleSaveFailed(String(err)));
+			return; // settings.bibleFileLoaded is left untouched — nothing was actually saved
+		}
 		this.settings.bibleFileLoaded = true;
 		await this.saveSettings();
 		this.bibleReader = null; // force a reload with the new file on next use
@@ -255,8 +260,13 @@ export default class JwCongregationPlugin extends Plugin {
 
 	async removeBibleFile(): Promise<void> {
 		const path = this.bibleFilePath();
-		if (await this.app.vault.adapter.exists(path)) {
-			await this.app.vault.adapter.remove(path);
+		try {
+			if (await this.app.vault.adapter.exists(path)) {
+				await this.app.vault.adapter.remove(path);
+			}
+		} catch (err) {
+			new Notice(this.tr.noticeBibleRemoveFailed(String(err)));
+			return;
 		}
 		this.settings.bibleFileLoaded = false;
 		await this.saveSettings();

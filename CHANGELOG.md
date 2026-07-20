@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- **RTF-imported circuit assemblies never detected the branch-representative
+  variant**: the RTF fallback (used when jwpub parsing fails) only ever
+  produced `CA-copgm` ("with the circuit overseer"), since RTF exports carry
+  none of the `Publication.Symbol` metadata jwpub's own parser uses to tell
+  the two variants apart. Now falls back to the cover-page title text itself
+  ("... mit dem Vertreter des Zweigbüros" vs. "... mit dem Kreisaufseher"),
+  verified against a real jwpub dump of both variants' cover pages.
+- **Bible-file save/remove errors failed silently**: choosing or removing the
+  Bible file in settings had no error handling at all — a failed vault write
+  (e.g. disk full) surfaced as an unhandled rejection with no feedback and no
+  UI refresh, unlike every other failure path in the plugin, which always
+  shows a Notice.
+- **A single failing note aborted the entire legacy-notes migration**: the
+  "Update convention notes" follow-up dialog for pre-1.9.0 notes stopped
+  applying corrections the moment one note failed (e.g. moved/deleted since
+  the preview was built), silently leaving every remaining note un-migrated
+  with no notice at all. Failures are now caught per note and reported
+  alongside the successful count.
+- **A corrupted or atypical Bible file could crash the verse popup**:
+  `BibleReader` had no error handling around any of its SQL queries — a
+  schema it doesn't expect (e.g. a plain `nwt` file possibly missing the
+  `VerseCommentary`/`VerseCommentaryMap` tables study notes rely on, which
+  were found investigating a `nwtsty` file specifically) could throw an
+  unhandled exception instead of falling back to "no verse text available",
+  which every caller already handles gracefully.
+
 ## 1.14.0
 
 ### New features

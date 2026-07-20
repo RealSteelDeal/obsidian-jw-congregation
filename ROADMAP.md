@@ -23,6 +23,14 @@ Nothing queued right now — suggestions welcome via GitHub issues.
 
 ## Recently shipped
 
+- **Two more typed-scripture-suggestion actions, and made all four
+  configurable**: alongside linking and inserting a quote (which replaces the
+  typed reference), the suggestion menu now also offers "link & open JW
+  Library immediately" and "insert as quote & keep the link" (turns the
+  reference into a link instead of consuming it, then adds the quote below).
+  A new settings section lets each of the four be individually enabled/
+  disabled and freely reordered — the saved order is exactly the order shown
+  in the menu.
 - **Fixed a verse-resolution bug for psalms with a superscription** (e.g.
   Psalm 15's "A melody of David."): it occupies the chapter's first row
   without being verse 1, so naive arithmetic was off by one for every verse

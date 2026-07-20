@@ -29,7 +29,7 @@ An Obsidian community plugin that imports official convention program files of J
 - **"Next:" hint** at the end of every note – the following song (linked), the next program item (linked to its note) or the break
 - **Clickable scriptures** as JW Library deep links in every note
 - **Bible-verse popup** (optional): with a user-supplied Bible jwpub file (`nwt`/`nwtsty`), clicking a scripture opens the verse text directly in Obsidian – including footnotes, cross-references and study notes – instead of jumping to JW Library. A button in the popup can also insert the shown passage as a quote into the note last focused before the popup opened.
-- **Type a scripture reference anywhere, in any note** (e.g. `Psalm 12:1`) and a suggestion pops up right after typing it, offering to either turn it into a `jwlibrary://` link (opens the popup above) or insert the verse text directly as a quote – both fully offline, using the loaded Bible file.
+- **Type a scripture reference anywhere, in any note** (e.g. `Psalm 12:1`, or an abbreviation like `Matth. 5:2`) and a suggestion pops up right after typing it, offering up to four actions – both fully offline, using the loaded Bible file: link it, link it and open JW Library immediately, insert the verse text as a quote (replacing the typed reference), or insert the quote while turning the reference into a link instead. Each of the four can be individually enabled/disabled and freely reordered in the settings.
 - **Review note** (`Review.md`; `Wiederholung.md` for German imports) with the three standard reflection questions for the congregation's convention review
 - **Printed review questions** ("Find Answers to These Questions") become their own note with one heading per question, always numbered last
 
@@ -85,6 +85,7 @@ This works because every generated note carries invisible markers (Obsidian's ow
 | Create review note | on | Creates the additional review note |
 | Note fields | all on | Show/hide the Day/Time/Scriptures/Speaker fields individually, plus free-form extra fields |
 | Bible file | – | Optional Bible jwpub file for the verse popup (study edition `nwtsty` for study notes; the much smaller regular edition `nwt` is the memory-friendly choice on mobile) |
+| Typed scripture suggestions | all on, default order | Enable/disable and reorder the four actions offered when typing a scripture reference (link, link & open JW Library, insert as quote, insert as quote & keep the link) |
 
 ## Folder & note structure
 

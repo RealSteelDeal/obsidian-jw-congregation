@@ -1,6 +1,6 @@
 import { Notice, Plugin, TFile, TFolder, normalizePath } from 'obsidian';
 import { EditorView } from '@codemirror/view';
-import { DEFAULT_SETTINGS, JwPluginSettings, JwSettingTab } from './settings';
+import { DEFAULT_SCRIPTURE_SUGGEST_ACTIONS, DEFAULT_SETTINGS, JwPluginSettings, JwSettingTab } from './settings';
 import { SourceRouter } from './parser/SourceRouter';
 import { NoteBuilder } from './builder/NoteBuilder';
 import { ImportModal } from './ui/ImportModal';
@@ -306,6 +306,12 @@ export default class JwCongregationPlugin extends Plugin {
 		const stored = (await this.loadData()) as Partial<JwPluginSettings> | null;
 		this.hadStoredSettings = stored != null;
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, stored);
+		// Object.assign only shallow-copies — without this, an unset/older
+		// data.json would leave settings.scriptureSuggestActions pointing at
+		// the shared DEFAULT_SCRIPTURE_SUGGEST_ACTIONS array itself, and the
+		// settings tab's reorder/toggle UI mutates that array in place.
+		this.settings.scriptureSuggestActions =
+			(stored?.scriptureSuggestActions ?? DEFAULT_SCRIPTURE_SUGGEST_ACTIONS).map(c => ({ ...c }));
 	}
 
 	async saveSettings() {

@@ -69,6 +69,11 @@ export interface Strings extends NoteStrings {
 	 *  "Psalm 12:1") in any note — turns it into a jwlibrary:// link instead of
 	 *  inserting the verse text (see `btnInsertAsQuote` for the other option). */
 	scriptureSuggestLink: string;
+	/** Same as `scriptureSuggestLink`, but also immediately opens the link in JW Library. */
+	scriptureSuggestLinkAndOpen: string;
+	/** Same as `btnInsertAsQuote` in the suggester, but the typed reference becomes
+	 *  a link instead of being replaced by the quote. */
+	scriptureSuggestQuoteKeepLink: string;
 
 	// ── Notices (settings.lang) ─────────────────────────────────────────────
 	noticeUpdated: (version: string) => string;
@@ -113,6 +118,10 @@ export interface Strings extends NoteStrings {
 	btnChooseFile: string;
 	btnReplaceFile: string;
 	btnRemoveBible: string;
+	headScriptureSuggest: string;
+	headScriptureSuggestDesc: string;
+	btnMoveUp: string;
+	btnMoveDown: string;
 
 	// ── Import modal (settings.lang) ────────────────────────────────────────
 	importTitle: string;
@@ -212,6 +221,8 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeVerseInserted: 'Vers als Zitat eingefügt.',
 		noticeNoActiveNote: 'Keine aktive Notiz zum Einfügen gefunden. Bitte zuerst eine Notiz öffnen.',
 		scriptureSuggestLink: 'Verlinken',
+		scriptureSuggestLinkAndOpen: 'Verlinken & JW Library öffnen',
+		scriptureSuggestQuoteKeepLink: 'Zitat einfügen & Verlinkung behalten',
 
 		noticeUpdated: version => `JW Kongressprogramm wurde auf Version ${version} aktualisiert.\n\nVerbesserungen an den Notiz-Vorlagen erreichen bereits importierte Kongresse nicht automatisch: Dafür „Kongress-Notizen aktualisieren" (Befehlspalette) mit derselben Programmdatei ausführen – eigene Einträge (Redner, Notizen) bleiben dabei erhalten. Nur bei Notizen aus einer sehr alten Plugin-Version hilft das nicht; dort den Kongress-Ordner löschen und neu importieren.\n\n(Zum Schließen klicken)`,
 		noticeBibleSaved: 'Bibel-Datei gespeichert.',
@@ -259,6 +270,10 @@ export const L: Record<SupportedLang, Strings> = {
 		btnChooseFile: 'Datei wählen …',
 		btnReplaceFile: 'Datei ersetzen …',
 		btnRemoveBible: 'Bibel-Datei entfernen',
+		headScriptureSuggest: 'Vorschläge für getippte Bibelstellen',
+		headScriptureSuggestDesc: 'Welche Aktionen beim Tippen einer Bibelstelle (z. B. "Psalm 12:1") vorgeschlagen werden, und in welcher Reihenfolge. Deaktivierte Aktionen werden nicht angezeigt.',
+		btnMoveUp: 'Nach oben',
+		btnMoveDown: 'Nach unten',
 
 		importTitle: 'Kongressprogramm importieren',
 		importCommand: 'Kongressprogramm importieren',
@@ -353,6 +368,8 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeVerseInserted: 'Verse inserted as a quote.',
 		noticeNoActiveNote: 'No active note to insert into. Please open a note first.',
 		scriptureSuggestLink: 'Link',
+		scriptureSuggestLinkAndOpen: 'Link & Open JW Library',
+		scriptureSuggestQuoteKeepLink: 'Insert as quote & keep the link',
 
 		noticeUpdated: version => `JW Convention Program was updated to version ${version}.\n\nNote-template improvements do not reach already imported conventions automatically: run "Update convention notes" (command palette) with the same program file to pick them up — anything you already typed (speaker, notes) is kept. Only notes from a very old plugin version can't be patched this way; delete the convention folder and re-import for those.\n\n(Click to dismiss)`,
 		noticeBibleSaved: 'Bible file saved.',
@@ -400,6 +417,10 @@ export const L: Record<SupportedLang, Strings> = {
 		btnChooseFile: 'Choose file …',
 		btnReplaceFile: 'Replace file …',
 		btnRemoveBible: 'Remove Bible file',
+		headScriptureSuggest: 'Typed scripture suggestions',
+		headScriptureSuggestDesc: 'Which actions are suggested while typing a scripture reference (e.g. "Psalm 12:1"), and in what order. Disabled actions are not shown.',
+		btnMoveUp: 'Move up',
+		btnMoveDown: 'Move down',
 
 		importTitle: 'Import convention program',
 		importCommand: 'Import convention program',

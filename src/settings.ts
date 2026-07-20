@@ -3,6 +3,26 @@ import type JwCongregationPlugin from './main';
 import { SupportedLang } from './normalizer/bookNames';
 import { L, Strings } from './i18n';
 
+/** The four things the in-editor scripture suggester (ScriptureEditorSuggest)
+ *  can do with a typed reference — see its own doc comment for what each does. */
+export type ScriptureSuggestAction = 'link' | 'link-open' | 'quote' | 'quote-keep-link';
+
+export interface ScriptureSuggestActionConfig {
+	action: ScriptureSuggestAction;
+	enabled: boolean;
+}
+
+// Array order = the order suggestions are shown in; `enabled: false` hides an
+// action without losing its position, so re-enabling it later restores where
+// it was. Every one of the 4 actions is always represented here — the
+// settings UI only ever reorders/toggles this same fixed set.
+export const DEFAULT_SCRIPTURE_SUGGEST_ACTIONS: ScriptureSuggestActionConfig[] = [
+	{ action: 'link', enabled: true },
+	{ action: 'link-open', enabled: true },
+	{ action: 'quote', enabled: true },
+	{ action: 'quote-keep-link', enabled: true },
+];
+
 export interface JwPluginSettings {
 	targetFolder: string;
 	lang: SupportedLang;
@@ -29,6 +49,12 @@ export interface JwPluginSettings {
 	 *  to occasionally surface the "add a Bible file for the in-app popup" hint
 	 *  (first three clicks, then every 20th). No settings-tab UI. */
 	bibleHintClickCount: number;
+	/** Which of the 4 in-editor scripture-suggester actions (see
+	 *  ScriptureEditorSuggest) are offered, and in what order — user-configurable
+	 *  in the settings tab. Always holds all 4 entries; disabled ones just aren't
+	 *  shown. Deep-copy this (never reuse DEFAULT_SCRIPTURE_SUGGEST_ACTIONS
+	 *  directly) — the settings UI reorders/toggles it in place. */
+	scriptureSuggestActions: ScriptureSuggestActionConfig[];
 }
 
 export const DEFAULT_SETTINGS: JwPluginSettings = {
@@ -45,6 +71,7 @@ export const DEFAULT_SETTINGS: JwPluginSettings = {
 	bibleFileLoaded: false,
 	lastVersion: '',
 	bibleHintClickCount: 0,
+	scriptureSuggestActions: DEFAULT_SCRIPTURE_SUGGEST_ACTIONS,
 };
 
 export class JwSettingTab extends PluginSettingTab {
@@ -130,7 +157,73 @@ export class JwSettingTab extends PluginSettingTab {
 					},
 				],
 			},
+			{
+				type: 'group',
+				heading: t.headScriptureSuggest,
+				items: [
+					{
+						name: '',
+						desc: t.headScriptureSuggestDesc,
+						searchable: false,
+					},
+					// Built from the CURRENT (possibly just-reordered) settings array on
+					// every call — reordering calls this.update(), which re-invokes
+					// getSettingDefinitions() and so rebuilds this list in the new order.
+					...this.plugin.settings.scriptureSuggestActions.map((config, index) => ({
+						name: this.actionLabel(config.action),
+						render: (setting: Setting) => this.renderActionRow(setting, config, index, () => {
+							if (requireApiVersion('1.13.0')) this.update();
+						}),
+					})),
+				],
+			},
 		];
+	}
+
+	private actionLabel(action: ScriptureSuggestAction): string {
+		const t = this.t;
+		const labels: Record<ScriptureSuggestAction, string> = {
+			'link': t.scriptureSuggestLink,
+			'link-open': t.scriptureSuggestLinkAndOpen,
+			'quote': t.btnInsertAsQuote,
+			'quote-keep-link': t.scriptureSuggestQuoteKeepLink,
+		};
+		return labels[action];
+	}
+
+	// One row of the scripture-suggester action list: an enable/disable toggle
+	// plus up/down reorder buttons that swap this entry with its neighbour in
+	// settings.scriptureSuggestActions (array order = suggestion order, see
+	// ScriptureEditorSuggest.getSuggestions()). Shared between the declarative
+	// "render" escape hatch above and the display() fallback below.
+	private renderActionRow(setting: Setting, config: ScriptureSuggestActionConfig, index: number, refresh: () => void): void {
+		const t = this.t;
+		const actions = this.plugin.settings.scriptureSuggestActions;
+		setting
+			.addExtraButton(btn => {
+				btn.setIcon('arrow-up').setTooltip(t.btnMoveUp).onClick(async () => {
+					if (index === 0) return;
+					[actions[index - 1], actions[index]] = [actions[index]!, actions[index - 1]!];
+					await this.plugin.saveSettings();
+					refresh();
+				});
+				btn.setDisabled(index === 0);
+			})
+			.addExtraButton(btn => {
+				btn.setIcon('arrow-down').setTooltip(t.btnMoveDown).onClick(async () => {
+					if (index === actions.length - 1) return;
+					[actions[index], actions[index + 1]] = [actions[index + 1]!, actions[index]!];
+					await this.plugin.saveSettings();
+					refresh();
+				});
+				btn.setDisabled(index === actions.length - 1);
+			})
+			.addToggle(toggle =>
+				toggle.setValue(config.enabled).onChange(async value => {
+					config.enabled = value;
+					await this.plugin.saveSettings();
+				}),
+			);
 	}
 
 	// The whole tab is language-dependent — re-render it right after the user
@@ -316,5 +409,12 @@ export class JwSettingTab extends PluginSettingTab {
 		// "display is deprecated" lint warning below is the documented fallback
 		// pattern, not leftover use of the old API.
 		this.renderBibleFileSetting(bibleFileSetting, () => this.display());
+
+		new Setting(containerEl).setName(t.headScriptureSuggest).setHeading();
+		new Setting(containerEl).setDesc(t.headScriptureSuggestDesc);
+		this.plugin.settings.scriptureSuggestActions.forEach((config, index) => {
+			const row = new Setting(containerEl).setName(this.actionLabel(config.action));
+			this.renderActionRow(row, config, index, () => this.display());
+		});
 	}
 }

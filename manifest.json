@@ -1,7 +1,7 @@
 {
 	"id": "jw-congregation-program",
 	"name": "JW Convention Program",
-	"version": "1.9.0",
+	"version": "1.10.0",
 	"minAppVersion": "1.6.6",
 	"description": "Imports JW convention programs (.jwpub / RTF-ZIP) and creates structured, linked notes in your vault. Supports German, English, French, Italian, Portuguese, Russian and Spanish program files.",
 	"author": "Lukas Schütter",

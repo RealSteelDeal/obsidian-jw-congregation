@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.10.0
+
+### New features
+
+- **Two more actions in the typed-scripture suggestion menu**: alongside
+  "link" and "insert as quote" (which replaces the typed reference), the
+  menu now also offers "link & open JW Library" (inserts the link and
+  immediately opens it) and "insert as quote & keep the link" (turns the
+  typed reference into a link first, then adds the quote as its own block
+  below it, instead of consuming the reference).
+- **The four suggestion actions are now configurable**: a new "Typed
+  scripture suggestions" settings section lets each of the four be
+  individually enabled or disabled and freely reordered via up/down
+  buttons — the saved order is exactly the order shown in the suggestion
+  menu. Available in both the declarative settings UI (Obsidian ≥ 1.13) and
+  the older fallback tab.
+
 ## 1.9.0
 
 ### New features

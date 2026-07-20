@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.13.0
+
+### New features
+
+- **The plugin interface now speaks all 7 supported languages**, not just
+  German/English: settings tab, Bible-verse popup, import/update dialogs and
+  every notice are now available in French, Italian, Portuguese, Russian
+  and Spanish too, independently of the language of any imported program
+  file. The interface-language dropdown gained the five new options.
+- **Surfaced the "Import & update convention programs" section in the
+  settings tab**: previously reachable only via the ribbon icon or command
+  palette, an explanation of the difference between a plain import and an
+  update now sits at the top of the settings, with an "Open" button for
+  each.
+
 ## 1.12.0
 
 ### Improvements

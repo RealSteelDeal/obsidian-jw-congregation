@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- **Popup opened from an inserted quote showed both "Insert as quote" and
+  "Remove quote"**: the first would have created a redundant second copy of
+  the very quote already shown right below the popup. Now hidden while
+  showing that exact quoted verse; navigating to a cross-reference brings it
+  back (that verse isn't already quoted anywhere), and it hides again once
+  navigating back restores the original.
+
 ## 1.16.0
 
 ### Improvements

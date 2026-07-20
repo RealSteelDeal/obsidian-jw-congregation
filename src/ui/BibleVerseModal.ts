@@ -179,6 +179,13 @@ export class BibleVerseModal extends Modal {
 	// and only in source mode (raw/Live Preview editing): Reading View has no
 	// place to insert into, so the button would just silently do nothing there;
 	// per user feedback it's clearer to hide it than to show a dead button.
+	// Also hidden while showing the exact scripture this popup was opened FROM
+	// an existing quote for (openedFromQuote, no navigation yet — history is
+	// still empty): that quote already exists right there, so "insert as
+	// quote" would just create a redundant second copy of it (per user
+	// feedback). Navigating to a cross-reference brings it back — that verse
+	// isn't already quoted anywhere, so it's a fresh, non-redundant offer
+	// again, hidden once more only if navigating back restores the original.
 	// "Remove quote" needs the same editor access, plus openedFromQuote — it
 	// only makes sense (and only has an unambiguous target, see
 	// findQuoteBlockRange()) when this popup was opened by clicking an
@@ -186,14 +193,15 @@ export class BibleVerseModal extends Modal {
 	private renderActionButtons(container: HTMLElement, verses: VerseDetail[] | undefined): void {
 		const setting = new Setting(container);
 		const canInsert = this.app.workspace.getActiveViewOfType(MarkdownView)?.getMode() === 'source';
-		if (verses && verses.length > 0 && canInsert) {
+		const showingOriginalQuotedVerse = this.openedFromQuote && this.history.length === 0;
+		if (verses && verses.length > 0 && canInsert && !showingOriginalQuotedVerse) {
 			setting.addButton(btn =>
 				btn
 					.setButtonText(L[this.lang].btnInsertAsQuote)
 					.onClick(() => this.insertAsQuote(verses)),
 			);
 		}
-		if (this.openedFromQuote && canInsert) {
+		if (showingOriginalQuotedVerse && canInsert) {
 			setting.addButton(btn =>
 				btn
 					.setButtonText(L[this.lang].btnRemoveQuote)

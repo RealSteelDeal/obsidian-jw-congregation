@@ -167,6 +167,13 @@ export interface Strings extends NoteStrings {
 	btnUpdate: string;
 	noticeUpdateFolderNotFound: (path: string) => string;
 	noticeUpdateResult: (merged: number, created: number, needsReimport: number, unchanged: number) => string;
+
+	// ── Legacy note migration modal (settings.lang) ─────────────────────────
+	legacyModalTitle: string;
+	legacyModalDesc: string;
+	noticeLegacyCorrectionsFound: (count: number) => string;
+	noticeLegacyApplied: (count: number) => string;
+	btnApply: string;
 }
 
 /** Display name of every detectable programme-file language, in every UI
@@ -253,7 +260,7 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeNotAFolder: path => `„${path}" ist keine Ordner-Datei.`,
 
 		headImport: 'Kongressprogramm importieren & aktualisieren',
-		headImportDesc: 'Zwei Wege, ein Kongressprogramm einzuspielen: „Kongressprogramm importieren" legt einen neuen Kongress-Ordner an – bei erneutem Import in denselben Ordner werden nur rein automatisch erzeugte Dateien aufgefrischt (Übersicht, Titelbild), Notizen mit eigenen Einträgen bleiben unangetastet. „Kongress-Notizen aktualisieren" gleicht stattdessen einen bereits importierten Ordner Feld für Feld ab (Tag, Uhrzeit, Bibelstellen, Überschriften) – auch innerhalb bereits bearbeiteter Notizen, ohne eigene Einträge zu verlieren. Praktisch z. B. nach einem Plugin-Update, das einen Fehler in den Notizen behebt.',
+		headImportDesc: 'Zwei Wege, ein Kongressprogramm einzuspielen: „Kongressprogramm importieren" legt einen neuen Kongress-Ordner an – bei erneutem Import in denselben Ordner werden nur rein automatisch erzeugte Dateien aufgefrischt (Übersicht, Titelbild), Notizen mit eigenen Einträgen bleiben unangetastet. „Kongress-Notizen aktualisieren" gleicht stattdessen einen bereits importierten Ordner Feld für Feld ab (Tag, Uhrzeit, Bibelstellen, Überschriften) – auch innerhalb bereits bearbeiteter Notizen, ohne eigene Einträge zu verlieren. Praktisch z. B. nach einem Plugin-Update, das einen Fehler in den Notizen behebt. Für Notizen aus einer sehr alten Plugin-Version (ohne unsichtbare Marker) bietet „Kongress-Notizen aktualisieren" stattdessen ein Prüffenster mit vorgeschlagenen Korrekturen an, die einzeln bestätigt werden können.',
 		setImportActionDesc: 'Wählt eine Programmdatei und legt daraus Notizen an (siehe Erklärung oben).',
 		btnOpen: 'Öffnen',
 		headGeneral: 'Allgemein',
@@ -335,6 +342,12 @@ export const L: Record<SupportedLang, Strings> = {
 			if (needsReimport > 0) parts.push(`${needsReimport} benötigen einen vollständigen Reimport (älteres Format)`);
 			return `Aktualisierung abgeschlossen: ${parts.join(', ')}.`;
 		},
+
+		legacyModalTitle: 'Mögliche Korrekturen für alte Notizen',
+		legacyModalDesc: 'Diese Notizen wurden mit einer Plugin-Version vor 1.9.0 erstellt und haben keine unsichtbaren Marker – deshalb werden hier nur Zeilen vorgeschlagen, die eindeutig einem bekannten Feld zugeordnet werden können. Nur Notizen mit aktiviertem Schalter werden beim Klick auf „Übernehmen" geändert; alles andere in jeder Notiz bleibt unangetastet.',
+		noticeLegacyCorrectionsFound: count => `${count} alte Notiz(en) mit möglichen Korrekturen gefunden. (Klicken zum Prüfen)`,
+		noticeLegacyApplied: count => `${count} Notiz(en) aktualisiert.`,
+		btnApply: 'Übernehmen',
 	},
 	en: {
 		caFallbackDay: 'Saturday',
@@ -407,7 +420,7 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeNotAFolder: path => `“${path}” is not a folder.`,
 
 		headImport: 'Import & update convention programs',
-		headImportDesc: 'Two ways to bring a convention program in: "Import convention program" creates a new convention folder — re-importing into the same folder only refreshes purely automatically generated files (overview, cover image), notes with your own entries are left untouched. "Update convention notes" instead reconciles an already-imported folder field by field (day, time, scriptures, headings) — even inside notes already edited by hand, without losing anything typed there. Useful e.g. after a plugin update fixes a bug in the notes.',
+		headImportDesc: 'Two ways to bring a convention program in: "Import convention program" creates a new convention folder — re-importing into the same folder only refreshes purely automatically generated files (overview, cover image), notes with your own entries are left untouched. "Update convention notes" instead reconciles an already-imported folder field by field (day, time, scriptures, headings) — even inside notes already edited by hand, without losing anything typed there. Useful e.g. after a plugin update fixes a bug in the notes. For notes from a very old plugin version (with no invisible markers), "Update convention notes" instead offers a review window with proposed corrections that can be confirmed individually.',
 		setImportActionDesc: 'Pick a program file and create notes from it (see the explanation above).',
 		btnOpen: 'Open',
 		headGeneral: 'General',
@@ -489,6 +502,12 @@ export const L: Record<SupportedLang, Strings> = {
 			if (needsReimport > 0) parts.push(`${needsReimport} need a full re-import (older format)`);
 			return `Update complete: ${parts.join(', ')}.`;
 		},
+
+		legacyModalTitle: 'Possible corrections for old notes',
+		legacyModalDesc: 'These notes were created with a plugin version before 1.9.0 and have no invisible markers — so only lines that can be unambiguously matched to a known field are proposed here. Only notes with the toggle enabled are changed when clicking "Apply"; everything else in every note is left untouched.',
+		noticeLegacyCorrectionsFound: count => `${count} old note(s) with possible corrections found. (Click to review)`,
+		noticeLegacyApplied: count => `${count} note(s) updated.`,
+		btnApply: 'Apply',
 	},
 	fr: {
 		caFallbackDay: 'Samedi',
@@ -559,7 +578,7 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeNotAFolder: path => `« ${path} » n’est pas un dossier.`,
 
 		headImport: 'Importer et mettre à jour les programmes d’assemblée',
-		headImportDesc: 'Deux façons d’intégrer un programme d’assemblée : « Importer le programme de l’assemblée » crée un nouveau dossier d’assemblée — une réimportation dans le même dossier ne rafraîchit que les fichiers générés purement automatiquement (aperçu, image de couverture), les notes contenant vos propres saisies restent intactes. « Mettre à jour les notes de l’assemblée » réconcilie au contraire un dossier déjà importé champ par champ (jour, heure, textes bibliques, titres) — même à l’intérieur de notes déjà modifiées à la main, sans perdre ce qui y a été saisi. Utile par ex. après une mise à jour du plugin corrigeant une erreur dans les notes.',
+		headImportDesc: 'Deux façons d’intégrer un programme d’assemblée : « Importer le programme de l’assemblée » crée un nouveau dossier d’assemblée — une réimportation dans le même dossier ne rafraîchit que les fichiers générés purement automatiquement (aperçu, image de couverture), les notes contenant vos propres saisies restent intactes. « Mettre à jour les notes de l’assemblée » réconcilie au contraire un dossier déjà importé champ par champ (jour, heure, textes bibliques, titres) — même à l’intérieur de notes déjà modifiées à la main, sans perdre ce qui y a été saisi. Utile par ex. après une mise à jour du plugin corrigeant une erreur dans les notes. Pour les notes provenant d’une version très ancienne du plugin (sans marqueurs invisibles), « Mettre à jour les notes de l’assemblée » propose à la place une fenêtre de vérification avec des corrections suggérées, à confirmer individuellement.',
 		setImportActionDesc: 'Choisit un fichier de programme et crée des notes à partir de celui-ci (voir l’explication ci-dessus).',
 		btnOpen: 'Ouvrir',
 		headGeneral: 'Général',
@@ -641,6 +660,12 @@ export const L: Record<SupportedLang, Strings> = {
 			if (needsReimport > 0) parts.push(`${needsReimport} nécessitent une réimportation complète (ancien format)`);
 			return `Mise à jour terminée : ${parts.join(', ')}.`;
 		},
+
+		legacyModalTitle: 'Corrections possibles pour les anciennes notes',
+		legacyModalDesc: 'Ces notes ont été créées avec une version du plugin antérieure à la 1.9.0 et ne contiennent aucun marqueur invisible — seules les lignes pouvant être associées sans ambiguïté à un champ connu sont donc proposées ici. Seules les notes dont l’interrupteur est activé sont modifiées en cliquant sur « Appliquer » ; tout le reste de chaque note reste inchangé.',
+		noticeLegacyCorrectionsFound: count => `${count} ancienne(s) note(s) avec des corrections possibles trouvée(s). (Cliquer pour vérifier)`,
+		noticeLegacyApplied: count => `${count} note(s) mise(s) à jour.`,
+		btnApply: 'Appliquer',
 	},
 	it: {
 		caFallbackDay: 'Sabato',
@@ -711,7 +736,7 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeNotAFolder: path => `"${path}" non è una cartella.`,
 
 		headImport: 'Importa e aggiorna i programmi dei congressi',
-		headImportDesc: 'Due modi per importare un programma di congresso: "Importa programma del congresso" crea una nuova cartella del congresso — un nuovo import nella stessa cartella aggiorna solo i file generati automaticamente (panoramica, immagine di copertina), le note con voci personali restano intatte. "Aggiorna le note del congresso" invece riconcilia una cartella già importata campo per campo (giorno, ora, testi biblici, titoli) — anche all’interno di note già modificate a mano, senza perdere nulla di quanto scritto. Utile ad es. dopo un aggiornamento del plugin che corregge un errore nelle note.',
+		headImportDesc: 'Due modi per importare un programma di congresso: "Importa programma del congresso" crea una nuova cartella del congresso — un nuovo import nella stessa cartella aggiorna solo i file generati automaticamente (panoramica, immagine di copertina), le note con voci personali restano intatte. "Aggiorna le note del congresso" invece riconcilia una cartella già importata campo per campo (giorno, ora, testi biblici, titoli) — anche all’interno di note già modificate a mano, senza perdere nulla di quanto scritto. Utile ad es. dopo un aggiornamento del plugin che corregge un errore nelle note. Per le note create con una versione molto vecchia del plugin (senza marcatori invisibili), "Aggiorna le note del congresso" offre invece una finestra di verifica con correzioni proposte, da confermare singolarmente.',
 		setImportActionDesc: 'Seleziona un file del programma e crea le note a partire da esso (vedi la spiegazione sopra).',
 		btnOpen: 'Apri',
 		headGeneral: 'Generale',
@@ -793,6 +818,12 @@ export const L: Record<SupportedLang, Strings> = {
 			if (needsReimport > 0) parts.push(`${needsReimport} richiedono una reimportazione completa (formato più vecchio)`);
 			return `Aggiornamento completato: ${parts.join(', ')}.`;
 		},
+
+		legacyModalTitle: 'Possibili correzioni per le note vecchie',
+		legacyModalDesc: 'Queste note sono state create con una versione del plugin precedente alla 1.9.0 e non contengono marcatori invisibili — vengono quindi proposte solo le righe che possono essere associate senza ambiguità a un campo noto. Vengono modificate solo le note con l’interruttore attivo, cliccando su "Applica"; tutto il resto di ogni nota resta invariato.',
+		noticeLegacyCorrectionsFound: count => `Trovate ${count} nota/e vecchia/e con possibili correzioni. (Clicca per controllare)`,
+		noticeLegacyApplied: count => `${count} nota/e aggiornata/e.`,
+		btnApply: 'Applica',
 	},
 	pt: {
 		caFallbackDay: 'Sábado',
@@ -863,7 +894,7 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeNotAFolder: path => `"${path}" não é uma pasta.`,
 
 		headImport: 'Importar e atualizar programas de congresso',
-		headImportDesc: 'Duas formas de importar um programa de congresso: "Importar programa do congresso" cria uma nova pasta de congresso — uma nova importação na mesma pasta atualiza apenas os arquivos gerados automaticamente (visão geral, imagem de capa); notas com anotações próprias permanecem intactas. "Atualizar as notas do congresso", por sua vez, reconcilia uma pasta já importada campo por campo (dia, hora, textos bíblicos, títulos) — mesmo dentro de notas já editadas manualmente, sem perder nada do que foi escrito. Útil, por exemplo, após uma atualização do plugin que corrige um erro nas notas.',
+		headImportDesc: 'Duas formas de importar um programa de congresso: "Importar programa do congresso" cria uma nova pasta de congresso — uma nova importação na mesma pasta atualiza apenas os arquivos gerados automaticamente (visão geral, imagem de capa); notas com anotações próprias permanecem intactas. "Atualizar as notas do congresso", por sua vez, reconcilia uma pasta já importada campo por campo (dia, hora, textos bíblicos, títulos) — mesmo dentro de notas já editadas manualmente, sem perder nada do que foi escrito. Útil, por exemplo, após uma atualização do plugin que corrige um erro nas notas. Para notas de uma versão muito antiga do plugin (sem marcadores invisíveis), "Atualizar as notas do congresso" oferece, em vez disso, uma janela de revisão com correções propostas, que podem ser confirmadas individualmente.',
 		setImportActionDesc: 'Selecione um arquivo do programa e crie as notas a partir dele (veja a explicação acima).',
 		btnOpen: 'Abrir',
 		headGeneral: 'Geral',
@@ -945,6 +976,12 @@ export const L: Record<SupportedLang, Strings> = {
 			if (needsReimport > 0) parts.push(`${needsReimport} exigem uma reimportação completa (formato mais antigo)`);
 			return `Atualização concluída: ${parts.join(', ')}.`;
 		},
+
+		legacyModalTitle: 'Possíveis correções para notas antigas',
+		legacyModalDesc: 'Estas notas foram criadas com uma versão do plugin anterior à 1.9.0 e não têm marcadores invisíveis — por isso, só são propostas aqui linhas que possam ser associadas sem ambiguidade a um campo conhecido. Apenas as notas com a chave ativada são alteradas ao clicar em "Aplicar"; todo o resto de cada nota permanece intocado.',
+		noticeLegacyCorrectionsFound: count => `${count} nota(s) antiga(s) com possíveis correções encontrada(s). (Clique para revisar)`,
+		noticeLegacyApplied: count => `${count} nota(s) atualizada(s).`,
+		btnApply: 'Aplicar',
 	},
 	ru: {
 		caFallbackDay: 'Суббота',
@@ -1015,7 +1052,7 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeNotAFolder: path => `«${path}» не является папкой.`,
 
 		headImport: 'Импорт и обновление программ конгрессов',
-		headImportDesc: 'Есть два способа добавить программу конгресса: команда «Импортировать программу конгресса» создаёт новую папку конгресса — повторный импорт в ту же папку обновляет только полностью автоматически создаваемые файлы (обзор, обложка), а заметки с вашими собственными записями остаются нетронутыми. Команда «Обновить заметки конгресса», напротив, сверяет уже импортированную папку поле за полем (день, время, библейские тексты, заголовки) — даже внутри заметок, отредактированных вручную, ничего из вписанного туда не теряется. Это полезно, например, после того как обновление плагина исправляет ошибку в заметках.',
+		headImportDesc: 'Есть два способа добавить программу конгресса: команда «Импортировать программу конгресса» создаёт новую папку конгресса — повторный импорт в ту же папку обновляет только полностью автоматически создаваемые файлы (обзор, обложка), а заметки с вашими собственными записями остаются нетронутыми. Команда «Обновить заметки конгресса», напротив, сверяет уже импортированную папку поле за полем (день, время, библейские тексты, заголовки) — даже внутри заметок, отредактированных вручную, ничего из вписанного туда не теряется. Это полезно, например, после того как обновление плагина исправляет ошибку в заметках. Для заметок из очень старой версии плагина (без невидимых маркеров) команда «Обновить заметки конгресса» вместо этого предлагает окно проверки с предложенными исправлениями, которые можно подтвердить по отдельности.',
 		setImportActionDesc: 'Выберите файл программы и создайте на его основе заметки (см. пояснение выше).',
 		btnOpen: 'Открыть',
 		headGeneral: 'Общее',
@@ -1097,6 +1134,12 @@ export const L: Record<SupportedLang, Strings> = {
 			if (needsReimport > 0) parts.push(`требуют полного повторного импорта (устаревший формат): ${needsReimport}`);
 			return `Обновление завершено: ${parts.join(', ')}.`;
 		},
+
+		legacyModalTitle: 'Возможные исправления для старых заметок',
+		legacyModalDesc: 'Эти заметки были созданы в версии плагина до 1.9.0 и не содержат невидимых маркеров — поэтому здесь предлагаются только строки, которые можно однозначно сопоставить с известным полем. При нажатии «Применить» изменяются только заметки с включённым переключателем; всё остальное в каждой заметке остаётся без изменений.',
+		noticeLegacyCorrectionsFound: count => `Найдено старых заметок с возможными исправлениями: ${count}. (Нажмите, чтобы проверить)`,
+		noticeLegacyApplied: count => `Обновлено заметок: ${count}.`,
+		btnApply: 'Применить',
 	},
 	es: {
 		caFallbackDay: 'Sábado',
@@ -1167,7 +1210,7 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeNotAFolder: path => `"${path}" no es una carpeta.`,
 
 		headImport: 'Importar y actualizar programas de congreso',
-		headImportDesc: 'Hay dos formas de incorporar un programa de congreso: "Importar programa de congreso" crea una nueva carpeta de congreso — volver a importar en la misma carpeta solo actualiza los archivos generados automáticamente (resumen, imagen de portada); las notas con anotaciones propias no se modifican. "Actualizar notas del congreso", en cambio, concilia campo por campo (día, hora, textos bíblicos, encabezados) una carpeta ya importada — incluso dentro de notas ya editadas a mano, sin perder nada de lo escrito allí. Útil, por ejemplo, después de que una actualización del plugin corrige un error en las notas.',
+		headImportDesc: 'Hay dos formas de incorporar un programa de congreso: "Importar programa de congreso" crea una nueva carpeta de congreso — volver a importar en la misma carpeta solo actualiza los archivos generados automáticamente (resumen, imagen de portada); las notas con anotaciones propias no se modifican. "Actualizar notas del congreso", en cambio, concilia campo por campo (día, hora, textos bíblicos, encabezados) una carpeta ya importada — incluso dentro de notas ya editadas a mano, sin perder nada de lo escrito allí. Útil, por ejemplo, después de que una actualización del plugin corrige un error en las notas. Para notas de una versión muy antigua del plugin (sin marcadores invisibles), "Actualizar notas del congreso" ofrece en su lugar una ventana de revisión con correcciones propuestas, que se pueden confirmar individualmente.',
 		setImportActionDesc: 'Seleccione un archivo de programa y cree notas a partir de él (véase la explicación anterior).',
 		btnOpen: 'Abrir',
 		headGeneral: 'General',
@@ -1249,6 +1292,12 @@ export const L: Record<SupportedLang, Strings> = {
 			if (needsReimport > 0) parts.push(`${needsReimport} requieren una reimportación completa (formato antiguo)`);
 			return `Actualización completa: ${parts.join(', ')}.`;
 		},
+
+		legacyModalTitle: 'Posibles correcciones para notas antiguas',
+		legacyModalDesc: 'Estas notas se crearon con una versión del plugin anterior a la 1.9.0 y no tienen marcadores invisibles — por eso aquí solo se proponen líneas que se puedan asociar sin ambigüedad a un campo conocido. Solo se modifican las notas con el interruptor activado al hacer clic en "Aplicar"; el resto de cada nota permanece intacto.',
+		noticeLegacyCorrectionsFound: count => `Se encontraron ${count} nota(s) antigua(s) con posibles correcciones. (Haga clic para revisar)`,
+		noticeLegacyApplied: count => `${count} nota(s) actualizada(s).`,
+		btnApply: 'Aplicar',
 	},
 };
 

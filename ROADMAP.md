@@ -23,6 +23,15 @@ Nothing queued right now — suggestions welcome via GitHub issues.
 
 ## Recently shipped
 
+- **"Update convention notes" can propose field corrections for pre-1.9.0
+  notes**, which have no merge markers and previously could only be
+  reported as needing a full re-import. A conservative label-anchored
+  heuristic finds Day/Time/Scriptures/"Anschließend" lines that are
+  unambiguous (the label appears exactly once) and offers them as
+  corrections in a new review window — every proposed change is shown
+  old→new per note with its own on/off switch, nothing is written until
+  "Apply" is clicked. Ambiguous fields (e.g. repeated per-part scripture
+  lines in a symposium note) and the Speaker field are never touched.
 - **The plugin interface itself now supports all 7 languages**, not only
   German/English: settings tab, Bible-verse popup, import/update dialogs
   and every notice are fully translated into French, Italian, Portuguese,

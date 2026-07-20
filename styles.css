@@ -34,6 +34,24 @@
 	font-size: var(--font-ui-small);
 }
 
+.jw-legacy-correction {
+	margin: 0.25em 0;
+	padding: 0.35em 0.5em;
+	border-radius: 4px;
+	background-color: var(--background-primary);
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+}
+
+.jw-legacy-old {
+	color: var(--text-error);
+	text-decoration: line-through;
+}
+
+.jw-legacy-new {
+	color: var(--text-success);
+}
+
 .jw-folder-suggest {
 	z-index: 9999;
 	max-height: 200px;

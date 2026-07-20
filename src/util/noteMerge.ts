@@ -78,6 +78,21 @@ function splitFrontmatter(lines: string[]): { frontmatterEndLine: number } | nul
  * marker added) when `render()` pushes nothing, so optional fields that
  * don't apply to a given item don't leave behind an empty marker pair.
  */
+/** True when `content` has no `%%jw:…%%`/`%%/jw:…%%` marker line at all —
+ *  the only case where the legacy-field heuristic (util/legacyFieldPatch.ts)
+ *  is safe to attempt as a fallback after mergeNoteContent() returns null.
+ *  Any OTHER reason for a null result (corrupted/reordered/mismatched
+ *  markers, frontmatter appearing or disappearing) must still be reported as
+ *  needing a full re-import and left alone — sweeping a note with damaged
+ *  markers into the marker-blind text heuristic could misinterpret content
+ *  that's actually inside a broken marker region. */
+export function hasNoMarkers(content: string): boolean {
+	return !content.split('\n').some(line => {
+		const trimmed = line.trim();
+		return MARKER_START_RE.test(trimmed) || MARKER_END_RE.test(trimmed);
+	});
+}
+
 export function pushMarked(lines: string[], id: string, render: () => void): void {
 	const start = lines.length;
 	render();

@@ -73,7 +73,13 @@ Re-importing into an existing convention folder only refreshes purely derived fi
 
 If a plugin update fixes a bug in the generated notes themselves (e.g. a wrong weekday or a broken scripture link), you don't have to delete anything to pick it up. **Command palette → "Update convention notes"** (also reachable from the same settings-tab section as import) re-parses the same program file and patches an already-imported convention folder in place: every automatically generated field (day, time, scripture links, headings, the "Anschließend"/"Next" hint) is refreshed, while anything you typed yourself — speaker name, personal notes — is left completely untouched, even in the very same note.
 
-This works because every generated note carries invisible markers (Obsidian's own `%%…%%` comment syntax, never shown in Reading View or Live Preview) around each derived field. Only notes created by this plugin version or later have them — older notes fall back to being left alone, reported separately in the result notice, and still need a full delete-and-reimport to pick up template changes.
+This works because every generated note carries invisible markers (Obsidian's own `%%…%%` comment syntax, never shown in Reading View or Live Preview) around each derived field. Only notes created by this plugin version or later have them — older notes fall back to being left alone, reported separately in the result notice.
+
+### Correcting even older, marker-free notes
+
+Notes created before version 1.9.0 predate the marker mechanism entirely, so the merge above has nothing to anchor to. For those, "Update convention notes" falls back to a second, more conservative check: it looks for a small set of fields that are always written as one complete, uniquely labelled line — Day, Time, Scriptures, and the "Anschließend"/"Next" hint (never the Speaker field, which the plugin never fills in to begin with). A correction is proposed only when that label's line appears **exactly once** in both the existing note and the freshly parsed one and its value actually changed; if the label is missing, or appears more than once (e.g. a symposium note with a separate scripture line per part), that field is silently left alone rather than guessed at.
+
+Nothing from this is ever written automatically. When such notes are found, a second, distinct notice appears after the update finishes — clicking it opens a review window listing every proposed change (old value → new value) grouped by note, each with its own on/off switch. Only notes left switched on are patched, and only after clicking "Apply".
 
 ## Settings
 
@@ -178,10 +184,12 @@ src/
     UpdateNotesModal.ts      # re-parses a file and patches an already-imported folder
     BibleVerseModal.ts       # verse popup ("Open in JW Library" / "insert as quote")
     ScriptureEditorSuggest.ts # as-you-type scripture reference → link/quote suggestion
+    LegacyMigrationModal.ts  # review/apply field corrections for pre-1.9.0, marker-free notes
   util/
     jwpubCrypto.ts           # shared jwpub crypto
     bytes.ts                 # hex/latin1 helpers
     noteMerge.ts             # marker-based merge for the "update notes" command
+    legacyFieldPatch.ts      # label-anchored heuristic fallback for marker-free notes
     quoteBuilder.ts          # verse text → Obsidian quote callout
     scriptureLinkScan.ts     # finds jwlibrary:// links in note text
 ```

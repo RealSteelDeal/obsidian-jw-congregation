@@ -10,8 +10,10 @@ import { ScriptureEditorSuggest } from './ui/ScriptureEditorSuggest';
 import { Scripture } from './models/congress';
 import { L, NL } from './i18n';
 import { findScriptureLinkInText, parseScriptureFromHref } from './util/scriptureLinkScan';
-import { mergeNoteContent } from './util/noteMerge';
+import { hasNoMarkers, mergeNoteContent } from './util/noteMerge';
 import { UpdateNotesModal } from './ui/UpdateNotesModal';
+import { applyLegacyCorrections, findLegacyCorrections, LegacyFieldCorrection } from './util/legacyFieldPatch';
+import { LegacyMigrationCandidate, LegacyMigrationModal } from './ui/LegacyMigrationModal';
 // esbuild's "binary" loader embeds this as base64 in main.js and decodes it to a
 // Uint8Array at bundle time — no separate file needs to ship alongside main.js.
 import sqlWasmBinary from 'sql.js/dist/sql-wasm.wasm';
@@ -499,6 +501,12 @@ export default class JwCongregationPlugin extends Plugin {
 		let unchanged = 0;
 		let needsReimport = 0;
 		const createdPaths: string[] = [];
+		// Notes with no markers at all (pre-1.9.0) that still have safely
+		// identifiable field-label corrections — see util/legacyFieldPatch.ts.
+		// Never written automatically; only offered via LegacyMigrationModal
+		// after this whole update run finishes, and only once the user
+		// confirms per note there.
+		const legacyCandidates: LegacyMigrationCandidate[] = [];
 
 		const total = notes.length + attachments.length;
 		let done = 0;
@@ -517,6 +525,15 @@ export default class JwCongregationPlugin extends Plugin {
 						const mergedContent = mergeNoteContent(existingContent, note.content);
 						if (mergedContent === null) {
 							needsReimport++;
+							// Only ever fall back to the text heuristic for notes with
+							// NO markers whatsoever — a note whose markers exist but
+							// are corrupted/mismatched must stay in needsReimport
+							// untouched, not get swept into a mechanism that has no
+							// idea markers were ever there (see hasNoMarkers() doc).
+							if (hasNoMarkers(existingContent)) {
+								const corrections = findLegacyCorrections(existingContent, note.content, NL[result.congress.lang]);
+								if (corrections.length > 0) legacyCandidates.push({ path: notePath, corrections });
+							}
 						} else if (mergedContent !== existingContent) {
 							await this.app.vault.modify(existing, mergedContent);
 							merged++;
@@ -559,6 +576,15 @@ export default class JwCongregationPlugin extends Plugin {
 
 			progress?.hide();
 			new Notice(this.tr.noticeUpdateResult(merged, created, needsReimport, unchanged), 10000);
+			// Separate, opt-in notice — a normal update run without any legacy
+			// notes must look and behave exactly as it always has. Clicking is
+			// the only way anything from `legacyCandidates` ever gets written.
+			if (legacyCandidates.length > 0) {
+				const legacyNotice = new Notice(this.tr.noticeLegacyCorrectionsFound(legacyCandidates.length), 15000);
+				legacyNotice.noticeEl.addEventListener('click', () => {
+					new LegacyMigrationModal(this.app, this, legacyCandidates).open();
+				});
+			}
 		} catch (err) {
 			progress?.hide();
 			for (const path of createdPaths.reverse()) {
@@ -567,6 +593,21 @@ export default class JwCongregationPlugin extends Plugin {
 			}
 			new Notice(this.tr.noticeImportRolledBack(String(err)));
 		}
+	}
+
+	/** Called by LegacyMigrationModal once the user confirms a note's corrections.
+	 *  Re-reads the file fresh (not whatever was cached when the corrections were
+	 *  detected — the note may have been edited elsewhere in the meantime) and lets
+	 *  applyLegacyCorrections() re-verify each line before writing it. Returns
+	 *  whether anything was actually changed, so the modal can report an accurate count. */
+	async applyLegacyNoteCorrections(notePath: string, accepted: LegacyFieldCorrection[]): Promise<boolean> {
+		const file = this.app.vault.getAbstractFileByPath(notePath);
+		if (!(file instanceof TFile)) return false;
+		const current = await this.app.vault.read(file);
+		const patched = applyLegacyCorrections(current, accepted);
+		if (patched === current) return false;
+		await this.app.vault.modify(file, patched);
+		return true;
 	}
 
 	private async resolvePath(congressPath: string, dayFolder: string | undefined, filename: string): Promise<string> {

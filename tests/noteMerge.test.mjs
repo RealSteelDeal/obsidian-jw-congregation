@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { jiti } from './_setup.mjs';
 
-const { mergeNoteContent } = await jiti.import('../src/util/noteMerge.ts');
+const { mergeNoteContent, hasNoMarkers } = await jiti.import('../src/util/noteMerge.ts');
 
 test('replaces a marked block with the fresh version, keeping surrounding user content untouched', () => {
 	const existing = [
@@ -103,4 +103,16 @@ test('leaves an empty note with only markers and no user content fully consisten
 	const existing = '%%jw:header%%\nold value\n%%/jw:header%%\n';
 	const fresh = '%%jw:header%%\nnew value\n%%/jw:header%%\n';
 	assert.equal(mergeNoteContent(existing, fresh), fresh);
+});
+
+test('hasNoMarkers() is true for a note with no %%jw:…%% line at all (the legacy-migration gate)', () => {
+	const content = '**Tag:** Donnerstag\n**Redner:** Anna\n';
+	assert.equal(hasNoMarkers(content), true);
+});
+
+test('hasNoMarkers() is false when at least one marker start or end line is present', () => {
+	assert.equal(hasNoMarkers('%%jw:header%%\n**Tag:** Freitag\n%%/jw:header%%\n'), false);
+	// Even a single, unpaired/malformed marker must still count as "has markers" —
+	// this is exactly the case that must NOT fall through to the text heuristic.
+	assert.equal(hasNoMarkers('%%jw:header%%\n**Tag:** Freitag\n'), false);
 });

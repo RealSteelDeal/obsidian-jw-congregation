@@ -2,8 +2,8 @@ import type { Unzipped } from 'fflate';
 import type { Database } from 'sql.js';
 import { Congress, CongressType, CoverImage, Day, ItemType, ProgramItem, Scripture, Session } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
-import { SupportedLang } from '../normalizer/bookNames';
-import { L, Strings } from '../i18n';
+import { CongressLang } from '../normalizer/bookNames';
+import { NL, NoteStrings } from '../i18n';
 import { DbRow, decryptBlob, deriveKey, openJwpubDatabase, readPublication } from '../util/jwpubCrypto';
 
 // Matches jwpub://b/NWTR/book:chapter:verse[-book:chapter:verse]
@@ -18,20 +18,42 @@ const SONG_DOCID_HREF_RE = /^jwpub:\/\/p\/[^:/]+:(\d+)\/?$/;
 // Any song/publication link, language-independent (jwpub://p/X:…, jwpub://p/E:…).
 const SONG_HREF_SELECTOR = 'a[href^="jwpub://p/"]';
 // Time at start of paragraph text — same "H:MM" shape in German (24h) and
-// English (12h without am/pm) programme files.
-const TIME_RE = /^\s*(\d{1,2}:\d{2})/;
+// English (12h without am/pm) programme files; French uses a period instead
+// of a colon ("9.20"), confirmed against the real French CO/CA programme
+// files — captured by the same group and normalized to a colon below so the
+// generated notes' time field stays consistently formatted across languages.
+const TIME_RE = /^\s*(\d{1,2})[:.](\d{2})/;
 // Standalone music line (no song link, no talk) — shown in the overview as an
-// aside, without its own note. Real-world variants: "Musik" (German CA),
-// "Musikvideo" (German CO), "Music" (English CA), "Music-Video Presentation"
-// (English CO; the hyphen may be a non-breaking variant, hence the class).
-const MUSIC_VIDEO_RE = /^(Musik(?:video)?|Music(?:[\s‐-―-]?Video)?(?:\s?Presentation)?)$/i;
+// aside, without its own note. Real-world variants, confirmed against each
+// language's real CO/CA programme files: "Musik" (German CA), "Musikvideo"
+// (German CO), "Music" (English CA), "Music-Video Presentation" (English CO;
+// the hyphen may be a non-breaking variant, hence the class), "Musique"/"Vidéo
+// musicale" (French), "Musica"/"Video musicale" (Italian), "Música"/"Vídeo
+// musical" (Portuguese), "Музыка"/"Музыкальное видео" (Russian), "Música"/
+// "Video musical" (Spanish).
+const MUSIC_VIDEO_RE = /^(Musik(?:video)?|Music(?:[\s‐-―-]?Video)?(?:\s?Presentation)?|Vidéo musicale|Musique|Video musicale|Musica|Vídeo musical|Música|Video musical|Музыкальное видео|Музыка)$/iu;
 // Standalone break line, optionally with a duration, e.g. "Pause" or
 // "Pause (15 Min.)" / "Intermission" — same treatment: overview-only, no note.
+// No standalone equivalent observed in the real French/Italian/Portuguese/
+// Russian/Spanish programme files (their breaks are always folded into the
+// preceding song line, e.g. "Cantico 14 e intervallo") — nothing to add here
+// until a real file shows one.
 const PAUSE_RE = /^((?:Pause|Intermission)\b.*)$/i;
-// Printed review-questions blocks/documents. Real h1s: "Beantworte die
-// folgenden Fragen:" (German) and "Find Answers to These Questions:" (English);
-// "Answer the following questions" kept as a defensive extra variant.
-const QUESTIONS_RE = /^(Beantworte die folgenden Fragen|Find answers to these questions|Answer the following questions)/i;
+// Printed review-questions blocks/documents. Real h1s (colon stripped for
+// display, see NL[lang].questionsTitle): German "Beantworte die folgenden
+// Fragen:", English "Find Answers to These Questions:", French "Soyez
+// attentifs aux réponses à ces questions :", Italian "Rispondete a queste
+// domande:", Portuguese "Esteja atento às respostas para as seguintes
+// perguntas:", Russian "Узнайте ответы на эти вопросы:", Spanish "Anota las
+// respuestas a las siguientes preguntas:". "Answer the following questions"
+// kept as a defensive extra variant.
+const QUESTIONS_RE = /^(Beantworte die folgenden Fragen|Find answers to these questions|Answer the following questions|Soyez attentifs aux réponses à ces questions|Rispondete a queste domande|Esteja atento às respostas para as seguintes perguntas|Узнайте ответы на эти вопросы|Anota las respuestas a las siguientes preguntas)/iu;
+// Publication.MepsLanguageIndex → CongressLang, confirmed against each real
+// programme file (dumped via scripts/dump-structure.mjs), not looked up from a
+// generic MEPS language table — only these seven are ones this parser handles.
+const MEPS_LANGUAGE_INDEX: Record<number, CongressLang> = {
+	0: 'en', 1: 'es', 2: 'de', 3: 'fr', 4: 'it', 207: 'ru', 785: 'pt',
+};
 
 export class JwpubParser {
 
@@ -44,14 +66,15 @@ export class JwpubParser {
 	constructor(private readonly sqlWasmBinary: Uint8Array) {}
 
 	// Language of the file currently being parsed, set at the start of
-	// buildCongress() from the publication's MepsLanguageIndex (0 = English,
-	// 2 = German). Anything unknown falls back to German — the plugin's primary
-	// audience — with the language-tolerant regexes above still giving such
-	// files a fighting chance structurally.
-	private lang: SupportedLang = 'de';
+	// buildCongress() from the publication's MepsLanguageIndex — see
+	// MEPS_LANGUAGE_INDEX below for the confirmed mapping. Anything unknown
+	// falls back to German — the plugin's primary audience — with the
+	// language-tolerant regexes above still giving such files a fighting
+	// chance structurally.
+	private lang: CongressLang = 'de';
 
-	private get t(): Strings {
-		return L[this.lang];
+	private get t(): NoteStrings {
+		return NL[this.lang];
 	}
 
 	async parse(fileBuffer: Uint8Array): Promise<Congress> {
@@ -132,7 +155,7 @@ export class JwpubParser {
 		const type   = this.detectType(symbol);
 		// sql.js may return numeric columns as strings — always cast (same caveat
 		// as IssueTagNumber in deriveKey()).
-		this.lang = Number(pub['MepsLanguageIndex']) === 0 ? 'en' : 'de';
+		this.lang = MEPS_LANGUAGE_INDEX[Number(pub['MepsLanguageIndex'])] ?? 'de';
 
 		// Theme: for CO the cover doc title is the theme ("Ewiges Glück").
 		// For CA the cover doc title is the publication name; the actual congress
@@ -282,8 +305,9 @@ export class JwpubParser {
 		if (!h1) return null;
 		const text = h1.textContent?.trim() ?? '';
 
-		// CO: explicit weekday in h1 (German or English programme files)
-		const match = /\b(Freitag|Samstag|Sonntag|Friday|Saturday|Sunday)\b/i.exec(text);
+		// CO: explicit weekday in h1, verbatim per language (German, English,
+		// French, Italian, Portuguese, Russian, Spanish programme files).
+		const match = /\b(Freitag|Samstag|Sonntag|Friday|Saturday|Sunday|Vendredi|Samedi|Dimanche|Venerdì|Sabato|Domenica|Sexta-feira|Sábado|Domingo|Пятница|Суббота|Воскресенье|Viernes)\b/iu.exec(text);
 		if (match) return match[1] ?? null;
 
 		// CA: one-day congress — h1 has theme, not weekday.
@@ -344,7 +368,7 @@ export class JwpubParser {
 		// Extract time
 		const timeMatch = TIME_RE.exec(firstText);
 		if (!timeMatch) return null;
-		const time = timeMatch[1] ?? '';
+		const time = `${timeMatch[1]}:${timeMatch[2]}`;
 		const textAfterTime = firstText.replace(TIME_RE, '').trim();
 
 		// "Musikvideo" / "Pause" lines — shown in the overview like a song (no
@@ -512,16 +536,26 @@ export class JwpubParser {
 
 		const marker = spanText || strongText;
 
-		// Real-world markers — German: "BIBELDRAMA:", "VORTRAGSREIHE:", "TAUFE:",
-		// "VORTRAG DES VORSITZENDEN:", "ÖFFENTLICHER VORTRAG:"; English:
-		// "FEATURE BIBLE DRAMA:", "SYMPOSIUM:", "BAPTISM:", "CHAIRMAN’S ADDRESS:",
-		// "PUBLIC BIBLE DISCOURSE:" (CA files use mixed case, hence the upper-
-		// casing above).
-		if (/BIBELDRAMA|BIBLE\s*DRAMA/.test(marker))       return ['bible-drama', true];
-		if (/VORTRAGSREIHE|SYMPOSIUM/.test(marker))        return ['talk-series', true];
-		if (/TAUFE|BAPTISM/.test(marker))                  return ['baptism', true];
+		// Real-world markers, confirmed against each language's real CO/CA
+		// programme files (CA files use mixed case, hence the upper-casing
+		// above) — German: "BIBELDRAMA:", "VORTRAGSREIHE:", "TAUFE:", "VORTRAG
+		// DES VORSITZENDEN:", "ÖFFENTLICHER VORTRAG:"; English: "FEATURE BIBLE
+		// DRAMA:", "SYMPOSIUM:", "BAPTISM:", "CHAIRMAN’S ADDRESS:", "PUBLIC
+		// BIBLE DISCOURSE:"; French: "FILM :", "EXPOSÉ EN … PARTIES :" (same
+		// term in CO and CA), "DISCOURS DE BAPTÊME :", "DISCOURS …:"; Italian:
+		// "VIDEORACCONTO:", "SIMPOSIO:" (CO) / "SERIE DI DISCORSI:" (CA — a
+		// genuinely different term, unlike every other language here),
+		// "BATTESIMO:", "DISCORSO …:"; Portuguese: "VÍDEO:", "SIMPÓSIO:",
+		// "BATISMO:", "DISCURSO …:"; Russian: "ВИДЕОПОСТАНОВКА:", "СЕРИЯ
+		// РЕЧЕЙ:", "РЕЧЬ О КРЕЩЕНИИ:", "…РЕЧЬ:" (baptism checked first so its
+		// own "РЕЧЬ" doesn't fall through to the generic talk match below);
+		// Spanish: "PRODUCCIÓN AUDIOVISUAL:", "SERIE DE DISCURSOS:", "DISCURSO
+		// DE BAUTISMO:", "DISCURSO …:".
+		if (/BIBELDRAMA|BIBLE\s*DRAMA|\bFILM\b|VIDEORACCONTO|\bVÍDEO\b|ВИДЕОПОСТАНОВКА|PRODUCCIÓN AUDIOVISUAL/u.test(marker)) return ['bible-drama', true];
+		if (/VORTRAGSREIHE|SYMPOSIUM|EXPOSÉ.*PARTIES|SIMPOSIO|SERIE DI DISCORSI|SIMPÓSIO|СЕРИЯ РЕЧЕЙ|SERIE DE DISCURSOS/u.test(marker)) return ['talk-series', true];
+		if (/TAUFE|BAPTISM|BAPTÊME|BATTESIMO|BATISMO|КРЕЩЕНИИ|BAUTISMO/u.test(marker)) return ['baptism', true];
 		if (/INTERVIEW/.test(marker))                      return ['interview', true];
-		if (/VORTRAG|TALK|REDE|CHAIRMAN|ADDRESS|DISCOURSE/.test(marker)) return ['talk', true];
+		if (/VORTRAG|TALK|REDE|CHAIRMAN|ADDRESS|DISCOURSE|DISCOURS|DISCORSO|DISCURSO|РЕЧЬ/u.test(marker)) return ['talk', true];
 
 		return ['talk', false];
 	}
@@ -591,6 +625,11 @@ export class JwpubParser {
 		const order: Record<string, number> = {
 			Freitag: 0, Samstag: 1, Sonntag: 2,
 			Friday: 0, Saturday: 1, Sunday: 2,
+			Vendredi: 0, Samedi: 1, Dimanche: 2,
+			Venerdì: 0, Sabato: 1, Domenica: 2,
+			'Sexta-feira': 0, Sábado: 1, Domingo: 2,
+			Пятница: 0, Суббота: 1, Воскресенье: 2,
+			Viernes: 0,
 		};
 		return order[weekday] ?? 99;
 	}

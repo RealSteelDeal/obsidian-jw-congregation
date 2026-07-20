@@ -1,9 +1,11 @@
-import { App, Modal, Setting, setIcon } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Setting, setIcon } from 'obsidian';
 import { BibleReader, VerseDetail, VerseSegment } from '../bible/BibleReader';
 import { Scripture } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 import { SupportedLang } from '../normalizer/bookNames';
 import { L } from '../i18n';
+import { buildScriptureQuoteBlock, stripHtml } from '../util/quoteBuilder';
+import { findLineWithScripture } from '../util/scriptureLinkScan';
 
 // The scheme used by embedded scripture links *inside* footnote/cross-reference/
 // study-note HTML (e.g. `<a href="jwpub://b/NWTR/43:5:7-43:5:7">Joh 5:7</a>`) —
@@ -21,6 +23,13 @@ export class BibleVerseModal extends Modal {
 	private history: Scripture[] = [];
 	private scripture: Scripture;
 
+	// The reference the popup was originally opened from (not updated on
+	// in-popup navigation) — used by insertAsQuote() to find where in the
+	// note to insert, so quoting a cross-reference several navigation steps
+	// in still lands next to the reference the user actually clicked, not
+	// wherever that cross-reference's own (nonexistent) link would be.
+	private readonly initialScripture: Scripture;
+
 	// Resolved from getReader() on open. The loader indirection (instead of a
 	// ready reader instance) lets the modal open INSTANTLY on the very first
 	// click of a session and show its loading state while the Bible file is
@@ -37,6 +46,7 @@ export class BibleVerseModal extends Modal {
 	) {
 		super(app);
 		this.scripture = scripture;
+		this.initialScripture = scripture;
 	}
 
 	async onOpen() {
@@ -70,7 +80,7 @@ export class BibleVerseModal extends Modal {
 			// Reader failed to load (a specific Notice with the reason is already
 			// shown by the loader) — keep the popup usable as a JW Library springboard.
 			bodyEl.createEl('p', { text: L[this.lang].popupLoadFailed, cls: 'jw-bible-verse-missing' });
-			this.renderJwLibraryButton(bodyEl);
+			this.renderActionButtons(bodyEl, undefined);
 			return;
 		}
 
@@ -86,7 +96,7 @@ export class BibleVerseModal extends Modal {
 				cls: 'jw-bible-verse-missing',
 			});
 		}
-		this.renderJwLibraryButton(bodyEl);
+		this.renderActionButtons(bodyEl, verses);
 	}
 
 	// Context expansion: widen the shown passage verse by verse (or to the
@@ -158,8 +168,22 @@ export class BibleVerseModal extends Modal {
 	// cross-reference/study-note accordions — an earlier version had it directly
 	// beneath the verse text, but per user feedback the button reads better as
 	// the popup's closing element than as a wedge between text and accordions.
-	private renderJwLibraryButton(container: HTMLElement): void {
-		new Setting(container).addButton(btn =>
+	// The "insert as quote" button (secondary, next to the JW Library CTA) only
+	// appears when verse text actually loaded — nothing to quote otherwise —
+	// and only in source mode (raw/Live Preview editing): Reading View has no
+	// place to insert into, so the button would just silently do nothing there;
+	// per user feedback it's clearer to hide it than to show a dead button.
+	private renderActionButtons(container: HTMLElement, verses: VerseDetail[] | undefined): void {
+		const setting = new Setting(container);
+		const canInsert = this.app.workspace.getActiveViewOfType(MarkdownView)?.getMode() === 'source';
+		if (verses && verses.length > 0 && canInsert) {
+			setting.addButton(btn =>
+				btn
+					.setButtonText(L[this.lang].btnInsertAsQuote)
+					.onClick(() => this.insertAsQuote(verses)),
+			);
+		}
+		setting.addButton(btn =>
 			btn
 				.setButtonText(L[this.lang].popupOpenJwLibrary)
 				.setCta()
@@ -168,6 +192,73 @@ export class BibleVerseModal extends Modal {
 					this.close();
 				}),
 		);
+	}
+
+	// Inserts the currently shown passage as a quote callout into whichever
+	// note was last focused before this popup opened — sourced entirely from
+	// the local Bible file, no network access, mirroring how JW Library
+	// Linker's own quote-insertion works but offline (see README). Footnote/
+	// cross-reference markers are deliberately left out of the inserted text:
+	// the lettered superscripts only mean something next to the popup's own
+	// (also not-inserted) footnote/cross-reference list.
+	//
+	// Deliberately NOT `workspace.activeEditor` — that's null whenever the
+	// active note is in Reading View (there's no focused CodeMirror instance
+	// to report), even though the view still has a perfectly usable `.editor`
+	// underneath; confirmed by real-world testing that the popup's own click
+	// handling works fine in Reading View, but this insert silently failed
+	// there. `getActiveViewOfType(MarkdownView)` returns that view (and its
+	// `.editor`) regardless of which of the two modes it's currently showing.
+	//
+	// Deliberately NOT `editor.replaceSelection()` either: the click that
+	// opened this popup was intercepted with preventDefault() (see main.ts),
+	// so it never moved the cursor there — inserting "at the current
+	// selection" would land wherever the cursor happened to be left over
+	// from the last time the note was actually edited, nowhere near the
+	// reference the user just clicked (confirmed by real-world testing: the
+	// quote appeared above unrelated earlier content instead of next to the
+	// clicked reference). Locating the clicked reference's own line via
+	// findLineWithScripture() and inserting right after it is correct
+	// regardless of edit/reading mode and regardless of stale cursor state.
+	private insertAsQuote(verses: VerseDetail[]): void {
+		const editor = this.app.workspace.getActiveViewOfType(MarkdownView)?.editor;
+		if (!editor) {
+			new Notice(L[this.lang].noticeNoActiveNote);
+			return;
+		}
+		const reference = ScriptureNormalizer.format(this.scripture, this.lang);
+		const quote = buildScriptureQuoteBlock(reference, verses);
+
+		const lines: string[] = [];
+		for (let i = 0; i < editor.lineCount(); i++) lines.push(editor.getLine(i));
+		const targetLine = findLineWithScripture(lines, this.initialScripture);
+
+		if (targetLine !== undefined) {
+			const inserted = `\n${quote}`;
+			const lineLength = editor.getLine(targetLine).length;
+			editor.replaceRange(inserted, { line: targetLine, ch: lineLength });
+			// Obsidian's Live Preview renders whichever line the cursor is
+			// currently on as raw markdown source, not as a styled callout —
+			// normally invisible since a cursor placed by typing/clicking
+			// moves away again, but replaceRange() otherwise leaves it sitting
+			// inside the just-inserted callout, showing "> [!quote] …" as
+			// literal text until the user clicks elsewhere. Moving it past
+			// the whole insertion makes the callout render immediately.
+			this.moveCursorPastInsertion(editor, targetLine, inserted);
+		} else {
+			// Fallback for when the reference isn't found as a link in the
+			// note (e.g. inserted via a different route) — same behaviour as
+			// before this fix.
+			const cursorBefore = editor.getCursor();
+			editor.replaceSelection(quote);
+			this.moveCursorPastInsertion(editor, cursorBefore.line, quote);
+		}
+		new Notice(L[this.lang].noticeVerseInserted);
+	}
+
+	private moveCursorPastInsertion(editor: Editor, startLine: number, insertedText: string): void {
+		const lineBreaks = (insertedText.match(/\n/g) ?? []).length;
+		editor.setCursor({ line: startLine + lineBreaks, ch: 0 });
 	}
 
 	// One continuous paragraph (like the printed Bible layout), with each
@@ -181,7 +272,7 @@ export class BibleVerseModal extends Modal {
 	private renderVerseText(bodyEl: HTMLElement, verses: VerseDetail[]): void {
 		const p = bodyEl.createEl('p');
 		for (const verse of verses) {
-			const number = this.stripHtml(verse.number);
+			const number = stripHtml(verse.number);
 			if (number) {
 				const cls = verse.isChapterStart ? 'jw-bible-chapter-number' : 'jw-bible-verse-number';
 				p.createEl('sup', { text: number, cls });
@@ -222,7 +313,7 @@ export class BibleVerseModal extends Modal {
 			details.createEl('summary', { text: `${L[this.lang].popupFootnotes} (${footnoteLines.length})` });
 			const list = details.createEl('ul', { cls: 'jw-bible-notes-list' });
 			for (const fn of footnoteLines) {
-				const prefix = multiVerse ? `${L[this.lang].popupVersePrefix} ${this.stripHtml(fn.verse)}, ` : '';
+				const prefix = multiVerse ? `${L[this.lang].popupVersePrefix} ${stripHtml(fn.verse)}, ` : '';
 				const li = list.createEl('li');
 				li.appendText(prefix);
 				li.createSpan({ text: fn.symbol, cls: 'jw-bible-inline-footnote' });
@@ -245,7 +336,7 @@ export class BibleVerseModal extends Modal {
 			details.createEl('summary', { text: `${L[this.lang].popupCrossRefs} (${crossRefLines.length})` });
 			const list = details.createEl('ul', { cls: 'jw-bible-notes-list' });
 			for (const cr of crossRefLines) {
-				const prefix = multiVerse ? `${L[this.lang].popupVersePrefix} ${this.stripHtml(cr.verse)}, ` : '';
+				const prefix = multiVerse ? `${L[this.lang].popupVersePrefix} ${stripHtml(cr.verse)}, ` : '';
 				const li = list.createEl('li');
 				li.appendText(prefix);
 				li.createSpan({ text: cr.symbol, cls: 'jw-bible-inline-crossref' });
@@ -277,8 +368,8 @@ export class BibleVerseModal extends Modal {
 		const list = details.createEl('ul', { cls: 'jw-bible-notes-list' });
 		for (const note of notes) {
 			const li = list.createEl('li');
-			const prefix = multiVerse ? `${L[this.lang].popupVersePrefix} ${this.stripHtml(note.verse)}, ` : '';
-			const label = this.stripHtml(note.label);
+			const prefix = multiVerse ? `${L[this.lang].popupVersePrefix} ${stripHtml(note.verse)}, ` : '';
+			const label = stripHtml(note.label);
 			li.appendText(prefix);
 			if (label) li.createSpan({ text: `${label}: `, cls: 'jw-bible-inline-studynote' });
 			this.renderRichText(li, note.html);
@@ -346,12 +437,6 @@ export class BibleVerseModal extends Modal {
 		this.navigateTo(scripture);
 	}
 
-	// Verse-number labels (BibleVerse.Label) are plain strings in practice but
-	// treated defensively like the rest of this project's HTML fields.
-	private stripHtml(html: string): string {
-		const doc = new DOMParser().parseFromString(html, 'text/html');
-		return doc.body.textContent?.trim() ?? '';
-	}
 
 	onClose() {
 		this.contentEl.empty();

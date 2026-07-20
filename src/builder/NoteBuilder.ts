@@ -1,7 +1,8 @@
 import { Congress, Day, ProgramItem, Scripture } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
-import { SupportedLang } from '../normalizer/bookNames';
-import { L, Strings } from '../i18n';
+import { CongressLang } from '../normalizer/bookNames';
+import { NL, NoteStrings } from '../i18n';
+import { pushMarked } from '../util/noteMerge';
 
 export interface NoteBuilderOptions {
 	scriptureLinks: boolean;
@@ -19,10 +20,11 @@ export interface GeneratedNote {
 	dayFolder?: string;
 	content: string;
 	/** True for purely derived content (no expected user edits) — safe to overwrite
-	 *  on re-import so plugin updates reach already-imported congresses without the
-	 *  user having to delete anything. Notes with writing space (talk notes, the
-	 *  review note, the printed questions note) default to false/undefined and are
-	 *  left untouched if they already exist, to never clobber user-added content. */
+	 *  outright on a plain re-import (JwCongregationPlugin.importFile()). Notes with
+	 *  writing space (talk notes, the review note) default to false/undefined and are
+	 *  left untouched there. JwCongregationPlugin.updateFile() (the "Update convention
+	 *  notes" command) instead merges those via the %%jw:id%% markers this class wraps
+	 *  around every derived field — see util/noteMerge.ts. */
 	regenerate?: boolean;
 }
 
@@ -46,12 +48,12 @@ export class NoteBuilder {
 	// programme would help nobody. Set at the start of buildNotes()/
 	// congressFolderName() from the congress being rendered; 'de' is only the
 	// pre-first-call placeholder.
-	private lang: SupportedLang = 'de';
+	private lang: CongressLang = 'de';
 
 	constructor(private readonly opts: NoteBuilderOptions) {}
 
-	private get t(): Strings {
-		return L[this.lang];
+	private get t(): NoteStrings {
+		return NL[this.lang];
 	}
 
 	// Opt-in YAML frontmatter (settings.frontmatter). Keys are deliberately
@@ -179,21 +181,25 @@ export class NoteBuilder {
 		const lines: string[] = [];
 		lines.push(...this.frontmatterLines(congress));
 
-		const isCA = congress.type === 'CA-copgm' || congress.type === 'CA-brpgm';
-		if (isCA && questionsBaseName) {
-			const link = `[[${questionsBaseName}|${this.t.questionsTitle}]]`;
-			lines.push(`*${this.t.reviewHintCA(link)}*`);
-			lines.push('');
-		} else if (!isCA) {
-			lines.push(`*${this.t.reviewHintCO}*`);
-			lines.push('');
-		}
+		pushMarked(lines, 'hint', () => {
+			const isCA = congress.type === 'CA-copgm' || congress.type === 'CA-brpgm';
+			if (isCA && questionsBaseName) {
+				const link = `[[${questionsBaseName}|${this.t.questionsTitle}]]`;
+				lines.push(`*${this.t.reviewHintCA(link)}*`);
+				lines.push('');
+			} else if (!isCA) {
+				lines.push(`*${this.t.reviewHintCO}*`);
+				lines.push('');
+			}
+		});
 
-		for (const question of this.t.reviewQuestions) {
-			lines.push(`**${question}**`);
+		this.t.reviewQuestions.forEach((question, i) => {
+			pushMarked(lines, `question-${i + 1}`, () => {
+				lines.push(`**${question}**`);
+			});
 			lines.push('');
 			lines.push('');
-		}
+		});
 
 		return lines.join('\n').trim() + '\n';
 	}
@@ -275,8 +281,10 @@ export class NoteBuilder {
 
 	private splitSongTitle(title: string): { label: string; remark?: string } {
 		// "Lied 12 und Gebet" (German) / "Song No. 160 and Prayer" (English) —
-		// the optional "No." only appears in English programme files.
-		const match = /^((?:Lied|Song)(?:\s+No\.)?\s+\d+)[.,:;\s-]*(.*)$/i.exec(title.trim());
+		// the optional "No."/"no"/"№" infix only appears in some languages
+		// (English "No.", French "no", Russian "№"; Italian/Portuguese/Spanish
+		// have none, confirmed against real programme files of each language).
+		const match = /^((?:Lied|Song|Cantique|Cantico|Cântico|Песня|Canción)(?:\s+(?:No\.|no|№))?\s+\d+)[.,:;\s-]*(.*)$/iu.exec(title.trim());
 		if (!match || !match[1]) return { label: title };
 		return { label: match[1], remark: match[2]?.trim() || undefined };
 	}
@@ -379,23 +387,30 @@ export class NoteBuilder {
 		return `https://www.jw.org/finder?srcid=jwlshare&wtlocale=${ScriptureNormalizer.wtlocale(this.lang)}&prefer=lang&docid=${docid}`;
 	}
 
+	// Every derived block below is wrapped in a pushMarked() marker so a later
+	// "update" re-import (see noteMerge.ts) can patch just that block in an
+	// already-existing, user-edited note — e.g. fixing a wrong weekday or
+	// scripture link without touching the speaker name or notes the user
+	// typed into the surrounding writing space.
 	private renderSingleNote(item: ProgramItem, day: Day, congress: Congress, trailingText?: string): string {
 		const lines: string[] = [];
 		lines.push(...this.frontmatterLines(congress, day, item.time || undefined));
 
-		lines.push(this.overviewLinkLine(day, congress));
-		lines.push('');
-
-		if (item.subtitle) {
-			lines.push(`*${item.subtitle}*`);
+		pushMarked(lines, 'header', () => {
+			lines.push(this.overviewLinkLine(day, congress));
 			lines.push('');
-		}
-		if (this.opts.showTagField && congress.type === 'CO') lines.push(`**${this.t.dayLabel}:** ${day.weekday}`);
-		if (this.opts.showTimeField && item.time) lines.push(`**${this.t.timeLabel}:** ${item.time}`);
 
-		if (this.opts.showScriptureField && item.scriptures.length > 0) {
-			lines.push(this.scriptureBlock(item.scriptures));
-		}
+			if (item.subtitle) {
+				lines.push(`*${item.subtitle}*`);
+				lines.push('');
+			}
+			if (this.opts.showTagField && congress.type === 'CO') lines.push(`**${this.t.dayLabel}:** ${day.weekday}`);
+			if (this.opts.showTimeField && item.time) lines.push(`**${this.t.timeLabel}:** ${item.time}`);
+
+			if (this.opts.showScriptureField && item.scriptures.length > 0) {
+				lines.push(this.scriptureBlock(item.scriptures));
+			}
+		});
 
 		if (this.opts.showSpeakerField) {
 			lines.push(`**${this.t.speakerLabel}:**`);
@@ -403,18 +418,27 @@ export class NoteBuilder {
 		}
 		this.pushExtraFields(lines);
 
-		if (item.bulletPoints.length > 0) {
-			lines.push('---');
-			for (const point of item.bulletPoints) {
-				lines.push(`- ${point}`);
+		pushMarked(lines, 'bullets', () => {
+			if (item.bulletPoints.length > 0) {
+				lines.push('---');
+				for (const point of item.bulletPoints) {
+					lines.push(`- ${point}`);
+				}
+				lines.push('');
 			}
-			lines.push('');
-		}
+		});
 
 		if (trailingText) {
+			// The gap-trimming logic pops trailing blank lines from `lines`
+			// itself (including ones pushed before this point) — it must run
+			// BEFORE pushMarked() captures its start index, or the marker
+			// would wrap (and on a later merge, discard) content that isn't
+			// actually part of this footer.
 			this.pushAnschliessendGap(lines);
-			lines.push(`**${this.t.nextLabel}:** ${trailingText}`);
-			lines.push('');
+			pushMarked(lines, 'footer', () => {
+				lines.push(`**${this.t.nextLabel}:** ${trailingText}`);
+				lines.push('');
+			});
 		}
 
 		lines.push(this.noteSpace());
@@ -426,37 +450,47 @@ export class NoteBuilder {
 		const lines: string[] = [];
 		lines.push(...this.frontmatterLines(congress, day, item.time || undefined));
 
-		lines.push(this.overviewLinkLine(day, congress));
-		lines.push('');
-
-		if (item.subtitle) {
-			lines.push(`*${item.subtitle}*`);
+		pushMarked(lines, 'header', () => {
+			lines.push(this.overviewLinkLine(day, congress));
 			lines.push('');
-		}
-		if (this.opts.showTagField && congress.type === 'CO') lines.push(`**${this.t.dayLabel}:** ${day.weekday}`);
-		if (this.opts.showTimeField && item.time) lines.push(`**${this.t.timeLabel}:** ${item.time}`);
 
-		if (this.opts.showScriptureField && item.scriptures.length > 0) {
-			lines.push(this.scriptureBlock(item.scriptures));
-		}
+			if (item.subtitle) {
+				lines.push(`*${item.subtitle}*`);
+				lines.push('');
+			}
+			if (this.opts.showTagField && congress.type === 'CO') lines.push(`**${this.t.dayLabel}:** ${day.weekday}`);
+			if (this.opts.showTimeField && item.time) lines.push(`**${this.t.timeLabel}:** ${item.time}`);
 
-		lines.push('');
+			if (this.opts.showScriptureField && item.scriptures.length > 0) {
+				lines.push(this.scriptureBlock(item.scriptures));
+			}
+
+			lines.push('');
+		});
 
 		const parts = item.parts ?? [];
 		if (parts.length > 0) {
-			for (const part of parts) {
-				lines.push(`## ${part.title}`);
-				if (part.subtitle) lines.push(`*${part.subtitle}*`);
-				if (this.opts.showScriptureField && part.scriptures.length > 0) {
-					lines.push(this.scriptureBlock(part.scriptures));
-				}
+			// Marker id is positional ("part-1", "part-2", …), not
+			// content-based — a later merge only succeeds when the fresh
+			// render has the exact same NUMBER of parts in the exact same
+			// order as the existing note, which safely covers "a part's
+			// title/scriptures got corrected" while refusing to guess when
+			// parts were added, removed or reordered (see noteMerge.ts).
+			parts.forEach((part, i) => {
+				pushMarked(lines, `part-${i + 1}`, () => {
+					lines.push(`## ${part.title}`);
+					if (part.subtitle) lines.push(`*${part.subtitle}*`);
+					if (this.opts.showScriptureField && part.scriptures.length > 0) {
+						lines.push(this.scriptureBlock(part.scriptures));
+					}
+				});
 				if (this.opts.showSpeakerField) {
 					lines.push(`**${this.t.speakerLabel}:**`);
 					lines.push('');
 				}
 				this.pushExtraFields(lines);
 				lines.push(this.noteSpace());
-			}
+			});
 		} else {
 			if (this.opts.showSpeakerField) {
 				lines.push(`**${this.t.speakerLabel}:**`);
@@ -468,8 +502,10 @@ export class NoteBuilder {
 
 		if (trailingText) {
 			this.pushAnschliessendGap(lines);
-			lines.push(`**${this.t.nextLabel}:** ${trailingText}`);
-			lines.push('');
+			pushMarked(lines, 'footer', () => {
+				lines.push(`**${this.t.nextLabel}:** ${trailingText}`);
+				lines.push('');
+			});
 		}
 
 		return lines.join('\n');

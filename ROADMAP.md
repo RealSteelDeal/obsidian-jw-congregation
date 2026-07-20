@@ -5,19 +5,7 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 
 ## Planned
 
-- **Insert verse as quote**: a button in the verse popup that inserts the
-  verse text into the active note as a quote/callout — sourced from the local
-  Bible file, fully offline (the counterpart to JW Library Linker's online
-  quote fetching, staying true to this plugin's no-network principle).
-- **Document the JW Library Linker synergy in the README**: links created by
-  the [JW Library Linker](https://github.com/msakowski/obsidian-library-linker)
-  plugin should already open this plugin's offline verse popup (both use the
-  jwlibrary:// finder format) — verify against its generated links, then
-  describe the combination as a tip.
-- **More program-file languages** (Spanish, French, …): the architecture is in
-  place (central string table, language-tolerant parsing patterns, automatic
-  language detection) — each language needs real program files for testing,
-  its type-marker variants and a string-table entry.
+Nothing queued right now — suggestions welcome via GitHub issues.
 
 ## Later (deliberately deferred)
 
@@ -35,6 +23,54 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 
 ## Recently shipped
 
+- **Fixed a verse-resolution bug for psalms with a superscription** (e.g.
+  Psalm 15's "A melody of David."): it occupies the chapter's first row
+  without being verse 1, so naive arithmetic was off by one for every verse
+  of such a psalm — "Psalm 15:2" silently resolved to verse 1. Detected from
+  the row's own (empty) label, not a hardcoded list of which psalms have one.
+- **Fixed missing spaces between poetic verse lines** (e.g. Psalm 1:1's three
+  printed lines): the jwpub source has no separating whitespace of its own
+  between them, so the popup and "insert as quote" both ran words together
+  ("…folgtund nicht…"). Affected both the popup's own verse display and
+  every quote insertion, since they share the same underlying text.
+- **"Insert as quote" now lands next to the reference it came from**, not at
+  a stale, unrelated cursor position: the popup button locates the actual
+  clicked reference's line in the note (surviving in-popup navigation to a
+  cross-reference) rather than relying on the editor's last-remembered
+  cursor, which was never moved by the click in the first place. Also hidden
+  entirely while a note is in pure Reading View, where there's no reliable
+  place to insert into.
+- **Update convention notes without touching your own text**: a new "Update
+  convention notes" command re-parses the same program file and patches an
+  already-imported folder in place — every generated field (day, time,
+  scripture links, headings, the "Anschließend"/"Next" hint) is refreshed
+  while speaker names and personal notes stay exactly as typed, even inside
+  the same note. Works via invisible `%%…%%` markers NoteBuilder now wraps
+  around each derived field; notes from before this feature have none, so
+  they're safely left alone and reported separately rather than guessed at.
+- **Five more program-file languages**: French, Italian, Portuguese, Russian
+  and Spanish jwpub programme files now parse and generate notes in their own
+  language, detected automatically from `MepsLanguageIndex` — same as German/
+  English. Book names are read verbatim from each language's own Bible jwpub
+  file rather than hand-translated. `settings.lang` (the interface/popup
+  language) stays German/English only; a note's own language always follows
+  the imported file.
+- **Insert verse as quote**: a button in the verse popup inserts the shown
+  verse text into the active note as a quote/callout — sourced from the local
+  Bible file, fully offline.
+- **Type a scripture reference anywhere and get a link/quote suggestion**:
+  typing e.g. `Psalm 12:1` in any note triggers a suggestion (as-you-type,
+  like the built-in wikilink/tag autocomplete) offering to turn it into a
+  `jwlibrary://` link or insert the verse text as a quote directly — the
+  offline counterpart to JW Library Linker's own reference recognition.
+  Recognizes full book names and common truncated abbreviations ("Matth.",
+  "Ps", "1 Mo", …) in the interface language (German/English) — resolved via
+  prefix matching against the already-verified full names, not a separate
+  guessed abbreviation table.
+- Documented the JW Library Linker synergy in the README: links created by
+  the [JW Library Linker](https://github.com/msakowski/obsidian-library-linker)
+  plugin already open this plugin's offline verse popup (both use the
+  jwlibrary:// finder format).
 - Language-aware `wtlocale` in generated JW Library links (X for German,
   E for English notes)
 - Chapter context in the verse popup: verse-by-verse expansion and a

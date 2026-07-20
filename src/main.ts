@@ -6,19 +6,15 @@ import { NoteBuilder } from './builder/NoteBuilder';
 import { ImportModal } from './ui/ImportModal';
 import { BibleReader } from './bible/BibleReader';
 import { BibleVerseModal } from './ui/BibleVerseModal';
-import { ScriptureNormalizer } from './normalizer/ScriptureNormalizer';
+import { ScriptureEditorSuggest } from './ui/ScriptureEditorSuggest';
 import { Scripture } from './models/congress';
-import { L } from './i18n';
+import { L, NL } from './i18n';
+import { findScriptureLinkInText, parseScriptureFromHref } from './util/scriptureLinkScan';
+import { mergeNoteContent } from './util/noteMerge';
+import { UpdateNotesModal } from './ui/UpdateNotesModal';
 // esbuild's "binary" loader embeds this as base64 in main.js and decodes it to a
 // Uint8Array at bundle time — no separate file needs to ship alongside main.js.
 import sqlWasmBinary from 'sql.js/dist/sql-wasm.wasm';
-
-// Matches both markdown link syntax (used in per-item notes) and the raw HTML
-// anchors the overview note uses for scripture links (see NoteBuilder) — Live
-// Preview shows the *source* text for whichever form is actually written, so
-// both patterns need to be recognised here.
-const MARKDOWN_LINK_RE = /\[[^\]]*\]\((jwlibrary:\/\/[^)\s]*)\)/g;
-const HTML_LINK_RE = /<a\s+href="(jwlibrary:\/\/[^"]*)"/g;
 
 const BIBLE_FILE_NAME = 'bible-cache.jwpub';
 
@@ -50,7 +46,14 @@ export default class JwCongregationPlugin extends Plugin {
 			callback: () => new ImportModal(this.app, this).open(),
 		});
 
+		this.addCommand({
+			id: 'update-congress-notes',
+			name: this.tr.updateCommand,
+			callback: () => new UpdateNotesModal(this.app, this).open(),
+		});
+
 		this.addSettingTab(new JwSettingTab(this.app, this));
+		this.registerEditorSuggest(new ScriptureEditorSuggest(this));
 
 		// WINDOW-level, CAPTURE-phase listeners handle both Reading View (real
 		// <a href> elements) and Live Preview (links rendered as decoration
@@ -193,7 +196,7 @@ export default class JwCongregationPlugin extends Plugin {
 		// Reading View: a real <a href="jwlibrary://...">.
 		const link = target.closest<HTMLAnchorElement>('a[href^="jwlibrary://"]');
 		if (link) {
-			const scripture = this.parseScriptureFromHref(link.href);
+			const scripture = parseScriptureFromHref(link.href);
 			return scripture ? { scripture, href: link.href } : undefined;
 		}
 
@@ -218,34 +221,7 @@ export default class JwCongregationPlugin extends Plugin {
 		}
 
 		const line = view.state.doc.lineAt(pos);
-		return this.findScriptureLinkInText(line.text, pos - line.from);
-	}
-
-	/** Finds a jwlibrary:// scripture link (markdown or raw-HTML form) whose span covers `offset` within `text`. */
-	private findScriptureLinkInText(text: string, offset: number): { scripture: Scripture; href: string } | undefined {
-		for (const re of [MARKDOWN_LINK_RE, HTML_LINK_RE]) {
-			re.lastIndex = 0;
-			let m: RegExpExecArray | null;
-			while ((m = re.exec(text))) {
-				if (offset >= m.index && offset <= m.index + m[0].length) {
-					const href = m[1];
-					if (!href) continue;
-					const scripture = this.parseScriptureFromHref(href);
-					if (scripture) return { scripture, href };
-				}
-			}
-		}
-		return undefined;
-	}
-
-	private parseScriptureFromHref(href: string): Scripture | undefined {
-		try {
-			const bibleParam = new URL(href).searchParams.get('bible');
-			if (!bibleParam) return undefined;
-			return ScriptureNormalizer.fromRtf(bibleParam);
-		} catch {
-			return undefined;
-		}
+		return findScriptureLinkInText(line.text, pos - line.from);
 	}
 
 	private bibleFilePath(): string {
@@ -271,7 +247,8 @@ export default class JwCongregationPlugin extends Plugin {
 		this.bibleReader = null;
 	}
 
-	private async getBibleReader(): Promise<BibleReader | null> {
+	/** Not private: also called by ScriptureEditorSuggest (in-editor "insert as quote"/"link" suggester). */
+	async getBibleReader(): Promise<BibleReader | null> {
 		if (!this.settings.bibleFileLoaded) return null;
 		if (this.bibleReader) return this.bibleReader;
 		if (this.bibleReaderLoading) return this.bibleReaderLoading;
@@ -432,7 +409,7 @@ export default class JwCongregationPlugin extends Plugin {
 			progress?.hide();
 			// The success notice doubles as a shortcut: clicking it opens the first
 			// day's overview note, so the freshly imported congress is one tap away.
-			const overviewName = `${L[result.congress.lang].overviewBase}.md`;
+			const overviewName = `${NL[result.congress.lang].overviewBase}.md`;
 			const firstDay = result.congress.days[0];
 			const overviewPath = result.congress.type === 'CO' && firstDay
 				? normalizePath(`${congressPath}/${firstDay.weekday}/${overviewName}`)
@@ -443,6 +420,125 @@ export default class JwCongregationPlugin extends Plugin {
 				const file = this.app.vault.getAbstractFileByPath(overviewPath);
 				if (file instanceof TFile) void this.app.workspace.getLeaf().openFile(file);
 			});
+		} catch (err) {
+			progress?.hide();
+			for (const path of createdPaths.reverse()) {
+				const file = this.app.vault.getAbstractFileByPath(path);
+				if (file) await this.app.fileManager.trashFile(file);
+			}
+			new Notice(this.tr.noticeImportRolledBack(String(err)));
+		}
+	}
+
+	// The "update" counterpart to importFile(): re-parses the SAME programme
+	// file (e.g. after a parser bug fix shipped) and patches an ALREADY
+	// imported congress folder in place, rather than creating a fresh one.
+	// Purely-derived files (regenerate: true — the overview notes, cover
+	// images) are overwritten outright, same as on a plain re-import. Every
+	// other note is merged via mergeNoteContent() (see util/noteMerge.ts):
+	// only the invisible %%jw:id%% marker regions NoteBuilder wraps around
+	// derived fields are replaced, so a corrected weekday or scripture link
+	// lands without touching a single character the user typed themselves.
+	// A note whose marker structure doesn't line up (most commonly: it was
+	// created by a plugin version from before this feature existed, so it
+	// has no markers at all) is left completely untouched and counted
+	// separately, so the result notice can point out that a manual delete +
+	// full re-import is still the only way to fix that specific note.
+	async updateFile(filename: string, data: Uint8Array, targetFolder: string): Promise<void> {
+		const congressPath = normalizePath(targetFolder);
+		const existingFolder = this.app.vault.getAbstractFileByPath(congressPath);
+		if (!(existingFolder instanceof TFolder)) {
+			new Notice(this.tr.noticeUpdateFolderNotFound(congressPath));
+			return;
+		}
+
+		const router = new SourceRouter(this.sqlWasmBinary);
+		const builder = new NoteBuilder({
+			scriptureLinks: this.settings.scriptureLinks,
+			reviewNote: this.settings.reviewNote,
+			showTagField: this.settings.showTagField,
+			showTimeField: this.settings.showTimeField,
+			showScriptureField: this.settings.showScriptureField,
+			showSpeakerField: this.settings.showSpeakerField,
+			extraFields: this.settings.extraFields,
+			frontmatter: this.settings.frontmatter,
+		});
+
+		let result;
+		try {
+			result = await router.route(filename, data);
+		} catch (err) {
+			new Notice(this.tr.noticeImportFailed(String(err)));
+			return;
+		}
+
+		const { notes, attachments } = builder.buildNotes(result.congress);
+
+		let merged = 0;
+		let created = 0;
+		let unchanged = 0;
+		let needsReimport = 0;
+		const createdPaths: string[] = [];
+
+		const total = notes.length + attachments.length;
+		let done = 0;
+		const progress = total > 3 ? new Notice(this.tr.noticeImportProgress(0, total), 0) : null;
+
+		try {
+			for (const note of notes) {
+				const notePath = await this.resolvePath(congressPath, note.dayFolder, note.filename);
+				const existing = this.app.vault.getAbstractFileByPath(notePath);
+				if (existing instanceof TFile) {
+					if (note.regenerate) {
+						await this.app.vault.modify(existing, note.content);
+						merged++;
+					} else {
+						const existingContent = await this.app.vault.read(existing);
+						const mergedContent = mergeNoteContent(existingContent, note.content);
+						if (mergedContent === null) {
+							needsReimport++;
+						} else if (mergedContent !== existingContent) {
+							await this.app.vault.modify(existing, mergedContent);
+							merged++;
+						} else {
+							unchanged++;
+						}
+					}
+				} else {
+					// Nothing to preserve for a note that doesn't exist yet
+					// (e.g. the programme fix added a new item) — create it
+					// fresh, same as a plain import would.
+					await this.app.vault.create(notePath, note.content);
+					createdPaths.push(notePath);
+					created++;
+				}
+				done++;
+				progress?.setMessage(this.tr.noticeImportProgress(done, total));
+			}
+
+			for (const attachment of attachments) {
+				const attachPath = await this.resolvePath(congressPath, attachment.dayFolder, attachment.filename);
+				const existing = this.app.vault.getAbstractFileByPath(attachPath);
+				const buf = attachment.data;
+				const arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
+				if (existing instanceof TFile) {
+					if (attachment.regenerate) {
+						await this.app.vault.modifyBinary(existing, arrayBuffer);
+						merged++;
+					} else {
+						unchanged++;
+					}
+				} else {
+					await this.app.vault.createBinary(attachPath, arrayBuffer);
+					createdPaths.push(attachPath);
+					created++;
+				}
+				done++;
+				progress?.setMessage(this.tr.noticeImportProgress(done, total));
+			}
+
+			progress?.hide();
+			new Notice(this.tr.noticeUpdateResult(merged, created, needsReimport, unchanged), 10000);
 		} catch (err) {
 			progress?.hide();
 			for (const path of createdPaths.reverse()) {

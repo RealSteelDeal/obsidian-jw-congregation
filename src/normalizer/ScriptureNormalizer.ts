@@ -1,5 +1,5 @@
 import { Scripture } from '../models/congress';
-import { SupportedLang, getBookName } from './bookNames';
+import { CongressLang, getBookName } from './bookNames';
 
 export class ScriptureNormalizer {
 
@@ -87,7 +87,7 @@ export class ScriptureNormalizer {
 	 * matching the note's language is the correct hint. Defaults to 'de' for
 	 * callers without a language context.
 	 */
-	static toJwLibraryLink(s: Scripture, lang: SupportedLang = 'de'): string {
+	static toJwLibraryLink(s: Scripture, lang: CongressLang = 'de'): string {
 		const start = ScriptureNormalizer.toRtfCode(s.book, s.chapter, s.verseStart);
 		const params = `srcid=jwlshare&wtlocale=${ScriptureNormalizer.wtlocale(lang)}&prefer=lang`;
 		const endChapter = s.chapterEnd ?? s.chapter;
@@ -101,9 +101,16 @@ export class ScriptureNormalizer {
 		return `jwlibrary:///finder?${params}&bible=${start}&pub=nwtsty`;
 	}
 
+	// MEPS locale symbols, confirmed against real jwpub filenames and song
+	// hrefs (jwpub://p/<symbol>:<docid>/) for each language's own programme
+	// files — not guessed.
+	private static readonly WTLOCALE: Record<CongressLang, string> = {
+		de: 'X', en: 'E', fr: 'F', it: 'I', pt: 'TPO', ru: 'U', es: 'S',
+	};
+
 	/** MEPS locale symbol for a supported language (the wtlocale= URL parameter). */
-	static wtlocale(lang: SupportedLang): string {
-		return lang === 'en' ? 'E' : 'X';
+	static wtlocale(lang: CongressLang): string {
+		return ScriptureNormalizer.WTLOCALE[lang];
 	}
 
 	/**
@@ -115,7 +122,7 @@ export class ScriptureNormalizer {
 	 * "Markus 1:21–3:19" — confirmed against real bible-drama citation text; a
 	 * plain hyphen there is reserved for a same-chapter verse range.
 	 */
-	static format(s: Scripture, lang: SupportedLang): string {
+	static format(s: Scripture, lang: CongressLang): string {
 		const bookName = getBookName(s.book, lang);
 		if (s.chapterEnd !== undefined && s.chapterEnd !== s.chapter) {
 			return `${bookName} ${s.chapter}:${s.verseStart}–${s.chapterEnd}:${s.verseEnd}`;
@@ -129,7 +136,7 @@ export class ScriptureNormalizer {
 	}
 
 	/** Renders a Scripture as a Markdown link: [Spr 16:20](jwlibrary:///finder?bible=20016020) */
-	static toMarkdownLink(s: Scripture, lang: SupportedLang): string {
+	static toMarkdownLink(s: Scripture, lang: CongressLang): string {
 		const label = ScriptureNormalizer.format(s, lang);
 		const href  = ScriptureNormalizer.toJwLibraryLink(s, lang);
 		return `[${label}](${href})`;

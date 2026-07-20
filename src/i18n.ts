@@ -1,20 +1,14 @@
-import { SupportedLang } from './normalizer/bookNames';
+import { CongressLang, SupportedLang } from './normalizer/bookNames';
 import { CongressType } from './models/congress';
 
 /**
- * All user-visible strings that depend on a language.
- *
- * Two different "languages" flow through the plugin — don't mix them up:
- *
- * - **Congress.lang** (detected from the imported file's `MepsLanguageIndex`,
- *   see JwpubParser): drives everything written INTO generated notes — labels,
- *   file/folder names, the review note. An English programme file produces
- *   English notes regardless of the plugin's UI language, since mixing
- *   languages inside one note would help nobody.
- * - **settings.lang** (user setting): drives the Bible-verse popup labels and
- *   scripture book names there.
+ * Strings needed to generate notes from an imported programme file — driven by
+ * Congress.lang (detected from the file's own `MepsLanguageIndex`, see
+ * JwpubParser), independently of the plugin's UI language. Covers every
+ * language the parser can detect (`CongressLang`), not just the two the UI
+ * itself is translated into — see `NL` below.
  */
-export interface Strings {
+export interface NoteStrings {
 	// ── Parser (Congress.lang) ──────────────────────────────────────────────
 	/** One-day circuit assemblies have no weekday in their h1 (it holds the theme). */
 	caFallbackDay: string;
@@ -43,7 +37,17 @@ export interface Strings {
 	folderCO: (year: number, theme: string) => string;
 	folderCAco: (season: string, theme: string) => string;
 	folderCAbr: (season: string, theme: string) => string;
+}
 
+/**
+ * All user-visible strings that depend on a language — `NoteStrings` (see
+ * above) plus everything driven by the plugin's own UI language
+ * (settings.lang), which stays limited to German/English (popup labels,
+ * settings tab, import dialog, notices) — translating the whole settings UI
+ * into five more languages is a much larger undertaking than letting the
+ * parser understand five more programme-file languages.
+ */
+export interface Strings extends NoteStrings {
 	// ── Bible-verse popup (settings.lang) ───────────────────────────────────
 	popupLoading: string;
 	popupMissing: string;
@@ -58,6 +62,13 @@ export interface Strings {
 	popupVerseBefore: string;
 	popupVerseAfter: string;
 	popupWholeChapter: string;
+	btnInsertAsQuote: string;
+	noticeVerseInserted: string;
+	noticeNoActiveNote: string;
+	/** Suggestion label shown right after typing a scripture reference (e.g.
+	 *  "Psalm 12:1") in any note — turns it into a jwlibrary:// link instead of
+	 *  inserting the verse text (see `btnInsertAsQuote` for the other option). */
+	scriptureSuggestLink: string;
 
 	// ── Notices (settings.lang) ─────────────────────────────────────────────
 	noticeUpdated: (version: string) => string;
@@ -65,6 +76,7 @@ export interface Strings {
 	noticeBibleMissingOnDevice: string;
 	noticeBibleLoadFailed: (err: string) => string;
 	noticeBibleHint: string;
+	noticeQuoteNeedsBibleFile: string;
 	noticeImportFailed: (err: string) => string;
 	noticeRtfFallback: string;
 	noticeImportProgress: (done: number, total: number) => string;
@@ -126,9 +138,33 @@ export interface Strings {
 	rowSourceRtf: string;
 	rowItems: string;
 	rowLanguage: string;
-	langDisplay: (lang: SupportedLang) => string;
+	langDisplay: (lang: CongressLang) => string;
 	typeLabels: Record<CongressType, string>;
+
+	// ── Update-notes modal (settings.lang) ──────────────────────────────────
+	updateCommand: string;
+	updateTitle: string;
+	updateExplanation: string;
+	updateTargetFolder: string;
+	updateTargetFolderDesc: string;
+	updateNoFoldersFound: string;
+	btnUpdate: string;
+	noticeUpdateFolderNotFound: (path: string) => string;
+	noticeUpdateResult: (merged: number, created: number, needsReimport: number, unchanged: number) => string;
 }
+
+/** Display name of every detectable programme-file language, in German and
+ *  English (the only two the settings/import-modal UI itself is translated
+ *  into) — used by `langDisplay` in both `L.de` and `L.en`. */
+const LANG_DISPLAY_NAMES: Record<CongressLang, { de: string; en: string }> = {
+	de: { de: 'Deutsch', en: 'German' },
+	en: { de: 'Englisch', en: 'English' },
+	fr: { de: 'Französisch', en: 'French' },
+	it: { de: 'Italienisch', en: 'Italian' },
+	pt: { de: 'Portugiesisch', en: 'Portuguese' },
+	ru: { de: 'Russisch', en: 'Russian' },
+	es: { de: 'Spanisch', en: 'Spanish' },
+};
 
 export const L: Record<SupportedLang, Strings> = {
 	de: {
@@ -172,11 +208,16 @@ export const L: Record<SupportedLang, Strings> = {
 		popupVerseBefore: '◀ Vers davor',
 		popupVerseAfter: 'Vers danach ▶',
 		popupWholeChapter: 'Ganzes Kapitel',
+		btnInsertAsQuote: 'Als Zitat einfügen',
+		noticeVerseInserted: 'Vers als Zitat eingefügt.',
+		noticeNoActiveNote: 'Keine aktive Notiz zum Einfügen gefunden. Bitte zuerst eine Notiz öffnen.',
+		scriptureSuggestLink: 'Verlinken',
 
-		noticeUpdated: version => `JW Kongressprogramm wurde auf Version ${version} aktualisiert.\n\nVerbesserungen an den Notiz-Vorlagen erreichen bereits importierte Kongresse nicht automatisch: Um sie zu übernehmen, den Kongress-Ordner löschen und die Programmdatei neu importieren.\n\n(Zum Schließen klicken)`,
+		noticeUpdated: version => `JW Kongressprogramm wurde auf Version ${version} aktualisiert.\n\nVerbesserungen an den Notiz-Vorlagen erreichen bereits importierte Kongresse nicht automatisch: Dafür „Kongress-Notizen aktualisieren" (Befehlspalette) mit derselben Programmdatei ausführen – eigene Einträge (Redner, Notizen) bleiben dabei erhalten. Nur bei Notizen aus einer sehr alten Plugin-Version hilft das nicht; dort den Kongress-Ordner löschen und neu importieren.\n\n(Zum Schließen klicken)`,
 		noticeBibleSaved: 'Bibel-Datei gespeichert.',
 		noticeBibleMissingOnDevice: 'Die Bibel-Datei fehlt auf diesem Gerät (Einstellungen werden synchronisiert, die Datei selbst nicht). Bitte in den Plugin-Einstellungen unter „Bibel-Datei" neu auswählen.',
 		noticeBibleLoadFailed: err => `Bibel-Datei konnte nicht geladen werden: ${err}`,
+		noticeQuoteNeedsBibleFile: 'Keine Bibel-Datei geladen – die Bibelstelle wurde stattdessen verlinkt. Für den Direkt-Zitat-Modus in den Plugin-Einstellungen eine Bibel-Datei hinterlegen.',
 		noticeBibleHint: 'Tipp: Hinterlege in den Plugin-Einstellungen eine Bibel-jwpub-Datei (z. B. die Studienbibel von jw.org), dann öffnet ein Klick auf eine Bibelstelle den Vers-Text samt Querverweisen und Studienanmerkungen direkt als Popup in Obsidian. (Klicken öffnet die Einstellungen)',
 		noticeImportFailed: err => `Import fehlgeschlagen: ${err}`,
 		noticeRtfFallback: 'Jwpub-Parsing fehlgeschlagen – RTF-Fallback verwendet.',
@@ -242,11 +283,27 @@ export const L: Record<SupportedLang, Strings> = {
 		rowSourceRtf: 'RTF (Fallback)',
 		rowItems: 'Programmpunkte',
 		rowLanguage: 'Sprache',
-		langDisplay: lang => (lang === 'de' ? 'Deutsch' : 'Englisch'),
+		langDisplay: lang => LANG_DISPLAY_NAMES[lang].de,
 		typeLabels: {
 			'CO': 'Regionaler Kongress',
 			'CA-copgm': 'Kreiskongress (Kreisaufseher)',
 			'CA-brpgm': 'Kreiskongress (Zweigbüro)',
+		},
+
+		updateCommand: 'Kongress-Notizen aktualisieren',
+		updateTitle: 'Kongress-Notizen aktualisieren',
+		updateExplanation: 'Wählt dieselbe Programmdatei erneut aus und gleicht einen bereits importierten Kongress-Ordner damit ab – nützlich nach einem Plugin-Update, das einen Fehler in den Notizen behebt (z. B. bei Tag, Uhrzeit oder Bibelstellen). Bereits geschriebener Text (Rednername, eigene Notizen) bleibt dabei unangetastet; nur die automatisch erzeugten Felder werden aufgefrischt.',
+		updateTargetFolder: 'Zu aktualisierender Kongress-Ordner',
+		updateTargetFolderDesc: 'Der Ordner, der beim ursprünglichen Import angelegt wurde.',
+		updateNoFoldersFound: 'Keine Ordner im Vault gefunden.',
+		btnUpdate: 'Aktualisieren',
+		noticeUpdateFolderNotFound: path => `Ordner „${path}" wurde nicht gefunden.`,
+		noticeUpdateResult: (merged, created, needsReimport, unchanged) => {
+			const parts = [`${merged} aktualisiert`];
+			if (created > 0) parts.push(`${created} neu angelegt`);
+			if (unchanged > 0) parts.push(`${unchanged} bereits aktuell`);
+			if (needsReimport > 0) parts.push(`${needsReimport} benötigen einen vollständigen Reimport (älteres Format)`);
+			return `Aktualisierung abgeschlossen: ${parts.join(', ')}.`;
 		},
 	},
 	en: {
@@ -292,11 +349,16 @@ export const L: Record<SupportedLang, Strings> = {
 		popupVerseBefore: '◀ Verse before',
 		popupVerseAfter: 'Verse after ▶',
 		popupWholeChapter: 'Whole chapter',
+		btnInsertAsQuote: 'Insert as quote',
+		noticeVerseInserted: 'Verse inserted as a quote.',
+		noticeNoActiveNote: 'No active note to insert into. Please open a note first.',
+		scriptureSuggestLink: 'Link',
 
-		noticeUpdated: version => `JW Convention Program was updated to version ${version}.\n\nNote-template improvements do not reach already imported conventions automatically: to pick them up, delete the convention folder and re-import the program file.\n\n(Click to dismiss)`,
+		noticeUpdated: version => `JW Convention Program was updated to version ${version}.\n\nNote-template improvements do not reach already imported conventions automatically: run "Update convention notes" (command palette) with the same program file to pick them up — anything you already typed (speaker, notes) is kept. Only notes from a very old plugin version can't be patched this way; delete the convention folder and re-import for those.\n\n(Click to dismiss)`,
 		noticeBibleSaved: 'Bible file saved.',
 		noticeBibleMissingOnDevice: 'The Bible file is missing on this device (settings sync between devices, the file itself does not). Please re-select it under "Bible file" in the plugin settings.',
 		noticeBibleLoadFailed: err => `The Bible file could not be loaded: ${err}`,
+		noticeQuoteNeedsBibleFile: 'No Bible file loaded – the scripture was linked instead. Add a Bible file in the plugin settings to insert quotes directly.',
 		noticeBibleHint: 'Tip: Add a Bible jwpub file (e.g. the study edition from jw.org) in the plugin settings — clicking a scripture will then open the verse text with cross-references and study notes directly as a popup in Obsidian. (Click to open the settings)',
 		noticeImportFailed: err => `Import failed: ${err}`,
 		noticeRtfFallback: 'jwpub parsing failed – RTF fallback used.',
@@ -362,11 +424,184 @@ export const L: Record<SupportedLang, Strings> = {
 		rowSourceRtf: 'RTF (fallback)',
 		rowItems: 'Program items',
 		rowLanguage: 'Language',
-		langDisplay: lang => (lang === 'de' ? 'German' : 'English'),
+		langDisplay: lang => LANG_DISPLAY_NAMES[lang].en,
 		typeLabels: {
 			'CO': 'Regional Convention',
 			'CA-copgm': 'Circuit Assembly (Circuit Overseer)',
 			'CA-brpgm': 'Circuit Assembly (Branch Representative)',
 		},
+
+		updateCommand: 'Update convention notes',
+		updateTitle: 'Update convention notes',
+		updateExplanation: 'Pick the same program file again and reconcile it against an already-imported convention folder — useful after a plugin update fixes a bug in the notes (e.g. day, time or scripture references). Anything you already typed (speaker name, personal notes) is left untouched; only the automatically generated fields are refreshed.',
+		updateTargetFolder: 'Convention folder to update',
+		updateTargetFolderDesc: 'The folder created by the original import.',
+		updateNoFoldersFound: 'No folders found in the vault.',
+		btnUpdate: 'Update',
+		noticeUpdateFolderNotFound: path => `Folder "${path}" was not found.`,
+		noticeUpdateResult: (merged, created, needsReimport, unchanged) => {
+			const parts = [`${merged} updated`];
+			if (created > 0) parts.push(`${created} newly created`);
+			if (unchanged > 0) parts.push(`${unchanged} already up to date`);
+			if (needsReimport > 0) parts.push(`${needsReimport} need a full re-import (older format)`);
+			return `Update complete: ${parts.join(', ')}.`;
+		},
+	},
+};
+
+/**
+ * Note-generation strings for every language the parser can detect
+ * (`CongressLang`) — a superset of `L`, which only covers the two languages
+ * the settings/popup UI itself is translated into. `de`/`en` are the same
+ * `Strings` objects from `L` (a superset of `NoteStrings`); `fr`/`it`/`pt`/`ru`/
+ * `es` are translated only as far as `NoteStrings` needs.
+ *
+ * Values not lifted verbatim from a real programme file (`questionsTitle`,
+ * `bibleDramaFallback`, the type-marker vocabulary matched in JwpubParser) are
+ * plain translations for plugin-generated text (folder names, field labels,
+ * the standard review questions) that never appears in the source file itself.
+ */
+export const NL: Record<CongressLang, NoteStrings> = {
+	de: L.de,
+	en: L.en,
+	fr: {
+		caFallbackDay: 'Samedi',
+		defaultSession: 'Matin',
+		reviewQuestionsSession: 'Questions de révision',
+		questionsTitle: 'Soyez attentifs aux réponses à ces questions',
+		bibleDramaFallback: 'Film',
+		song: n => `Cantique no ${n}`,
+
+		overviewBase: '00. Aperçu',
+		backToOverview: '↩ Retour à l’aperçu',
+		dayLabel: 'Jour',
+		timeLabel: 'Heure',
+		scripturesLabel: 'Textes bibliques',
+		speakerLabel: 'Orateur',
+		nextLabel: 'Ensuite',
+		coverImageBase: 'Image de couverture',
+		reviewNoteBase: 'Révision',
+		reviewQuestions: [
+			'Quelles pensées vous ont rapproché de Jéhovah ?',
+			'Quelles pensées pouvez-vous appliquer dans le ministère ?',
+			'Quelles pensées pouvez-vous appliquer dans votre vie personnelle ?',
+		],
+		reviewHintCO: 'Remarque : Pour la partie « Points forts de l’assemblée », le frère passera la vidéo reprenant des extraits du programme de l’assemblée.',
+		reviewHintCA: link => `Remarque : Le président de la réunion posera aussi les questions de révision imprimées : ${link}`,
+		folderCO: (year, theme) => `Assemblée régionale ${year} – ${theme}`,
+		folderCAco: (season, theme) => `Programme de l’assemblée de circonscription ${season} – avec le responsable de circonscription – « ${theme} »`,
+		folderCAbr: (season, theme) => `Programme de l’assemblée de circonscription ${season} – avec un représentant de la filiale – « ${theme} »`,
+	},
+	it: {
+		caFallbackDay: 'Sabato',
+		defaultSession: 'Mattina',
+		reviewQuestionsSession: 'Domande di ripasso',
+		questionsTitle: 'Rispondete a queste domande',
+		bibleDramaFallback: 'Videoracconto',
+		song: n => `Cantico ${n}`,
+
+		overviewBase: '00. Panoramica',
+		backToOverview: '↩ Torna alla panoramica',
+		dayLabel: 'Giorno',
+		timeLabel: 'Ora',
+		scripturesLabel: 'Testi biblici',
+		speakerLabel: 'Oratore',
+		nextLabel: 'A seguire',
+		coverImageBase: 'Immagine di copertina',
+		reviewNoteBase: 'Ripasso',
+		reviewQuestions: [
+			'Quali pensieri ti hanno avvicinato a Geova?',
+			'Quali pensieri puoi applicare nel ministero?',
+			'Quali pensieri puoi applicare nella tua vita personale?',
+		],
+		reviewHintCO: 'Nota: Per il ripasso del congresso, il fratello mostrerà il video con gli estratti del programma del congresso.',
+		reviewHintCA: link => `Nota: Il presidente dell’adunanza tratterà anche le domande di ripasso stampate: ${link}`,
+		folderCO: (year, theme) => `Congresso regionale ${year} – ${theme}`,
+		folderCAco: (season, theme) => `Programma dell’assemblea di circoscrizione ${season} – con il sorvegliante di circoscrizione – "${theme}"`,
+		folderCAbr: (season, theme) => `Programma dell’assemblea di circoscrizione ${season} – con il rappresentante della filiale – "${theme}"`,
+	},
+	pt: {
+		caFallbackDay: 'Sábado',
+		defaultSession: 'Manhã',
+		reviewQuestionsSession: 'Perguntas de revisão',
+		questionsTitle: 'Esteja atento às respostas para as seguintes perguntas',
+		bibleDramaFallback: 'Vídeo',
+		song: n => `Cântico ${n}`,
+
+		overviewBase: '00. Visão geral',
+		backToOverview: '↩ Voltar à visão geral',
+		dayLabel: 'Dia',
+		timeLabel: 'Hora',
+		scripturesLabel: 'Textos bíblicos',
+		speakerLabel: 'Orador',
+		nextLabel: 'A seguir',
+		coverImageBase: 'Imagem de capa',
+		reviewNoteBase: 'Revisão',
+		reviewQuestions: [
+			'Que pensamentos o aproximaram de Jeová?',
+			'Que pensamentos você pode aplicar no ministério?',
+			'Que pensamentos você pode aplicar na sua vida pessoal?',
+		],
+		reviewHintCO: 'Nota: Na revisão do congresso, o irmão vai passar o vídeo com trechos do programa do congresso.',
+		reviewHintCA: link => `Nota: O presidente da reunião também vai considerar as perguntas de revisão impressas: ${link}`,
+		folderCO: (year, theme) => `Congresso regional ${year} – ${theme}`,
+		folderCAco: (season, theme) => `Assembleia de Circuito ${season} – com o Superintendente de Circuito – "${theme}"`,
+		folderCAbr: (season, theme) => `Assembleia de Circuito ${season} – com o Representante da Filial – "${theme}"`,
+	},
+	ru: {
+		caFallbackDay: 'Суббота',
+		defaultSession: 'Утро',
+		reviewQuestionsSession: 'Вопросы для повторения',
+		questionsTitle: 'Узнайте ответы на эти вопросы',
+		bibleDramaFallback: 'Видеопостановка',
+		song: n => `Песня № ${n}`,
+
+		overviewBase: '00. Обзор',
+		backToOverview: '↩ Назад к обзору',
+		dayLabel: 'День',
+		timeLabel: 'Время',
+		scripturesLabel: 'Библейские тексты',
+		speakerLabel: 'Докладчик',
+		nextLabel: 'Далее',
+		coverImageBase: 'Обложка',
+		reviewNoteBase: 'Повторение',
+		reviewQuestions: [
+			'Какие мысли помогли вам сблизиться с Иеговой?',
+			'Какие мысли вы можете применять в служении?',
+			'Какие мысли вы можете применять в личной жизни?',
+		],
+		reviewHintCO: 'Примечание: На повторении конгресса брат покажет видео с отрывками из программы конгресса.',
+		reviewHintCA: link => `Примечание: Председательствующий также рассмотрит напечатанные вопросы для повторения: ${link}`,
+		folderCO: (year, theme) => `Конгресс ${year} года – ${theme}`,
+		folderCAco: (season, theme) => `Программа районного конгресса ${season} – с районным старейшиной – «${theme}»`,
+		folderCAbr: (season, theme) => `Программа районного конгресса ${season} – с представителем филиала – «${theme}»`,
+	},
+	es: {
+		caFallbackDay: 'Sábado',
+		defaultSession: 'Mañana',
+		reviewQuestionsSession: 'Preguntas de repaso',
+		questionsTitle: 'Anota las respuestas a las siguientes preguntas',
+		bibleDramaFallback: 'Producción audiovisual',
+		song: n => `Canción ${n}`,
+
+		overviewBase: '00. Resumen',
+		backToOverview: '↩ Volver al resumen',
+		dayLabel: 'Día',
+		timeLabel: 'Hora',
+		scripturesLabel: 'Textos bíblicos',
+		speakerLabel: 'Orador',
+		nextLabel: 'A continuación',
+		coverImageBase: 'Imagen de portada',
+		reviewNoteBase: 'Repaso',
+		reviewQuestions: [
+			'¿Qué pensamientos lo acercaron más a Jehová?',
+			'¿Qué pensamientos puede aplicar en el ministerio?',
+			'¿Qué pensamientos puede aplicar en su vida personal?',
+		],
+		reviewHintCO: 'Nota: En el repaso del congreso, el hermano pondrá el video con extractos del programa del congreso.',
+		reviewHintCA: link => `Nota: El presidente de la reunión también considerará las preguntas de repaso impresas: ${link}`,
+		folderCO: (year, theme) => `Asamblea regional ${year} – ${theme}`,
+		folderCAco: (season, theme) => `Programa de la asamblea de circuito ${season} – con el superintendente de circuito – "${theme}"`,
+		folderCAbr: (season, theme) => `Programa de la asamblea de circuito ${season} – con representante de la sucursal – "${theme}"`,
 	},
 };

@@ -97,8 +97,11 @@ export interface Strings extends NoteStrings {
 	setTargetFolderPlaceholder: string;
 	setLang: string;
 	setLangDesc: string;
+	headScripture: string;
 	setScriptureLinks: string;
 	setScriptureLinksDesc: string;
+	setBiblePopupEnabled: string;
+	setBiblePopupEnabledDesc: string;
 	setReviewNote: string;
 	setReviewNoteDesc: string;
 	headNoteFields: string;
@@ -111,7 +114,6 @@ export interface Strings extends NoteStrings {
 	setExtraFieldsDesc: string;
 	setFrontmatter: string;
 	setFrontmatterDesc: string;
-	headPopup: string;
 	setBibleFile: string;
 	bibleDescLoaded: string;
 	bibleDescMissing: string;
@@ -249,8 +251,11 @@ export const L: Record<SupportedLang, Strings> = {
 		setTargetFolderPlaceholder: '(Vault-Wurzel)',
 		setLang: 'Sprache der Oberfläche und des Bibeltext-Popups',
 		setLangDesc: 'Beschriftungen des Plugins und Bibelbuch-Namen im Popup. Notizen folgen automatisch der Sprache der importierten Programmdatei.',
+		headScripture: 'Bibelstellen',
 		setScriptureLinks: 'Bibelstellen verlinken',
 		setScriptureLinksDesc: 'Erzeugt klickbare JW-Library-Links auf jede Bibelstelle.',
+		setBiblePopupEnabled: 'Bibeltext-Popup aktivieren',
+		setBiblePopupEnabledDesc: 'Öffnet beim Klicken oder Tippen auf eine Bibelstelle den Vers-Text direkt in Obsidian, statt nur JW Library zu öffnen. Lässt sich unabhängig von der geladenen Bibel-Datei abschalten.',
 		setReviewNote: 'Wiederholungs-Notiz erstellen',
 		setReviewNoteDesc: 'Legt zusätzlich eine "Wiederholung"-Notiz mit den drei Standard-Reflexionsfragen an (bei Kreiskongressen mit Link zu den gedruckten Wiederholungsfragen, bei Regionalen Kongressen mit Hinweis auf das Video).',
 		headNoteFields: 'Notiz-Felder',
@@ -263,7 +268,6 @@ export const L: Record<SupportedLang, Strings> = {
 		setExtraFieldsDesc: 'Jede Zeile wird als eigenes Feld mit eigenem Schreibplatz an jede Programmpunkt-Notiz angehängt (z. B. "**Notizen:**").',
 		setFrontmatter: 'Frontmatter (Eigenschaften) hinzufügen',
 		setFrontmatterDesc: 'Fügt jeder erzeugten Notiz YAML-Frontmatter mit stabilen englischen Schlüsseln hinzu (convention, type, day, time) – z. B. für Dataview-Abfragen. Die Schlüssel sind bewusst sprachunabhängig.',
-		headPopup: 'Bibeltext-Popup',
 		setBibleFile: 'Bibel-Datei',
 		bibleDescLoaded: 'Bibel-Datei ist geladen. Ein Klick auf eine Bibelstelle zeigt den Vers-Text direkt in Obsidian an (mit einem Button zum Öffnen in JW Library).',
 		bibleDescMissing: 'Optional: eine Bibel-jwpub-Datei auswählen (z. B. von jw.org heruntergeladen), damit ein Klick auf eine Bibelstelle den Vers-Text direkt in Obsidian anzeigt, statt nur JW Library zu öffnen. Die Studienbibel (nwtsty) bietet Studienanmerkungen und mehr Fußnoten; auf Mobilgeräten mit wenig Arbeitsspeicher ist die deutlich kleinere einfache Ausgabe (nwt) die speicherschonendere Wahl. Die Datei wird lokal im Plugin-Ordner gespeichert, nicht ins Vault kopiert.',
@@ -396,8 +400,11 @@ export const L: Record<SupportedLang, Strings> = {
 		setTargetFolderPlaceholder: '(vault root)',
 		setLang: 'Language of the interface and Bible-verse popup',
 		setLangDesc: 'Plugin labels and Bible book names in the popup. Notes automatically follow the language of the imported program file.',
+		headScripture: 'Scripture references',
 		setScriptureLinks: 'Link scriptures',
 		setScriptureLinksDesc: 'Generates clickable JW Library links for every scripture.',
+		setBiblePopupEnabled: 'Enable Bible-verse popup',
+		setBiblePopupEnabledDesc: 'Opens the verse text directly in Obsidian when a scripture is clicked or tapped, instead of only opening JW Library. Can be switched off independently of the loaded Bible file.',
 		setReviewNote: 'Create review note',
 		setReviewNoteDesc: 'Additionally creates a "Review" note with the three standard reflection questions (circuit assemblies link to the printed review questions, regional conventions mention the highlights video).',
 		headNoteFields: 'Note fields',
@@ -410,7 +417,6 @@ export const L: Record<SupportedLang, Strings> = {
 		setExtraFieldsDesc: 'Each line is appended to every program-item note as its own field with its own writing space (e.g. "**Notes:**").',
 		setFrontmatter: 'Add frontmatter (properties)',
 		setFrontmatterDesc: 'Adds YAML frontmatter with stable English keys (convention, type, day, time) to every generated note – e.g. for Dataview queries. Keys are deliberately language-independent.',
-		headPopup: 'Bible-verse popup',
 		setBibleFile: 'Bible file',
 		bibleDescLoaded: 'Bible file is loaded. Clicking a scripture shows the verse text directly in Obsidian (with a button to open it in JW Library).',
 		bibleDescMissing: 'Optional: pick a Bible jwpub file (e.g. downloaded from jw.org) so that clicking a scripture shows the verse text directly in Obsidian instead of only opening JW Library. The study edition (nwtsty) offers study notes and more footnotes; on mobile devices with limited memory the much smaller regular edition (nwt) is the memory-friendly choice. The file is stored locally in the plugin folder, not copied into the vault.',

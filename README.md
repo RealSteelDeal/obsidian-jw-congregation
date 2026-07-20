@@ -81,9 +81,15 @@ This works because every generated note carries invisible markers (Obsidian's ow
 |---|---|---|
 | Target folder | *(vault root)* | Parent folder for new convention folders (overridable per import); empty = no wrapper folder |
 | Language of the interface and Bible-verse popup | `Deutsch` | Plugin labels and Bible book names in the popup. Generated notes follow the imported file's language automatically |
-| Link scriptures | on | Generates clickable `jwlibrary://` links |
 | Create review note | on | Creates the additional review note |
 | Note fields | all on | Show/hide the Day/Time/Scriptures/Speaker fields individually, plus free-form extra fields |
+
+All settings around scriptures — linking, the click/tap popup and the as-you-type suggester — live together under one **"Scripture references"** heading:
+
+| Setting | Default | Description |
+|---|---|---|
+| Link scriptures | on | Generates clickable `jwlibrary://` links |
+| Enable Bible-verse popup | on | Whether clicking/tapping a scripture opens the in-app popup at all — independent of whether a Bible file is loaded, so the popup can be switched off without removing a large file |
 | Bible file | – | Optional Bible jwpub file for the verse popup (study edition `nwtsty` for study notes; the much smaller regular edition `nwt` is the memory-friendly choice on mobile) |
 | Typed scripture suggestions | all on, default order | Enable/disable and reorder the four actions offered when typing a scripture reference (link, link & open JW Library, insert as quote, insert as quote & keep the link) |
 

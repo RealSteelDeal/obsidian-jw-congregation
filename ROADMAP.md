@@ -23,6 +23,12 @@ Nothing queued right now — suggestions welcome via GitHub issues.
 
 ## Recently shipped
 
+- **Bible-verse popup can now be switched off on its own**, independent of
+  whether a Bible file is loaded — a new "Enable Bible-verse popup" toggle
+  next to the existing scripture-linking and typed-suggestion settings.
+  Also regrouped all scripture-related settings (linking, popup, typed
+  suggestions) under one "Scripture references" heading, in both the
+  declarative settings UI and the older fallback tab.
 - **Two more typed-scripture-suggestion actions, and made all four
   configurable**: alongside linking and inserting a quote (which replaces the
   typed reference), the suggestion menu now also offers "link & open JW

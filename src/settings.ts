@@ -39,6 +39,10 @@ export interface JwPluginSettings {
 	 *  notes are deliberately frontmatter-free otherwise. */
 	frontmatter: boolean;
 	bibleFileLoaded: boolean;
+	/** Whether clicking/tapping a scripture opens the in-app popup at all —
+	 *  independent of whether a Bible file is loaded, so the popup can be
+	 *  switched off temporarily without removing the (potentially large) file. */
+	bibleFilePopupEnabled: boolean;
 	/** Plugin version at the time of the last load — used to show a one-time
 	 *  "re-import to pick up note-template improvements" notice after updates
 	 *  (imported notes with writing space are never auto-updated, so template
@@ -69,6 +73,7 @@ export const DEFAULT_SETTINGS: JwPluginSettings = {
 	extraFields: '',
 	frontmatter: false,
 	bibleFileLoaded: false,
+	bibleFilePopupEnabled: true,
 	lastVersion: '',
 	bibleHintClickCount: 0,
 	scriptureSuggestActions: DEFAULT_SCRIPTURE_SUGGEST_ACTIONS,
@@ -107,11 +112,6 @@ export class JwSettingTab extends PluginSettingTab {
 				control: { type: 'dropdown', key: 'lang', options: { de: 'Deutsch', en: 'English' } },
 			},
 			{
-				name: t.setScriptureLinks,
-				desc: t.setScriptureLinksDesc,
-				control: { type: 'toggle', key: 'scriptureLinks' },
-			},
-			{
 				name: t.setReviewNote,
 				desc: t.setReviewNoteDesc,
 				control: { type: 'toggle', key: 'reviewNote' },
@@ -141,9 +141,22 @@ export class JwSettingTab extends PluginSettingTab {
 				],
 			},
 			{
+				// Everything to do with scriptures — linking, the click/tap popup and
+				// the as-you-type suggester — grouped under one heading since they're
+				// all facets of the same underlying feature area.
 				type: 'group',
-				heading: t.headPopup,
+				heading: t.headScripture,
 				items: [
+					{
+						name: t.setScriptureLinks,
+						desc: t.setScriptureLinksDesc,
+						control: { type: 'toggle', key: 'scriptureLinks' },
+					},
+					{
+						name: t.setBiblePopupEnabled,
+						desc: t.setBiblePopupEnabledDesc,
+						control: { type: 'toggle', key: 'bibleFilePopupEnabled' },
+					},
 					{
 						name: t.setBibleFile,
 						desc: this.plugin.settings.bibleFileLoaded ? t.bibleDescLoaded : t.bibleDescMissing,
@@ -155,14 +168,8 @@ export class JwSettingTab extends PluginSettingTab {
 							if (requireApiVersion('1.13.0')) this.update();
 						}),
 					},
-				],
-			},
-			{
-				type: 'group',
-				heading: t.headScriptureSuggest,
-				items: [
 					{
-						name: '',
+						name: t.headScriptureSuggest,
 						desc: t.headScriptureSuggestDesc,
 						searchable: false,
 					},
@@ -304,18 +311,6 @@ export class JwSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName(t.setScriptureLinks)
-			.setDesc(t.setScriptureLinksDesc)
-			.addToggle(toggle =>
-				toggle
-					.setValue(this.plugin.settings.scriptureLinks)
-					.onChange(async value => {
-						this.plugin.settings.scriptureLinks = value;
-						await this.plugin.saveSettings();
-					}),
-			);
-
-		new Setting(containerEl)
 			.setName(t.setReviewNote)
 			.setDesc(t.setReviewNoteDesc)
 			.addToggle(toggle =>
@@ -399,7 +394,31 @@ export class JwSettingTab extends PluginSettingTab {
 					}),
 			);
 
-		new Setting(containerEl).setName(t.headPopup).setHeading();
+		new Setting(containerEl).setName(t.headScripture).setHeading();
+
+		new Setting(containerEl)
+			.setName(t.setScriptureLinks)
+			.setDesc(t.setScriptureLinksDesc)
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.scriptureLinks)
+					.onChange(async value => {
+						this.plugin.settings.scriptureLinks = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t.setBiblePopupEnabled)
+			.setDesc(t.setBiblePopupEnabledDesc)
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.bibleFilePopupEnabled)
+					.onChange(async value => {
+						this.plugin.settings.bibleFilePopupEnabled = value;
+						await this.plugin.saveSettings();
+					}),
+			);
 
 		const bibleFileSetting = new Setting(containerEl)
 			.setName(t.setBibleFile)
@@ -410,8 +429,7 @@ export class JwSettingTab extends PluginSettingTab {
 		// pattern, not leftover use of the old API.
 		this.renderBibleFileSetting(bibleFileSetting, () => this.display());
 
-		new Setting(containerEl).setName(t.headScriptureSuggest).setHeading();
-		new Setting(containerEl).setDesc(t.headScriptureSuggestDesc);
+		new Setting(containerEl).setName(t.headScriptureSuggest).setDesc(t.headScriptureSuggestDesc);
 		this.plugin.settings.scriptureSuggestActions.forEach((config, index) => {
 			const row = new Setting(containerEl).setName(this.actionLabel(config.action));
 			this.renderActionRow(row, config, index, () => this.display());

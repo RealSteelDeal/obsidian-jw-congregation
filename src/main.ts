@@ -115,9 +115,17 @@ export default class JwCongregationPlugin extends Plugin {
 		// scripture link consequently does nothing at all now — acceptable,
 		// since every action in that sheet targets the raw URL, which is
 		// meaningless for these generated deep links.
-		if (this.settings.bibleFileLoaded && this.findScriptureLinkForEvent(evt)) {
+		if (this.popupEnabled() && this.findScriptureLinkForEvent(evt)) {
 			evt.stopImmediatePropagation();
 		}
+	}
+
+	/** Whether clicking/tapping a scripture should open the in-app popup — a
+	 *  Bible file must be loaded AND the popup itself must not have been
+	 *  switched off (bibleFilePopupEnabled has its own settings toggle,
+	 *  independent of whether a file is loaded). */
+	private popupEnabled(): boolean {
+		return this.settings.bibleFileLoaded && this.settings.bibleFilePopupEnabled;
 	}
 
 	private onDocumentTouchEnd(evt: TouchEvent): void {
@@ -151,6 +159,12 @@ export default class JwCongregationPlugin extends Plugin {
 			// No Bible file: leave the click/tap to Obsidian (JW Library opens as
 			// usual), but occasionally point out that the in-app popup exists.
 			void this.maybeShowBibleHint();
+			return true;
+		}
+		if (!this.settings.bibleFilePopupEnabled) {
+			// Bible file loaded, but the popup was explicitly switched off — leave
+			// the click/tap to Obsidian's default JW Library behaviour without the
+			// "add a Bible file" hint, since one is already loaded.
 			return true;
 		}
 

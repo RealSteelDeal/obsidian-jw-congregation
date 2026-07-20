@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.14.0
+
+### New features
+
+- **"Update convention notes" can now propose field-level corrections for
+  notes created before v1.9.0** (before invisible merge markers existed),
+  which previously could only be reported as needing a full re-import. A
+  small, deliberately conservative heuristic recognizes the four fields
+  NoteBuilder always writes as a complete `**Label:** value` line — Day,
+  Time, Scriptures, the "Anschließend"/"Next" hint — and proposes a
+  correction only when that label appears exactly once in both the old and
+  the freshly parsed note; anything ambiguous (a label appearing zero or
+  multiple times, e.g. a symposium note's per-part scripture fields) is
+  silently skipped rather than guessed at. The Speaker field is never
+  touched — NoteBuilder never writes a value there to compare against.
+  Nothing is written automatically: a new, separate notice (only shown when
+  such notes were found) opens a review window listing every proposed
+  change per note with its own on/off switch, and only notes left switched
+  on are patched when "Apply" is clicked.
+
 ## 1.13.0
 
 ### New features

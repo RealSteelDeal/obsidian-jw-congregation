@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.17.0
+
+### Improvements
+
+- **`main.ts` is now covered by automated tests** — previously the plugin's
+  central orchestration (import/update rollback logic, create/skip/regenerate
+  accounting, marker-merge and legacy-field-correction branching) had zero
+  test coverage, since it depends on the real `obsidian` package, which has
+  no usable runtime outside the app itself. A minimal, hand-written stand-in
+  for just the pieces `main.ts` (and everything it imports) needs at
+  module-load time now makes it possible to construct a real plugin instance
+  and exercise `importFile()`/`updateFile()` against an in-memory vault.
+- **A size ceiling now guards every decompression step** (the raw `.jwpub`/
+  RTF-ZIP file, every unzipped entry, every decrypted content blob) against
+  a crafted or corrupted file with an extreme compression ratio ("zip bomb")
+  freezing Obsidian or exhausting memory. Ceilings are generous — well above
+  the largest legitimate file this code handles (the ~125 MB Study Bible) —
+  so no real file is affected; an oversized file is now rejected with a
+  clear, translated message instead.
+- **Parsing/decryption failures are now translated into the interface
+  language**, instead of a hardcoded German/English sentence appearing
+  inside an otherwise fully translated notice (e.g. a French-interface user
+  hitting an unsupported device or a corrupted file previously saw a German
+  fragment). Affects unknown file formats, missing WebCrypto/WebAssembly
+  support, and various corrupted-jwpub/RTF-ZIP conditions.
+- Corrected the `LICENSE` file's copyright holder (was still the Obsidian
+  sample-plugin template's placeholder) and brought `AGENTS.md` back in sync
+  with the current codebase (it still described a German/English-only
+  plugin and was missing several existing files from its module map).
+
 ## 1.16.2
 
 ### Fixes

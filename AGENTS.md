@@ -37,17 +37,22 @@ src/
   main.ts                    # Plugin-Lifecycle (onload/onunload, Commands, Settings, importFile()/updateFile())
   settings.ts                # JwPluginSettings, DEFAULT_SETTINGS, JwSettingTab
   i18n.ts                    # Strings/NoteStrings-Interfaces + L/NL für alle 7 Sprachen (siehe Abschnitt "Sprachen" unten)
-  models/congress.ts         # Typen: Congress, Day, Session, ProgramItem, Scripture
+  models/
+    congress.ts              # Typen: Congress, Day, Session, ProgramItem, Scripture
+    mwb.ts                   # Typen für den Leben-und-Dienst-Import: Mwb, MwbWeek, MwbItem, MemorialReadingSchedule
   normalizer/
     bookNames.ts             # Buchnamenstabelle 1–66, alle 7 Sprachen (DE/EN/FR/IT/PT/RU/ES)
     ScriptureNormalizer.ts   # fromJwpub(), fromRtf(), toJwLibraryLink(), toMarkdownLink()
     ScriptureTextParser.ts   # erkennt eine als Klartext getippte Bibelstelle (für den Editor-Suggester)
   util/
     jwpubCrypto.ts           # geteilte jwpub-Krypto: openJwpubDatabase(), readPublication(), deriveKey(), decryptBlob()
+    jwpubLinks.ts            # geteilte jwpub-Konstanten: MEPS_LANGUAGE_INDEX, Bibel-/Lied-Href-Regexe, assertPlatformSupport()
+    fileSignature.ts         # looksLikeJwpub()/hasPkZipSignature() — von SourceRouter.ts und MwbSourceRouter.ts geteilt
+    folderList.ts            # listAllFolders() — von allen vier Import/Update-Modalen geteilt
     bytes.ts                 # latin1Decode(), hexToBytes()
     parseErrors.ts           # ParseError/ParseErrorCode — strukturierte Fehler statt hartkodierter Strings (siehe unten)
     decompressionGuard.ts    # Größenlimits gegen Zip-Bomb-artige Dekompression (siehe unten)
-    noteMerge.ts             # Marker-basiertes Merge für "Kongress-Notizen aktualisieren" (%%jw:id%%-Blöcke)
+    noteMerge.ts             # Marker-basiertes Merge für "…Notizen aktualisieren" (%%jw:id%%-Blöcke) — von Kongress- UND mwb-Feature genutzt
     legacyFieldPatch.ts      # Heuristischer Fallback für Notizen ohne Marker (vor v1.9.0) — siehe eigener Abschnitt unten
     quoteBuilder.ts          # Vers-Text → Obsidian-Zitat-Callout (`> [!quote] …`)
     scriptureLinkScan.ts     # findet jwlibrary://-Links/Zitat-Callouts im Notiztext (Klick-Feature, Einfüge-/Löschpunkt)
@@ -55,13 +60,18 @@ src/
     JwpubParser.ts           # .jwpub → Congress (primär, nutzt util/jwpubCrypto.ts + DOMParser)
     RtfParser.ts             # RTF-ZIP → Congress (Fallback)
     SourceRouter.ts          # Dateiformat erkennen, Router jwpub → rtf
+    MwbParser.ts             # .jwpub (Leben-und-Dienst-Arbeitsheft) → Mwb; nur Deutsch (siehe eigener Abschnitt unten)
+    MwbSourceRouter.ts       # eigenständig (nicht Teil von SourceRouter/ParseResult) — prüft Publication.Symbol auf "mwb"-Präfix vor dem vollen Parse
   builder/
     NoteBuilder.ts           # Congress → GeneratedNote[] (Ordnernamen, Nummerierung, Übersicht, Notiz-Rendering, %%jw:id%%-Marker)
+    MwbNoteBuilder.ts        # Mwb → eine Notiz pro Woche (kein Ordner-pro-Tag, keine Notiz pro Programmpunkt) + optionale Gedächtnismahl-Notiz
   bible/
     BibleReader.ts           # Bibel-jwpub-Datei (nwt/nwtsty) → Vers-Text/Fußnoten/Querverweise (Bibeltext-Popup)
   ui/
     ImportModal.ts           # Dateiauswahl, Zielordner-Dropdown, Vorschau, Import-Bestätigung
     UpdateNotesModal.ts      # wie ImportModal, aber patcht einen bereits importierten Ordner (nur bestehende Ordner)
+    ImportMwbModal.ts        # wie ImportModal, aber für Leben-und-Dienst-Arbeitshefter (nur .jwpub, eigener mwbTargetFolder)
+    UpdateMwbNotesModal.ts   # wie UpdateNotesModal, aber für Leben-und-Dienst-Arbeitshefter
     BibleVerseModal.ts       # Popup mit Vers-Text + "In JW Library öffnen"/"Als Zitat einfügen"/"Zitat entfernen"
     ScriptureEditorSuggest.ts # As-you-type-Vorschlag für eine getippte Bibelstelle (Verlinken/Zitat einfügen)
     LegacyMigrationModal.ts  # Vorschau/Bestätigung pro Notiz für legacyFieldPatch.ts-Korrekturvorschläge

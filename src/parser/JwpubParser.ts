@@ -5,19 +5,8 @@ import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 import { CongressLang } from '../normalizer/bookNames';
 import { NL, NoteStrings } from '../i18n';
 import { DbRow, decryptBlob, deriveKey, openJwpubDatabase, readPublication } from '../util/jwpubCrypto';
-import { ParseError } from '../util/parseErrors';
+import { assertPlatformSupport, BIBLE_HREF_RE, MEPS_LANGUAGE_INDEX, SONG_DOCID_HREF_RE, SONG_HREF_SELECTOR } from '../util/jwpubLinks';
 
-// Matches jwpub://b/NWTR/book:chapter:verse[-book:chapter:verse]
-const BIBLE_HREF_RE = /^jwpub:\/\/b\/NWTR\/([\d:]+(?:-[\d:]+)?)$/;
-// Matches jwpub://p/<langSymbol>:<docid>/ — the real jw.org/finder docid for a
-// song, embedded directly in the jwpub file. The language symbol varies with
-// the publication's language (X = German, E = English, …), so it must NOT be
-// hardcoded. The docid is not a linear function of the song number (confirmed:
-// docid jumps by +6000 for at least one song vs. the naive songNumber-based
-// guess), so this is the only reliable source and must be read, not computed.
-const SONG_DOCID_HREF_RE = /^jwpub:\/\/p\/[^:/]+:(\d+)\/?$/;
-// Any song/publication link, language-independent (jwpub://p/X:…, jwpub://p/E:…).
-const SONG_HREF_SELECTOR = 'a[href^="jwpub://p/"]';
 // Time at start of paragraph text — same "H:MM" shape in German (24h) and
 // English (12h without am/pm) programme files; French uses a period instead
 // of a colon ("9.20"), confirmed against the real French CO/CA programme
@@ -49,12 +38,6 @@ const PAUSE_RE = /^((?:Pause|Intermission)\b.*)$/i;
 // respuestas a las siguientes preguntas:". "Answer the following questions"
 // kept as a defensive extra variant.
 const QUESTIONS_RE = /^(Beantworte die folgenden Fragen|Find answers to these questions|Answer the following questions|Soyez attentifs aux réponses à ces questions|Rispondete a queste domande|Esteja atento às respostas para as seguintes perguntas|Узнайте ответы на эти вопросы|Anota las respuestas a las siguientes preguntas)/iu;
-// Publication.MepsLanguageIndex → CongressLang, confirmed against each real
-// programme file (dumped via scripts/dump-structure.mjs), not looked up from a
-// generic MEPS language table — only these seven are ones this parser handles.
-const MEPS_LANGUAGE_INDEX: Record<number, CongressLang> = {
-	0: 'en', 1: 'es', 2: 'de', 3: 'fr', 4: 'it', 207: 'ru', 785: 'pt',
-};
 
 export class JwpubParser {
 
@@ -79,7 +62,7 @@ export class JwpubParser {
 	}
 
 	async parse(fileBuffer: Uint8Array): Promise<Congress> {
-		this.assertPlatformSupport();
+		assertPlatformSupport();
 		const { db, innerZip } = await openJwpubDatabase(fileBuffer, this.sqlWasmBinary);
 		const pub = readPublication(db);
 		const keyIv = await deriveKey(pub);
@@ -89,23 +72,6 @@ export class JwpubParser {
 		const congress = await this.buildCongress(docs, meta, keyIv, pub, db, innerZip);
 		db.close();
 		return congress;
-	}
-
-	/**
-	 * Fails fast with a clear, actionable message if the host environment is
-	 * missing an API this parser needs (WebCrypto for AES/SHA-256, WebAssembly
-	 * for sql.js) — both are expected to be present on every platform Obsidian
-	 * itself supports (desktop Electron and the mobile apps), but a clear error
-	 * here beats a cryptic low-level failure several calls deep if that's ever
-	 * not the case (e.g. an unusually old OS/WebView).
-	 */
-	private assertPlatformSupport(): void {
-		if (typeof crypto === 'undefined' || !crypto.subtle) {
-			throw new ParseError('noWebCrypto');
-		}
-		if (typeof WebAssembly === 'undefined') {
-			throw new ParseError('noWebAssembly');
-		}
 	}
 
 	// ──────────────────────────────────────────────────────────────────────────

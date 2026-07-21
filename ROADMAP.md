@@ -16,10 +16,15 @@ Nothing queued right now — suggestions welcome via GitHub issues.
 
 ## Under consideration
 
-- **Import of other jwpub publications** (Life and Ministry Meeting Workbook,
-  Watchtower study edition) as meeting notes — the decryption, crypto and
-  scripture-link infrastructure is fully reusable; unclear how much demand
-  there is.
+- **Import of the Watchtower study edition** as meeting notes — the Life
+  and Ministry Meeting Workbook is now covered (see "Recently shipped"); the
+  same decryption/crypto/scripture-link infrastructure is reusable for the
+  Watchtower, but its document structure (paragraph-numbered study article,
+  not a fixed weekly section layout) hasn't been examined yet.
+- **Meeting-Workbook support for languages other than German** — the parser
+  currently rejects any other detected file language outright, since the
+  three section-heading labels and the Congregation-Bible-Study title double
+  as parser detection anchors and only German real files have been verified.
 - **Preview/diff for the regular marker-based merge, not just the legacy
   fallback**: "Update convention notes" currently applies a marker-merge
   immediately for 1.9.0+ notes, and only shows a review window (see
@@ -46,6 +51,19 @@ Nothing queued right now — suggestions welcome via GitHub issues.
 
 ## Recently shipped
 
+- **Import of the Life and Ministry Meeting Workbook ("Leben und Dienst")**,
+  German only for now: one Markdown note per week — not one per assignment,
+  since a week's schedule is read as a whole — covering all three fixed
+  sections, every numbered item (duration, ministry-assignment label, source
+  citation, discussion questions where present), the opening/mid-week/closing
+  songs, and the always-last Congregation Bible Study. The "Bibelleseprogramm
+  für das Gedächtnismahl" insert that appears in the Memorial-season issue
+  gets its own per-day reading-checklist note. Has its own import/update
+  commands, ribbon icon and settings section, fully independent of the
+  convention-program feature; every derived field is wrapped in the same
+  invisible-marker mechanism as convention notes, so "Update Meeting Workbook
+  notes" can refresh a corrected schedule without touching anything typed
+  underneath an item.
 - **Quality-audit follow-through**: `main.ts` now has automated test coverage
   (import/update rollback, create/skip/regenerate accounting, marker-merge
   and legacy-field-correction branching) via a minimal Obsidian-API test

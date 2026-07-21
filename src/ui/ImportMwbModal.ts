@@ -1,23 +1,26 @@
 import { App, Modal, Notice, Setting, TextComponent } from 'obsidian';
 import { L, Strings } from '../i18n';
 import type JwCongregationPlugin from '../main';
-import { SourceRouter } from '../parser/SourceRouter';
-import { Congress } from '../models/congress';
+import { MwbSourceRouter } from '../parser/MwbSourceRouter';
+import { Mwb } from '../models/mwb';
 import { listAllFolders } from '../util/folderList';
 
 const NEW_FOLDER_VALUE = '__new__';
 const ROOT_VALUE = '__root__';
 
-export class ImportModal extends Modal {
+/** Mirrors ImportModal.ts exactly (same Modal/Setting conventions), scoped
+ *  to meeting-workbook jwpub files (no RTF/zip fallback — there's no RTF
+ *  export format for these) and MwbSourceRouter/plugin.importMwbFile(). */
+export class ImportMwbModal extends Modal {
 	private fileData: Uint8Array | null = null;
 	private filename = '';
-	private preview: Congress | null = null;
+	private preview: Mwb | null = null;
 	private previewEl: HTMLElement | null = null;
 	private targetFolder: string;
 
 	constructor(app: App, private readonly plugin: JwCongregationPlugin) {
 		super(app);
-		this.targetFolder = plugin.settings.targetFolder;
+		this.targetFolder = plugin.settings.mwbTargetFolder;
 	}
 
 	private get t(): Strings {
@@ -27,15 +30,15 @@ export class ImportModal extends Modal {
 	onOpen() {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.createEl('h2', { text: this.t.importTitle });
+		contentEl.createEl('h2', { text: this.t.importMwbTitle ?? '' });
 
 		new Setting(contentEl)
 			.setName(this.t.importFileName)
-			.setDesc(this.t.importFileDesc)
+			.setDesc(this.t.importMwbFileDesc ?? '')
 			.addButton(btn =>
 				btn.setButtonText(this.t.btnPickFile).onClick(() => {
 					const input = createEl('input', { type: 'file' });
-					input.accept = '.jwpub,.zip,.rtf';
+					input.accept = '.jwpub';
 					input.onchange = async () => {
 						const file = input.files?.[0];
 						if (!file) return;
@@ -48,11 +51,6 @@ export class ImportModal extends Modal {
 			);
 
 		const folders = listAllFolders(this.app);
-		// A saved target folder that no longer exists in the vault must not funnel
-		// the user into the "create new folder" flow with a stale prefill (confirmed
-		// by real-world feedback: a leftover "Kongress" default made the modal open
-		// on "➕ Neuer Ordner" every time). Fall back to the vault root instead —
-		// "new folder" is strictly an explicit dropdown choice now.
 		if (this.targetFolder !== '' && !folders.some(f => f.path === this.targetFolder)) {
 			this.targetFolder = '';
 		}
@@ -72,7 +70,7 @@ export class ImportModal extends Modal {
 		newFolderSetting.settingEl.hide();
 
 		const folderDropdownSetting = new Setting(contentEl)
-			.setName(this.t.importTarget)
+			.setName(this.t.setMwbTargetFolder ?? this.t.importTarget)
 			.setDesc(this.t.importTargetDesc)
 			.addDropdown(drop => {
 				drop.addOption(ROOT_VALUE, this.t.optVaultRoot);
@@ -80,8 +78,6 @@ export class ImportModal extends Modal {
 					drop.addOption(folder.path, folder.path);
 				}
 				drop.addOption(NEW_FOLDER_VALUE, this.t.optNewFolder);
-				// After the normalization above, targetFolder is always either '' (root)
-				// or an existing folder path — never a not-yet-created name.
 				drop.setValue(isRoot ? ROOT_VALUE : this.targetFolder);
 				drop.onChange(value => {
 					if (value === NEW_FOLDER_VALUE) {
@@ -96,7 +92,6 @@ export class ImportModal extends Modal {
 					}
 				});
 			});
-		// Dropdown should visually appear above the "new folder name" field.
 		contentEl.insertBefore(folderDropdownSetting.settingEl, newFolderSetting.settingEl);
 
 		this.previewEl = contentEl.createDiv('jw-import-preview');
@@ -112,7 +107,7 @@ export class ImportModal extends Modal {
 							return;
 						}
 						this.close();
-						await this.plugin.importFile(this.filename, this.fileData, this.targetFolder);
+						await this.plugin.importMwbFile(this.filename, this.fileData, this.targetFolder);
 					}),
 			)
 			.addButton(btn =>
@@ -125,10 +120,10 @@ export class ImportModal extends Modal {
 		this.previewEl.empty();
 
 		try {
-			const router = new SourceRouter(this.plugin.sqlWasmBinary);
+			const router = new MwbSourceRouter(this.plugin.sqlWasmBinary);
 			const result = await router.route(this.filename, this.fileData);
-			this.preview = result.congress;
-			this.renderPreview(result.congress, result.source);
+			this.preview = result.mwb;
+			this.renderPreview(result.mwb);
 		} catch (err) {
 			this.previewEl.createEl('p', {
 				text: this.t.previewFailed(String(err)),
@@ -137,7 +132,7 @@ export class ImportModal extends Modal {
 		}
 	}
 
-	private renderPreview(congress: Congress, source: string) {
+	private renderPreview(mwb: Mwb) {
 		if (!this.previewEl) return;
 		const el = this.previewEl;
 
@@ -150,17 +145,11 @@ export class ImportModal extends Modal {
 			row.createEl('td', { text: value });
 		};
 
-		addRow(this.t.rowType, this.t.typeLabels[congress.type] ?? congress.type);
-		addRow(this.t.rowTheme, congress.theme);
-		addRow(this.t.rowYear, String(congress.year));
-		addRow(this.t.rowDays, congress.days.map(d => d.weekday).join(', '));
-		addRow(this.t.rowSource, source === 'jwpub' ? 'jwpub' : this.t.rowSourceRtf);
-
-		const itemCount = congress.days.flatMap(d =>
-			d.sessions.flatMap(s => s.items),
-		).length;
-		addRow(this.t.rowLanguage, this.t.langDisplay(congress.lang));
+		addRow(this.t.rowYear, String(mwb.year));
+		addRow(this.t.rowWeeks ?? 'Wochen', String(mwb.weeks.length));
+		const itemCount = mwb.weeks.reduce((sum, w) => sum + w.items.length, 0);
 		addRow(this.t.rowItems, String(itemCount));
+		addRow(this.t.rowLanguage, this.t.langDisplay(mwb.lang));
 	}
 
 	onClose() {

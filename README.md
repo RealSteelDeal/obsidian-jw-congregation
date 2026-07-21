@@ -33,6 +33,7 @@ An Obsidian community plugin that imports official convention program files of J
 - **Type a scripture reference anywhere, in any note** (e.g. `Psalm 12:1`, or an abbreviation like `Matth. 5:2`) and a suggestion pops up right after typing it, offering up to four actions – both fully offline, using the loaded Bible file: link it, link it and open JW Library immediately, insert the verse text as a quote (replacing the typed reference), or insert the quote while turning the reference into a link instead. Each of the four can be individually enabled/disabled and freely reordered in the settings.
 - **Review note** (`Review.md`; `Wiederholung.md` for German imports) with the three standard reflection questions for the congregation's convention review
 - **Printed review questions** ("Find Answers to These Questions") become their own note with one heading per question, always numbered last
+- **Meeting Workbook ("Leben und Dienst") import — German only, new**: imports the Life-and-Ministry-Meeting-Workbook `.jwpub` file as one note per week (not one per assignment) — the three fixed sections, every numbered item (with duration, ministry-assignment label, source citation and discussion questions where present), the opening/mid-week/closing songs, and the always-last Congregation Bible Study. A "Bibelleseprogramm für das Gedächtnismahl" insert (appears in the Memorial-season issue) gets its own per-day reading checklist note. Has its own import/update commands, ribbon icon and settings section, fully independent of the convention-program feature above.
 
 ### Tip: pairs well with JW Library Linker
 
@@ -82,6 +83,12 @@ Notes created before version 1.9.0 predate the marker mechanism entirely, so the
 
 Nothing from this is ever written automatically. When such notes are found, a second, distinct notice appears after the update finishes — clicking it opens a review window listing every proposed change (old value → new value) grouped by note, each with its own on/off switch. Only notes left switched on are patched, and only after clicking "Apply".
 
+### Meeting Workbook ("Leben und Dienst") import
+
+A second, independent ribbon icon (calendar symbol), command palette entry, or the **"Import & update Meeting Workbook"** settings section imports a Life-and-Ministry-Meeting-Workbook `.jwpub` file the same way — pick the file, pick a target folder, check the preview, **Import**. One folder per issue is created, with one Markdown note per week (not one per assignment, unlike the convention feature above — a week's schedule is meant to be read as a whole). "Update Meeting Workbook notes" re-parses the same file and patches an already-imported issue folder in place, exactly like "Update convention notes" does, via the same invisible-marker mechanism — every numbered item keeps its own marker (the Congregation Bible Study gets a dedicated one), so anything typed underneath it is preserved.
+
+Currently supports German workbook files only — the three section headings and the Congregation-Bible-Study title double as both display text and parser detection anchors, and only German real files have been verified so far. Picking a file in another language, or a convention-program file by mistake, is rejected with a clear message rather than silently misparsed.
+
 ## Settings
 
 The very top of the tab, **"Import & update convention programs"**, explains the difference between the two functions described above and offers an "Open" button for each — so both are discoverable without knowing the ribbon icon or command palette.
@@ -102,6 +109,8 @@ All settings around scriptures — linking, the click/tap popup and the as-you-t
 | Enable Bible-verse popup | on | Whether clicking/tapping a scripture opens the in-app popup at all — independent of whether a Bible file is loaded, so the popup can be switched off without removing a large file |
 | Bible file | – | Optional Bible jwpub file for the verse popup (study edition `nwtsty` for study notes; the much smaller regular edition `nwt` is the memory-friendly choice on mobile) |
 | Typed scripture suggestions | all on, default order | Enable/disable and reorder the four actions offered when typing a scripture reference (link, link & open JW Library, insert as quote, insert as quote & keep the link) |
+
+A separate **"Import & update Meeting Workbook"** section (with its own **"Meeting-Workbook note fields"** group) holds the Leben-und-Dienst-specific settings — target folder, scripture linking, show/hide duration and source-citation fields, and frontmatter — fully independent of the settings above, since the two note types are conceptually different content.
 
 ## Folder & note structure
 
@@ -169,6 +178,7 @@ src/
   i18n.ts                    # UI strings (de/en) + note-generation strings (all 7 languages)
   models/
     congress.ts              # data model (Congress, Day, ProgramItem, …)
+    mwb.ts                   # data model for the Meeting Workbook import (Mwb, MwbWeek, MwbItem, …)
   normalizer/
     ScriptureNormalizer.ts   # scripture normalization & link generation
     ScriptureTextParser.ts   # recognizes a scripture reference typed as plain text
@@ -177,20 +187,28 @@ src/
     JwpubParser.ts           # jwpub → data model (primary)
     RtfParser.ts             # RTF-ZIP → data model (fallback, German only)
     SourceRouter.ts          # format detection & routing
+    MwbParser.ts             # jwpub → Mwb (Meeting Workbook, German only)
+    MwbSourceRouter.ts       # Meeting-Workbook format/publication-type detection
   builder/
     NoteBuilder.ts           # data model → Markdown notes (wraps derived fields in merge markers)
+    MwbNoteBuilder.ts        # Mwb → one Markdown note per week (wraps derived fields in merge markers)
   bible/
     BibleReader.ts           # Bible jwpub → verse text/footnotes/cross-references
   ui/
     ImportModal.ts           # import dialog with target-folder picker & preview
     UpdateNotesModal.ts      # re-parses a file and patches an already-imported folder
+    ImportMwbModal.ts        # same as ImportModal, for Meeting Workbook files
+    UpdateMwbNotesModal.ts   # same as UpdateNotesModal, for Meeting Workbook files
     BibleVerseModal.ts       # verse popup ("Open in JW Library" / "insert as quote")
     ScriptureEditorSuggest.ts # as-you-type scripture reference → link/quote suggestion
     LegacyMigrationModal.ts  # review/apply field corrections for pre-1.9.0, marker-free notes
   util/
     jwpubCrypto.ts           # shared jwpub crypto
+    jwpubLinks.ts            # shared jwpub constants (MEPS language table, scripture/song href patterns)
+    fileSignature.ts         # shared jwpub/PK-signature file detection
+    folderList.ts            # shared vault-folder listing for the import/update modals
     bytes.ts                 # hex/latin1 helpers
-    noteMerge.ts             # marker-based merge for the "update notes" command
+    noteMerge.ts             # marker-based merge for the "update notes" commands (both features)
     legacyFieldPatch.ts      # label-anchored heuristic fallback for marker-free notes
     quoteBuilder.ts          # verse text → Obsidian quote callout
     scriptureLinkScan.ts     # finds jwlibrary:// links in note text

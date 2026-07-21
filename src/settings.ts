@@ -4,6 +4,8 @@ import { SupportedLang } from './normalizer/bookNames';
 import { L, Strings } from './i18n';
 import { ImportModal } from './ui/ImportModal';
 import { UpdateNotesModal } from './ui/UpdateNotesModal';
+import { ImportMwbModal } from './ui/ImportMwbModal';
+import { UpdateMwbNotesModal } from './ui/UpdateMwbNotesModal';
 
 /** The four things the in-editor scripture suggester (ScriptureEditorSuggest)
  *  can do with a typed reference — see its own doc comment for what each does. */
@@ -45,6 +47,15 @@ export interface JwPluginSettings {
 	 *  independent of whether a Bible file is loaded, so the popup can be
 	 *  switched off temporarily without removing the (potentially large) file. */
 	bibleFilePopupEnabled: boolean;
+	/** Meeting-workbook ("Leben und Dienst") import/update settings — kept
+	 *  fully independent of the congress-program settings above, since the
+	 *  two note types are conceptually different content that may well live
+	 *  in different parts of the vault with different field preferences. */
+	mwbTargetFolder: string;
+	mwbScriptureLinks: boolean;
+	mwbShowDurationField: boolean;
+	mwbShowSourceCitationField: boolean;
+	mwbFrontmatter: boolean;
 	/** Plugin version at the time of the last load — used to show a one-time
 	 *  "re-import to pick up note-template improvements" notice after updates
 	 *  (imported notes with writing space are never auto-updated, so template
@@ -76,6 +87,11 @@ export const DEFAULT_SETTINGS: JwPluginSettings = {
 	frontmatter: false,
 	bibleFileLoaded: false,
 	bibleFilePopupEnabled: true,
+	mwbTargetFolder: '',
+	mwbScriptureLinks: true,
+	mwbShowDurationField: true,
+	mwbShowSourceCitationField: true,
+	mwbFrontmatter: false,
 	lastVersion: '',
 	bibleHintClickCount: 0,
 	scriptureSuggestActions: DEFAULT_SCRIPTURE_SUGGEST_ACTIONS,
@@ -121,6 +137,46 @@ export class JwSettingTab extends PluginSettingTab {
 						name: t.updateCommand,
 						desc: t.updateExplanation,
 						render: setting => this.renderOpenModalButton(setting, () => new UpdateNotesModal(this.app, this.plugin).open()),
+					},
+				],
+			},
+			{
+				type: 'group',
+				heading: t.headImportMwb ?? '',
+				items: [
+					{ name: '', desc: t.headImportMwbDesc ?? '', searchable: false },
+					{
+						name: t.importMwbCommand ?? '',
+						desc: t.setImportMwbActionDesc ?? '',
+						render: setting => this.renderOpenModalButton(setting, () => new ImportMwbModal(this.app, this.plugin).open()),
+					},
+					{
+						name: t.updateMwbCommand ?? '',
+						desc: t.updateMwbExplanation ?? '',
+						render: setting => this.renderOpenModalButton(setting, () => new UpdateMwbNotesModal(this.app, this.plugin).open()),
+					},
+				],
+			},
+			{
+				type: 'group',
+				heading: t.headNoteFieldsMwb ?? '',
+				items: [
+					{
+						name: t.setMwbTargetFolder ?? '',
+						desc: t.setMwbTargetFolderDesc ?? '',
+						control: { type: 'text', key: 'mwbTargetFolder', placeholder: t.setTargetFolderPlaceholder },
+					},
+					{
+						name: t.setScriptureLinks,
+						desc: t.setScriptureLinksDesc,
+						control: { type: 'toggle', key: 'mwbScriptureLinks' },
+					},
+					{ name: t.setShowMwbDuration ?? '', control: { type: 'toggle', key: 'mwbShowDurationField' } },
+					{ name: t.setShowMwbSourceCitation ?? '', control: { type: 'toggle', key: 'mwbShowSourceCitationField' } },
+					{
+						name: t.setFrontmatter,
+						desc: t.setMwbFrontmatterDesc ?? '',
+						control: { type: 'toggle', key: 'mwbFrontmatter' },
 					},
 				],
 			},
@@ -334,6 +390,79 @@ export class JwSettingTab extends PluginSettingTab {
 			new Setting(containerEl).setName(t.updateCommand).setDesc(t.updateExplanation),
 			() => new UpdateNotesModal(this.app, this.plugin).open(),
 		);
+
+		new Setting(containerEl).setName(t.headImportMwb ?? '').setHeading();
+		new Setting(containerEl).setDesc(t.headImportMwbDesc ?? '');
+
+		this.renderOpenModalButton(
+			new Setting(containerEl).setName(t.importMwbCommand ?? '').setDesc(t.setImportMwbActionDesc ?? ''),
+			() => new ImportMwbModal(this.app, this.plugin).open(),
+		);
+		this.renderOpenModalButton(
+			new Setting(containerEl).setName(t.updateMwbCommand ?? '').setDesc(t.updateMwbExplanation ?? ''),
+			() => new UpdateMwbNotesModal(this.app, this.plugin).open(),
+		);
+
+		new Setting(containerEl).setName(t.headNoteFieldsMwb ?? '').setHeading();
+
+		new Setting(containerEl)
+			.setName(t.setMwbTargetFolder ?? '')
+			.setDesc(t.setMwbTargetFolderDesc ?? '')
+			.addText(text =>
+				text
+					.setPlaceholder(t.setTargetFolderPlaceholder)
+					.setValue(this.plugin.settings.mwbTargetFolder)
+					.onChange(async value => {
+						this.plugin.settings.mwbTargetFolder = value.trim();
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t.setScriptureLinks)
+			.setDesc(t.setScriptureLinksDesc)
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.mwbScriptureLinks)
+					.onChange(async value => {
+						this.plugin.settings.mwbScriptureLinks = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t.setShowMwbDuration ?? '')
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.mwbShowDurationField)
+					.onChange(async value => {
+						this.plugin.settings.mwbShowDurationField = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t.setShowMwbSourceCitation ?? '')
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.mwbShowSourceCitationField)
+					.onChange(async value => {
+						this.plugin.settings.mwbShowSourceCitationField = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t.setFrontmatter)
+			.setDesc(t.setMwbFrontmatterDesc ?? '')
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.mwbFrontmatter)
+					.onChange(async value => {
+						this.plugin.settings.mwbFrontmatter = value;
+						await this.plugin.saveSettings();
+					}),
+			);
 
 		new Setting(containerEl).setName(t.headGeneral).setHeading();
 

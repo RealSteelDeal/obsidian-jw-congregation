@@ -39,6 +39,27 @@ export interface NoteStrings {
 	folderCO: (year: number, theme: string) => string;
 	folderCAco: (season: string, theme: string) => string;
 	folderCAbr: (season: string, theme: string) => string;
+
+	// ── Meeting workbook parser/notes (Congress.lang) — v1 is German-only, so
+	// these are optional: only NL.de fills them, MwbParser refuses any other
+	// detected language rather than matching unverified section-heading text
+	// against them (see util/parseErrors.ts's 'mwbLanguageNotSupported'). The
+	// heading labels double as parser detection anchors, so they must match
+	// the real jwpub text exactly, not just read naturally in German. //
+	/** Exact text of the "SCHÄTZE AUS GOTTES WORT" section heading. */
+	treasuresLabel?: string;
+	/** Exact text of the "UNS IM DIENST VERBESSERN" section heading. */
+	ministryLabel?: string;
+	/** Exact text of the "UNSER LEBEN ALS CHRIST" section heading. */
+	livingLabel?: string;
+	/** Exact text of the always-last "Versammlungsbibelstudium" item title. */
+	cbsLabel?: string;
+	weekOverviewBase?: string;
+	weeklyBibleReadingLabel?: string;
+	durationLabel?: string;
+	sourceMaterialLabel?: string;
+	/** Filename base for the Memorial Bible-reading-schedule note. */
+	memorialReadingBase?: string;
 }
 
 /**
@@ -190,6 +211,27 @@ export interface Strings extends NoteStrings {
 	noticeLegacyCorrectionsFound: (count: number) => string;
 	noticeLegacyApplied: (count: number, failed: number) => string;
 	btnApply: string;
+
+	// ── Meeting workbook import/update (settings.lang) — v1 is German-only,
+	// so these are optional, same rationale as the NoteStrings additions above.
+	headImportMwb?: string;
+	headImportMwbDesc?: string;
+	setImportMwbActionDesc?: string;
+	importMwbCommand?: string;
+	importMwbTitle?: string;
+	importMwbFileDesc?: string;
+	updateMwbCommand?: string;
+	updateMwbTitle?: string;
+	updateMwbExplanation?: string;
+	setMwbTargetFolder?: string;
+	setMwbTargetFolderDesc?: string;
+	noticeImportMwbResult?: (folder: string, created: number, updated: number, skipped: number) => string;
+	noticeUpdateMwbResult?: (merged: number, created: number, needsReimport: number, unchanged: number) => string;
+	rowWeeks?: string;
+	headNoteFieldsMwb?: string;
+	setShowMwbDuration?: string;
+	setShowMwbSourceCitation?: string;
+	setMwbFrontmatterDesc?: string;
 }
 
 /** Display name of every detectable programme-file language, in every UI
@@ -235,6 +277,16 @@ export const L: Record<SupportedLang, Strings> = {
 		folderCAco: (season, theme) => `Kreiskongressprogramm ${season} – mit dem Kreisaufseher – „${theme}“`,
 		folderCAbr: (season, theme) => `Kreiskongressprogramm ${season} – mit dem Vertreter des Zweigbüros – „${theme}“`,
 
+		treasuresLabel: 'SCHÄTZE AUS GOTTES WORT',
+		ministryLabel: 'UNS IM DIENST VERBESSERN',
+		livingLabel: 'UNSER LEBEN ALS CHRIST',
+		cbsLabel: 'Versammlungsbibelstudium',
+		weekOverviewBase: '00. Übersicht',
+		weeklyBibleReadingLabel: 'Wochenlesung',
+		durationLabel: 'Dauer',
+		sourceMaterialLabel: 'Quelle',
+		memorialReadingBase: 'Bibelleseprogramm für das Gedächtnismahl',
+
 		popupLoading: 'Lade Bibeltext …',
 		popupMissing: 'Kein Vers-Text verfügbar (diese Stelle ist in der geladenen Bibel-Datei nicht indiziert).',
 		popupLoadFailed: 'Die Bibel-Datei konnte nicht geladen werden. Der Button unten öffnet die Stelle stattdessen in JW Library.',
@@ -276,6 +328,9 @@ export const L: Record<SupportedLang, Strings> = {
 				case 'jwpubEmptyPublication': return 'Die jwpub-Datei ist beschädigt: Die Publication-Tabelle ist leer.';
 				case 'fileTooLarge': return `Die Datei ist mit ${detail} ungewöhnlich groß und wurde sicherheitshalber abgelehnt.`;
 				case 'decompressedTooLarge': return `Der entpackte Inhalt ist mit ${detail} ungewöhnlich groß und wurde sicherheitshalber abgelehnt.`;
+				case 'notMwbPublication': return `Diese Datei ist kein Leben-und-Dienst-Arbeitsheft: „${detail}".`;
+				case 'mwbLanguageNotSupported': return 'Der Import von Arbeitsheftern wird bisher nur für deutsche Dateien unterstützt.';
+				case 'mwbNoWeekDocuments': return 'In dieser Datei wurden keine Wochenprogramme gefunden.';
 			}
 		},
 		noticeBibleHint: 'Tipp: Hinterlege in den Plugin-Einstellungen eine Bibel-jwpub-Datei (z. B. die Studienbibel von jw.org), dann öffnet ein Klick auf eine Bibelstelle den Vers-Text samt Querverweisen und Studienanmerkungen direkt als Popup in Obsidian. (Klicken öffnet die Einstellungen)',
@@ -386,6 +441,36 @@ export const L: Record<SupportedLang, Strings> = {
 			return `${parts.join(', ')}.`;
 		},
 		btnApply: 'Übernehmen',
+
+		headImportMwb: 'Leben und Dienst importieren & aktualisieren',
+		headImportMwbDesc: 'Importiert Arbeitshefter-Dateien (.jwpub) als Wochennotizen für die Zusammenkunft „Leben und Dienst als Christ" – eine Notiz pro Woche mit den drei festen Programmabschnitten. „Leben-und-Dienst-Notizen importieren" legt einen neuen Ordner an; „Leben-und-Dienst-Notizen aktualisieren" gleicht einen bereits importierten Ordner Feld für Feld ab, ohne eigene Einträge zu verlieren – wie beim Kongressprogramm. Bisher nur für deutsche Arbeitshefter-Dateien unterstützt.',
+		setImportMwbActionDesc: 'Wählt eine Arbeitshefter-Datei und legt daraus Wochennotizen an.',
+		importMwbCommand: 'Leben-und-Dienst-Notizen importieren',
+		importMwbTitle: 'Leben-und-Dienst-Notizen importieren',
+		importMwbFileDesc: 'Wähle eine Arbeitshefter-.jwpub-Datei.',
+		updateMwbCommand: 'Leben-und-Dienst-Notizen aktualisieren',
+		updateMwbTitle: 'Leben-und-Dienst-Notizen aktualisieren',
+		updateMwbExplanation: 'Wählt dieselbe Arbeitshefter-Datei erneut aus und gleicht einen bereits importierten Ordner damit ab – bereits geschriebener Text bleibt dabei unangetastet, nur die automatisch erzeugten Felder werden aufgefrischt.',
+		setMwbTargetFolder: 'Zielordner für Leben-und-Dienst-Notizen',
+		setMwbTargetFolderDesc: 'Übergeordneter Ordner, in dem der Ausgaben-Ordner angelegt wird. Leer lassen, damit jede Ausgabe direkt als eigener Ordner in der Vault-Wurzel entsteht.',
+		noticeImportMwbResult: (folder, created, updated, skipped) => {
+			const parts = [`${created} neu`];
+			if (updated > 0) parts.push(`${updated} aktualisiert`);
+			if (skipped > 0) parts.push(`${skipped} übersprungen (bereits vorhanden)`);
+			return `„${folder}": ${parts.join(', ')}.`;
+		},
+		noticeUpdateMwbResult: (merged, created, needsReimport, unchanged) => {
+			const parts = [`${merged} aktualisiert`];
+			if (created > 0) parts.push(`${created} neu angelegt`);
+			if (unchanged > 0) parts.push(`${unchanged} bereits aktuell`);
+			if (needsReimport > 0) parts.push(`${needsReimport} benötigen einen vollständigen Reimport`);
+			return `Aktualisierung abgeschlossen: ${parts.join(', ')}.`;
+		},
+		rowWeeks: 'Wochen',
+		headNoteFieldsMwb: 'Leben-und-Dienst-Notiz-Felder',
+		setShowMwbDuration: 'Feld "Dauer" anzeigen',
+		setShowMwbSourceCitation: 'Feld "Quelle" anzeigen',
+		setMwbFrontmatterDesc: 'Fügt jeder erzeugten Wochennotiz YAML-Frontmatter mit stabilen englischen Schlüsseln hinzu (mwb, week, year).',
 	},
 	en: {
 		caFallbackDay: 'Saturday',
@@ -458,6 +543,9 @@ export const L: Record<SupportedLang, Strings> = {
 				case 'jwpubEmptyPublication': return 'The jwpub file is corrupted: the Publication table is empty.';
 				case 'fileTooLarge': return `The file is unusually large (${detail}) and was rejected as a precaution.`;
 				case 'decompressedTooLarge': return `The unpacked content is unusually large (${detail}) and was rejected as a precaution.`;
+				case 'notMwbPublication': return `This file is not a Meeting Workbook: "${detail}".`;
+				case 'mwbLanguageNotSupported': return 'Importing Meeting Workbooks is currently only supported for German files.';
+				case 'mwbNoWeekDocuments': return 'No week programs were found in this file.';
 			}
 		},
 		noticeBibleHint: 'Tip: Add a Bible jwpub file (e.g. the study edition from jw.org) in the plugin settings — clicking a scripture will then open the verse text with cross-references and study notes directly as a popup in Obsidian. (Click to open the settings)',
@@ -638,6 +726,9 @@ export const L: Record<SupportedLang, Strings> = {
 				case 'jwpubEmptyPublication': return 'Le fichier jwpub est corrompu : la table Publication est vide.';
 				case 'fileTooLarge': return `Le fichier est inhabituellement volumineux (${detail}) et a été rejeté par précaution.`;
 				case 'decompressedTooLarge': return `Le contenu décompressé est inhabituellement volumineux (${detail}) et a été rejeté par précaution.`;
+				case 'notMwbPublication': return `Ce fichier n'est pas un cahier « Vie et ministère » : « ${detail} ».`;
+				case 'mwbLanguageNotSupported': return 'L’importation des cahiers « Vie et ministère » n’est actuellement prise en charge que pour les fichiers en allemand.';
+				case 'mwbNoWeekDocuments': return 'Aucun programme hebdomadaire n’a été trouvé dans ce fichier.';
 			}
 		},
 		noticeBibleHint: 'Astuce : ajoutez un fichier jwpub de la Bible (par ex. l’édition d’étude de jw.org) dans les réglages du plugin — un clic sur un texte biblique ouvrira alors le texte du verset avec les références croisées et les notes d’étude directement en popup dans Obsidian. (Cliquer pour ouvrir les réglages)',
@@ -818,6 +909,9 @@ export const L: Record<SupportedLang, Strings> = {
 				case 'jwpubEmptyPublication': return 'Il file jwpub è danneggiato: la tabella Publication è vuota.';
 				case 'fileTooLarge': return `Il file è insolitamente grande (${detail}) ed è stato rifiutato per precauzione.`;
 				case 'decompressedTooLarge': return `Il contenuto estratto è insolitamente grande (${detail}) ed è stato rifiutato per precauzione.`;
+				case 'notMwbPublication': return `Questo file non è un opuscolo "Vita e ministero": "${detail}".`;
+				case 'mwbLanguageNotSupported': return 'L’importazione degli opuscoli "Vita e ministero" è al momento supportata solo per i file in tedesco.';
+				case 'mwbNoWeekDocuments': return 'In questo file non è stato trovato alcun programma settimanale.';
 			}
 		},
 		noticeBibleHint: 'Suggerimento: aggiungi un file jwpub della Bibbia (ad es. l’edizione di studio da jw.org) nelle impostazioni del plugin — un clic su un testo biblico aprirà quindi il testo del versetto con riferimenti incrociati e approfondimenti direttamente come popup in Obsidian. (Clicca per aprire le impostazioni)',
@@ -998,6 +1092,9 @@ export const L: Record<SupportedLang, Strings> = {
 				case 'jwpubEmptyPublication': return 'O arquivo jwpub está corrompido: a tabela Publication está vazia.';
 				case 'fileTooLarge': return `O arquivo é incomumente grande (${detail}) e foi rejeitado por precaução.`;
 				case 'decompressedTooLarge': return `O conteúdo descompactado é incomumente grande (${detail}) e foi rejeitado por precaução.`;
+				case 'notMwbPublication': return `Este arquivo não é uma apostila "Vida e Ministério": "${detail}".`;
+				case 'mwbLanguageNotSupported': return 'A importação de apostilas "Vida e Ministério" atualmente só é compatível com arquivos em alemão.';
+				case 'mwbNoWeekDocuments': return 'Nenhum programa semanal foi encontrado neste arquivo.';
 			}
 		},
 		noticeBibleHint: 'Dica: adicione um arquivo jwpub da Bíblia (por ex. a edição de estudo de jw.org) nas configurações do plugin — um clique em um texto bíblico abrirá o texto do versículo com referências cruzadas e notas de estudo diretamente em um popup no Obsidian. (Clique para abrir as configurações)',
@@ -1178,6 +1275,9 @@ export const L: Record<SupportedLang, Strings> = {
 				case 'jwpubEmptyPublication': return 'Файл jwpub повреждён: таблица Publication пуста.';
 				case 'fileTooLarge': return `Файл необычно большой (${detail}) и был отклонён из соображений безопасности.`;
 				case 'decompressedTooLarge': return `Распакованное содержимое необычно велико (${detail}) и было отклонено из соображений безопасности.`;
+				case 'notMwbPublication': return `Этот файл не является тетрадью «Наша жизнь и служение»: «${detail}».`;
+				case 'mwbLanguageNotSupported': return 'Импорт тетрадей «Наша жизнь и служение» пока поддерживается только для файлов на немецком языке.';
+				case 'mwbNoWeekDocuments': return 'В этом файле не найдено ни одной программы на неделю.';
 			}
 		},
 		noticeBibleHint: 'Совет: добавьте файл Библии в формате jwpub (например, исследовательское издание с jw.org) в настройках плагина — тогда при нажатии на библейский текст будет открываться всплывающее окно прямо в Obsidian с текстом стиха, перекрёстными ссылками и учебными примечаниями. (Нажмите, чтобы открыть настройки)',
@@ -1358,6 +1458,9 @@ export const L: Record<SupportedLang, Strings> = {
 				case 'jwpubEmptyPublication': return 'El archivo jwpub está dañado: la tabla Publication está vacía.';
 				case 'fileTooLarge': return `El archivo es inusualmente grande (${detail}) y fue rechazado por precaución.`;
 				case 'decompressedTooLarge': return `El contenido descomprimido es inusualmente grande (${detail}) y fue rechazado por precaución.`;
+				case 'notMwbPublication': return `Este archivo no es un folleto "Nuestra vida y ministerio": "${detail}".`;
+				case 'mwbLanguageNotSupported': return 'La importación de folletos "Nuestra vida y ministerio" actualmente solo es compatible con archivos en alemán.';
+				case 'mwbNoWeekDocuments': return 'No se encontró ningún programa semanal en este archivo.';
 			}
 		},
 		noticeBibleHint: 'Consejo: Agregue un archivo jwpub de la Biblia (por ejemplo, la edición de estudio de jw.org) en la configuración del plugin — al hacer clic en un texto bíblico se abrirá entonces el versículo con referencias y notas de estudio directamente en una ventana emergente en Obsidian. (Haga clic para abrir la configuración)',

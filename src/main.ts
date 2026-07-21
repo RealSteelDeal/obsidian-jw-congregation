@@ -4,6 +4,10 @@ import { DEFAULT_SCRIPTURE_SUGGEST_ACTIONS, DEFAULT_SETTINGS, JwPluginSettings, 
 import { SourceRouter } from './parser/SourceRouter';
 import { NoteBuilder } from './builder/NoteBuilder';
 import { ImportModal } from './ui/ImportModal';
+import { MwbSourceRouter } from './parser/MwbSourceRouter';
+import { MwbNoteBuilder } from './builder/MwbNoteBuilder';
+import { ImportMwbModal } from './ui/ImportMwbModal';
+import { UpdateMwbNotesModal } from './ui/UpdateMwbNotesModal';
 import { BibleReader } from './bible/BibleReader';
 import { BibleVerseModal } from './ui/BibleVerseModal';
 import { ScriptureEditorSuggest } from './ui/ScriptureEditorSuggest';
@@ -61,6 +65,25 @@ export default class JwCongregationPlugin extends Plugin {
 			id: 'update-congress-notes',
 			name: this.tr.updateCommand,
 			callback: () => new UpdateNotesModal(this.app, this).open(),
+		});
+
+		// A second, distinct icon (not 'book-open', which is reserved for the
+		// congress import) — justified by usage frequency: a meeting workbook
+		// is imported weekly, far more often than a convention program.
+		this.addRibbonIcon('calendar-days', this.tr.importMwbCommand ?? '', () => {
+			new ImportMwbModal(this.app, this).open();
+		});
+
+		this.addCommand({
+			id: 'import-mwb-workbook',
+			name: this.tr.importMwbCommand ?? '',
+			callback: () => new ImportMwbModal(this.app, this).open(),
+		});
+
+		this.addCommand({
+			id: 'update-mwb-notes',
+			name: this.tr.updateMwbCommand ?? '',
+			callback: () => new UpdateMwbNotesModal(this.app, this).open(),
 		});
 
 		this.addSettingTab(new JwSettingTab(this.app, this));
@@ -658,6 +681,159 @@ export default class JwCongregationPlugin extends Plugin {
 		if (patched === current) return false;
 		await this.app.vault.modify(file, patched);
 		return true;
+	}
+
+	// The meeting-workbook counterpart to importFile(): same rollback-on-failure
+	// and progress-notice pattern, but simpler — one note per week (no per-day
+	// folders/attachments), via MwbSourceRouter/MwbNoteBuilder instead of
+	// SourceRouter/NoteBuilder. Own, independent settings (mwbTargetFolder,
+	// mwbScriptureLinks, …) rather than reusing the congress ones — the two
+	// note types are conceptually different content.
+	async importMwbFile(filename: string, data: Uint8Array, targetFolder?: string): Promise<void> {
+		const router = new MwbSourceRouter(this.sqlWasmBinary);
+		const builder = new MwbNoteBuilder({
+			scriptureLinks: this.settings.mwbScriptureLinks,
+			showDurationField: this.settings.mwbShowDurationField,
+			showSourceCitationField: this.settings.mwbShowSourceCitationField,
+			frontmatter: this.settings.mwbFrontmatter,
+		});
+
+		let result;
+		try {
+			result = await router.route(filename, data);
+		} catch (err) {
+			new Notice(this.tr.noticeImportFailed(this.describeError(err)));
+			return;
+		}
+
+		const { issueFolder, notes } = builder.buildNotes(result.mwb);
+		const rawBase = (targetFolder ?? this.settings.mwbTargetFolder).trim();
+		const baseFolder = rawBase ? normalizePath(rawBase) : '';
+		const issuePath = baseFolder ? normalizePath(`${baseFolder}/${issueFolder}`) : normalizePath(issueFolder);
+
+		const createdPaths: string[] = [];
+		let updated = 0;
+		let skipped = 0;
+
+		const total = notes.length;
+		let done = 0;
+		const progress = total > 3 ? new Notice(this.tr.noticeImportProgress(0, total), 0) : null;
+
+		try {
+			if (baseFolder) await this.ensureFolder(baseFolder);
+			await this.ensureFolder(issuePath);
+
+			for (const note of notes) {
+				const notePath = await this.resolvePath(issuePath, undefined, note.filename);
+				const existing = this.app.vault.getAbstractFileByPath(notePath);
+				if (existing) {
+					if (note.regenerate && existing instanceof TFile) {
+						await this.app.vault.modify(existing, note.content);
+						updated++;
+					} else {
+						skipped++;
+					}
+				} else {
+					await this.app.vault.create(notePath, note.content);
+					createdPaths.push(notePath);
+				}
+				done++;
+				progress?.setMessage(this.tr.noticeImportProgress(done, total));
+			}
+
+			progress?.hide();
+			const describe = this.tr.noticeImportMwbResult ?? this.tr.noticeImportResult;
+			new Notice(describe(issueFolder, createdPaths.length, updated, skipped), 10000);
+		} catch (err) {
+			progress?.hide();
+			for (const path of createdPaths.reverse()) {
+				const file = this.app.vault.getAbstractFileByPath(path);
+				if (file) await this.app.fileManager.trashFile(file);
+			}
+			new Notice(this.tr.noticeImportRolledBack(this.describeError(err)));
+		}
+	}
+
+	// The meeting-workbook counterpart to updateFile(): same marker-merge
+	// pattern via mergeNoteContent() — every mwb note ships with markers from
+	// day one (brand-new feature), so unlike updateFile() there's no legacy
+	// pre-marker fallback to consider here.
+	async updateMwbFile(filename: string, data: Uint8Array, targetFolder: string): Promise<void> {
+		const issuePath = normalizePath(targetFolder);
+		const existingFolder = this.app.vault.getAbstractFileByPath(issuePath);
+		if (!(existingFolder instanceof TFolder)) {
+			new Notice(this.tr.noticeUpdateFolderNotFound(issuePath));
+			return;
+		}
+
+		const router = new MwbSourceRouter(this.sqlWasmBinary);
+		const builder = new MwbNoteBuilder({
+			scriptureLinks: this.settings.mwbScriptureLinks,
+			showDurationField: this.settings.mwbShowDurationField,
+			showSourceCitationField: this.settings.mwbShowSourceCitationField,
+			frontmatter: this.settings.mwbFrontmatter,
+		});
+
+		let result;
+		try {
+			result = await router.route(filename, data);
+		} catch (err) {
+			new Notice(this.tr.noticeImportFailed(this.describeError(err)));
+			return;
+		}
+
+		const { notes } = builder.buildNotes(result.mwb);
+
+		let merged = 0;
+		let created = 0;
+		let unchanged = 0;
+		let needsReimport = 0;
+		const createdPaths: string[] = [];
+
+		const total = notes.length;
+		let done = 0;
+		const progress = total > 3 ? new Notice(this.tr.noticeImportProgress(0, total), 0) : null;
+
+		try {
+			for (const note of notes) {
+				const notePath = await this.resolvePath(issuePath, undefined, note.filename);
+				const existing = this.app.vault.getAbstractFileByPath(notePath);
+				if (existing instanceof TFile) {
+					if (note.regenerate) {
+						await this.app.vault.modify(existing, note.content);
+						merged++;
+					} else {
+						const existingContent = await this.app.vault.read(existing);
+						const mergedContent = mergeNoteContent(existingContent, note.content);
+						if (mergedContent === null) {
+							needsReimport++;
+						} else if (mergedContent !== existingContent) {
+							await this.app.vault.modify(existing, mergedContent);
+							merged++;
+						} else {
+							unchanged++;
+						}
+					}
+				} else {
+					await this.app.vault.create(notePath, note.content);
+					createdPaths.push(notePath);
+					created++;
+				}
+				done++;
+				progress?.setMessage(this.tr.noticeImportProgress(done, total));
+			}
+
+			progress?.hide();
+			const describe = this.tr.noticeUpdateMwbResult ?? this.tr.noticeUpdateResult;
+			new Notice(describe(merged, created, needsReimport, unchanged), 10000);
+		} catch (err) {
+			progress?.hide();
+			for (const path of createdPaths.reverse()) {
+				const file = this.app.vault.getAbstractFileByPath(path);
+				if (file) await this.app.fileManager.trashFile(file);
+			}
+			new Notice(this.tr.noticeImportRolledBack(this.describeError(err)));
+		}
 	}
 
 	private async resolvePath(congressPath: string, dayFolder: string | undefined, filename: string): Promise<string> {

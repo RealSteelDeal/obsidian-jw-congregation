@@ -1,25 +1,20 @@
 import { App, Modal, Notice, Setting } from 'obsidian';
 import { L, Strings } from '../i18n';
 import type JwCongregationPlugin from '../main';
-import { SourceRouter } from '../parser/SourceRouter';
-import { NoteBuilder } from '../builder/NoteBuilder';
-import { Congress } from '../models/congress';
+import { MwbSourceRouter } from '../parser/MwbSourceRouter';
+import { MwbNoteBuilder } from '../builder/MwbNoteBuilder';
+import { Mwb } from '../models/mwb';
 import { listAllFolders } from '../util/folderList';
 
-/**
- * The "update" counterpart to ImportModal: picks the SAME programme file
- * again (e.g. after a plugin update that fixed a parser bug) and patches an
- * ALREADY imported congress folder in place — see JwCongregationPlugin.updateFile()
- * and util/noteMerge.ts for how already-existing notes are preserved. Unlike
- * ImportModal, there is no "create new folder" option: updating only makes
- * sense against a folder that already exists, so the dropdown lists existing
- * folders only, pre-selecting one whose name matches the parsed file's own
- * congress-folder name when found.
- */
-export class UpdateNotesModal extends Modal {
+/** Mirrors UpdateNotesModal.ts exactly — the "update" counterpart to
+ *  ImportMwbModal: picks the same workbook file again and patches an already
+ *  imported issue folder in place via plugin.updateMwbFile(). No "create new
+ *  folder" option, same as the congress version — updating only makes sense
+ *  against a folder that already exists. */
+export class UpdateMwbNotesModal extends Modal {
 	private fileData: Uint8Array | null = null;
 	private filename = '';
-	private preview: Congress | null = null;
+	private preview: Mwb | null = null;
 	private previewEl: HTMLElement | null = null;
 	private targetFolder = '';
 
@@ -34,18 +29,18 @@ export class UpdateNotesModal extends Modal {
 	onOpen() {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.createEl('h2', { text: this.t.updateTitle });
-		contentEl.createEl('p', { text: this.t.updateExplanation, cls: 'setting-item-description' });
+		contentEl.createEl('h2', { text: this.t.updateMwbTitle ?? '' });
+		contentEl.createEl('p', { text: this.t.updateMwbExplanation ?? '', cls: 'setting-item-description' });
 
 		let folderDropdown: HTMLSelectElement | undefined;
 
 		new Setting(contentEl)
 			.setName(this.t.importFileName)
-			.setDesc(this.t.importFileDesc)
+			.setDesc(this.t.importMwbFileDesc ?? '')
 			.addButton(btn =>
 				btn.setButtonText(this.t.btnPickFile).onClick(() => {
 					const input = createEl('input', { type: 'file' });
-					input.accept = '.jwpub,.zip,.rtf';
+					input.accept = '.jwpub';
 					input.onchange = async () => {
 						const file = input.files?.[0];
 						if (!file) return;
@@ -94,7 +89,7 @@ export class UpdateNotesModal extends Modal {
 							return;
 						}
 						this.close();
-						await this.plugin.updateFile(this.filename, this.fileData, this.targetFolder);
+						await this.plugin.updateMwbFile(this.filename, this.fileData, this.targetFolder);
 					}),
 			)
 			.addButton(btn =>
@@ -107,21 +102,19 @@ export class UpdateNotesModal extends Modal {
 		this.previewEl.empty();
 
 		try {
-			const router = new SourceRouter(this.plugin.sqlWasmBinary);
+			const router = new MwbSourceRouter(this.plugin.sqlWasmBinary);
 			const result = await router.route(this.filename, this.fileData);
-			this.preview = result.congress;
-			this.renderPreview(result.congress, result.source);
+			this.preview = result.mwb;
+			this.renderPreview(result.mwb);
 
-			// Best-effort auto-select: a freshly re-parsed file almost always
-			// produces the exact same folder name as when it was first
-			// imported (theme/year/type are the only inputs, and those don't
-			// change between plugin versions) — pre-selecting it saves a
-			// manual pick in the common case without hiding the dropdown.
-			const builder = new NoteBuilder({
-				scriptureLinks: true, reviewNote: true, showTagField: true, showTimeField: true,
-				showScriptureField: true, showSpeakerField: true, extraFields: '', frontmatter: false,
+			// Best-effort auto-select, same rationale as UpdateNotesModal's own
+			// congress-folder-name match: a re-parsed file produces the same
+			// folder name as the original import (year/issue tag don't change
+			// between plugin versions).
+			const builder = new MwbNoteBuilder({
+				scriptureLinks: true, showDurationField: true, showSourceCitationField: true, frontmatter: false,
 			});
-			const matchName = builder.congressFolderName(result.congress);
+			const matchName = builder.issueFolderName(result.mwb);
 			if (folderDropdown && Array.from(folderDropdown.options).some(o => o.value === matchName)) {
 				folderDropdown.value = matchName;
 				this.targetFolder = matchName;
@@ -134,7 +127,7 @@ export class UpdateNotesModal extends Modal {
 		}
 	}
 
-	private renderPreview(congress: Congress, source: string) {
+	private renderPreview(mwb: Mwb) {
 		if (!this.previewEl) return;
 		const el = this.previewEl;
 
@@ -147,17 +140,11 @@ export class UpdateNotesModal extends Modal {
 			row.createEl('td', { text: value });
 		};
 
-		addRow(this.t.rowType, this.t.typeLabels[congress.type] ?? congress.type);
-		addRow(this.t.rowTheme, congress.theme);
-		addRow(this.t.rowYear, String(congress.year));
-		addRow(this.t.rowDays, congress.days.map(d => d.weekday).join(', '));
-		addRow(this.t.rowSource, source === 'jwpub' ? 'jwpub' : this.t.rowSourceRtf);
-
-		const itemCount = congress.days.flatMap(d =>
-			d.sessions.flatMap(s => s.items),
-		).length;
-		addRow(this.t.rowLanguage, this.t.langDisplay(congress.lang));
+		addRow(this.t.rowYear, String(mwb.year));
+		addRow(this.t.rowWeeks ?? 'Wochen', String(mwb.weeks.length));
+		const itemCount = mwb.weeks.reduce((sum, w) => sum + w.items.length, 0);
 		addRow(this.t.rowItems, String(itemCount));
+		addRow(this.t.rowLanguage, this.t.langDisplay(mwb.lang));
 	}
 
 	onClose() {

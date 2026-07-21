@@ -34,26 +34,37 @@ npm run lint      # ESLint
 
 ```
 src/
-  main.ts                    # Plugin-Lifecycle (onload/onunload, Commands, Settings, importFile())
+  main.ts                    # Plugin-Lifecycle (onload/onunload, Commands, Settings, importFile()/updateFile())
   settings.ts                # JwPluginSettings, DEFAULT_SETTINGS, JwSettingTab
+  i18n.ts                    # Strings/NoteStrings-Interfaces + L/NL für alle 7 Sprachen (siehe Abschnitt "Sprachen" unten)
   models/congress.ts         # Typen: Congress, Day, Session, ProgramItem, Scripture
   normalizer/
-    bookNames.ts             # Buchnamenstabelle 1–66, DE + EN
+    bookNames.ts             # Buchnamenstabelle 1–66, alle 7 Sprachen (DE/EN/FR/IT/PT/RU/ES)
     ScriptureNormalizer.ts   # fromJwpub(), fromRtf(), toJwLibraryLink(), toMarkdownLink()
+    ScriptureTextParser.ts   # erkennt eine als Klartext getippte Bibelstelle (für den Editor-Suggester)
   util/
     jwpubCrypto.ts           # geteilte jwpub-Krypto: openJwpubDatabase(), readPublication(), deriveKey(), decryptBlob()
     bytes.ts                 # latin1Decode(), hexToBytes()
+    parseErrors.ts           # ParseError/ParseErrorCode — strukturierte Fehler statt hartkodierter Strings (siehe unten)
+    decompressionGuard.ts    # Größenlimits gegen Zip-Bomb-artige Dekompression (siehe unten)
+    noteMerge.ts             # Marker-basiertes Merge für "Kongress-Notizen aktualisieren" (%%jw:id%%-Blöcke)
+    legacyFieldPatch.ts      # Heuristischer Fallback für Notizen ohne Marker (vor v1.9.0) — siehe eigener Abschnitt unten
+    quoteBuilder.ts          # Vers-Text → Obsidian-Zitat-Callout (`> [!quote] …`)
+    scriptureLinkScan.ts     # findet jwlibrary://-Links/Zitat-Callouts im Notiztext (Klick-Feature, Einfüge-/Löschpunkt)
   parser/
     JwpubParser.ts           # .jwpub → Congress (primär, nutzt util/jwpubCrypto.ts + DOMParser)
     RtfParser.ts             # RTF-ZIP → Congress (Fallback)
     SourceRouter.ts          # Dateiformat erkennen, Router jwpub → rtf
   builder/
-    NoteBuilder.ts           # Congress → GeneratedNote[] (Ordnernamen, Nummerierung, Übersicht, Notiz-Rendering)
+    NoteBuilder.ts           # Congress → GeneratedNote[] (Ordnernamen, Nummerierung, Übersicht, Notiz-Rendering, %%jw:id%%-Marker)
   bible/
     BibleReader.ts           # Bibel-jwpub-Datei (nwt/nwtsty) → Vers-Text/Fußnoten/Querverweise (Bibeltext-Popup)
   ui/
     ImportModal.ts           # Dateiauswahl, Zielordner-Dropdown, Vorschau, Import-Bestätigung
-    BibleVerseModal.ts       # Popup mit Vers-Text + "In JW Library öffnen"-Button
+    UpdateNotesModal.ts      # wie ImportModal, aber patcht einen bereits importierten Ordner (nur bestehende Ordner)
+    BibleVerseModal.ts       # Popup mit Vers-Text + "In JW Library öffnen"/"Als Zitat einfügen"/"Zitat entfernen"
+    ScriptureEditorSuggest.ts # As-you-type-Vorschlag für eine getippte Bibelstelle (Verlinken/Zitat einfügen)
+    LegacyMigrationModal.ts  # Vorschau/Bestätigung pro Notiz für legacyFieldPatch.ts-Korrekturvorschläge
 scripts/
   dump-structure.mjs         # Entwickler-Tool: Publication-Zeile + h1/h2/li-Struktur je Dokument ausgeben (nutzt util/jwpubCrypto)
   test-parse.mjs             # Entwickler-Test: importiert den echten JwpubParser per jiti und parst übergebene .jwpub-Dateien
@@ -65,36 +76,54 @@ scripts/
 `DOMParser` als `globalThis.DOMParser`. Es gibt **keine** duplizierte Parser-Logik mehr –
 Änderungen an `JwpubParser.ts` wirken sich automatisch auf das Testskript aus.
 
-## Zweisprachigkeit (Deutsch/Englisch)
+## Sprachen: `Congress.lang` vs. `settings.lang`
 
-Seit der i18n-Umstellung fließen **zwei verschiedene Sprachen** durchs Plugin — nicht verwechseln:
+Seit v1.9.0 unterstützt das Plugin **7 Sprachen** (Deutsch, Englisch, Französisch,
+Italienisch, Portugiesisch, Russisch, Spanisch), nicht nur DE/EN — und seit v1.13.0 gilt das
+für **beide** unabhängigen Sprach-Ebenen, nicht nur eine. Nicht verwechseln:
 
-- **`Congress.lang`** (vom Parser aus `Publication.MepsLanguageIndex` erkannt: 0 = Englisch,
-  2 = Deutsch, alles andere fällt auf Deutsch zurück): bestimmt ALLES, was in erzeugte
-  Notizen geschrieben wird — Feldbeschriftungen, Datei-/Ordnernamen (`00. Übersicht` vs.
-  `00. Overview`, `Wiederholung` vs. `Review`, `Titelbild` vs. `Cover`), Buchnamen,
-  Wiederholungs-Notiz. Eine englische Programmdatei erzeugt englische Notizen, unabhängig
-  von der Plugin-Einstellung.
-- **`settings.lang`** (Nutzereinstellung): bestimmt nur noch das Bibeltext-Popup
-  (Beschriftungen + Buchnamen dort).
+- **`Congress.lang`** (`CongressLang`, vom Parser aus `Publication.MepsLanguageIndex` erkannt
+  über `JwpubParser.ts`s `MEPS_LANGUAGE_INDEX`-Map: `0 = en, 1 = es, 2 = de, 3 = fr, 4 = it,
+  207 = ru, 785 = pt`): bestimmt ALLES, was in erzeugte Notizen geschrieben wird —
+  Feldbeschriftungen, Datei-/Ordnernamen (`00. Übersicht` vs. `00. Overview` vs. `00. Aperçu`
+  …), Buchnamen, Wiederholungs-Notiz. Eine französische Programmdatei erzeugt französische
+  Notizen, unabhängig von der Plugin-Einstellung.
+- **`settings.lang`** (`SupportedLang`, Nutzereinstellung im Settings-Tab): bestimmt seit
+  v1.13.0 die **gesamte Plugin-Oberfläche** — Settings-Tab, Bibeltext-Popup, Import-/
+  Update-Dialoge, alle Notices — nicht mehr nur das Popup. `SupportedLang` und `CongressLang`
+  sind seither **derselbe** 7-Werte-Typ (`bookNames.ts`: `export type CongressLang =
+  SupportedLang`); die zwei Typnamen bleiben nur aus Lesbarkeitsgründen getrennt
+  ("welche Sprache hat DIESE Notiz" vs. "welche Sprache hat der NUTZER gewählt").
 
-Alle sprachabhängigen Strings liegen zentral in `src/i18n.ts` (`L[lang]`); Parser und
-NoteBuilder halten die aktive Sprache als `this.lang` + `this.t`-Getter. Die
-Parser-**Erkennungsmuster** (Marker wie `SYMPOSIUM:`/`VORTRAGSREIHE:`, Musik-/Pause-Zeilen,
-Wochentage, `QUESTIONS_RE`) sind bewusst **sprachtolerant kombiniert** (matchen de+en
-gleichzeitig), nicht pro Sprache verzweigt — nur echte AUSGABE-Strings kommen aus `i18n.ts`.
-Wichtige sprachvariable Realdaten (per `scripts/dump-structure.mjs` an echten Dateien
-verifiziert): Song-Links sind `jwpub://p/X:` (de) bzw. `jwpub://p/E:` (en) → Selektor/Regex
-müssen auf `jwpub://p/` matchen; englische Liedzeilen heißen „Song **No.** 160 …"
-(splitSongTitle!); Fragen-Dokument-h1 ist „Beantworte die folgenden Fragen:" bzw. „Find
-Answers to These Questions:"; englische Marker: `CHAIRMAN’S ADDRESS:`, `FEATURE BIBLE
+`src/i18n.ts`s Struktur folgt dieser Trennung: `NoteStrings` (die von `Congress.lang`
+abhängigen Felder — Labels, Ordnernamen, Wiederholungsfragen, …) ist eine Teilmenge von
+`Strings` (zusätzlich Settings-Tab/Popup/Dialoge/Notices, von `settings.lang` abhängig).
+Beide sind für **alle 7 Sprachen vollständig** ausimplementiert — `L: Record<SupportedLang,
+Strings>` und `NL: Record<CongressLang, NoteStrings> = L` (seit alle Sprachen volle `Strings`
+haben, ist `NL` nur noch ein Alias von `L`, keine eigene Übersetzung mehr). Parser und
+NoteBuilder halten die aktive Sprache als `this.lang` + `this.t`-Getter (`this.t = NL[this.lang]`
+bzw. `L[this.lang]`).
+
+Die Parser-**Erkennungsmuster** (Marker wie `SYMPOSIUM:`/`VORTRAGSREIHE:`/`SIMPOSIO:`,
+Musik-/Pause-Zeilen, Wochentage, `QUESTIONS_RE`) sind bewusst **sprachtolerant kombiniert**
+(matchen alle 7 Sprachen gleichzeitig), nicht pro Sprache verzweigt — nur echte
+AUSGABE-Strings kommen aus `i18n.ts`. Wichtige sprachvariable Realdaten (per
+`scripts/dump-structure.mjs` an echten Dateien in allen 7 Sprachen verifiziert): Song-Links
+sind `jwpub://p/{X|E|F|I|TPO|U|S}:` je nach Sprache (MEPS-Locale-Symbol, `bookNames.ts`s
+`WTLOCALE`) → Selektor/Regex müssen auf `jwpub://p/` matchen; englische Liedzeilen heißen
+„Song **No.** 160 …" (`splitSongTitle`!); Fragen-Dokument-h1 variiert pro Sprache
+(„Beantworte die folgenden Fragen:", „Find Answers to These Questions:", „Soyez attentifs
+aux réponses à ces questions", …); englische Marker: `CHAIRMAN’S ADDRESS:`, `FEATURE BIBLE
 DRAMA:`, `PUBLIC BIBLE DISCOURSE:`, `BAPTISM:`. Der RTF-Fallback bleibt rein deutsch
-(`lang: 'de'` hart gesetzt) — englische RTF-Exporte lagen nie als Testmaterial vor.
+(`lang: 'de'` hart gesetzt) — nicht-deutsche RTF-Exporte lagen nie als Testmaterial vor.
 
-Echte Testdateien für beide Sprachen (alle 3 Kongresstypen + Studienbibel) liegen lokal
+Echte Testdateien für Deutsch/Englisch (alle 3 Kongresstypen + Studienbibel) liegen lokal
 unter `C:\Users\LukasSchütter\Obsidian\.dateien\{Deutsch,Englisch}\` — nach Parser-Änderungen
 immer alle 6 Kongressdateien durch `node scripts/test-parse.mjs` schicken und die
-Programmpunkt-Zahlen zwischen den Sprachen vergleichen (müssen identisch sein).
+Programmpunkt-Zahlen zwischen den Sprachen vergleichen (müssen identisch sein). Die fünf
+weiteren Sprachen (FR/IT/PT/RU/ES) wurden bei ihrer Einführung ebenfalls gegen echte
+CO-/CA-Programmdateien in jeder Sprache verifiziert (siehe CHANGELOG 1.9.0), ohne dass dafür
+ein eigenes lokales Testdateien-Verzeichnis dokumentiert wurde.
 
 ## Roadmap
 
@@ -569,6 +598,39 @@ klickbar und öffnet dabei wieder das Vers-Popup – nicht nur die Titelzeile:
   zieht diesen Wert entsprechend nach oben (ESLint (`obsidianmd/no-unsupported-api`) meldet das)
 
 ## Testing
+
+**Automatisierte Unit-Tests** (Node, kein Obsidian nötig — läuft in CI bei jedem Push/PR
+über Node 20/22/24, siehe `.github/workflows/lint.yml`):
+
+```bash
+npm test    # node --test tests/*.test.mjs
+```
+
+`tests/_setup.mjs` importiert die TypeScript-Quellen direkt per `jiti` (kein separater
+Build-Schritt) und stellt `DOMParser`/`Node`/`HTMLElement`-Polyfills über `linkedom` bereit.
+Damit sind reine Funktionen (Normalizer, Parser-Helfer, `noteMerge`/`legacyFieldPatch`,
+`decompressionGuard`, …) direkt testbar. Bei neuer reiner Logik (neue Datei in `util/`/
+`normalizer/`/`parser/`/`builder/`) immer eine begleitende `tests/*.test.mjs`-Datei nach dem
+Muster der bestehenden Dateien anlegen (spezifische `assert.equal`/`assert.deepEqual`-
+Assertions, sprechende, verhaltensbeschreibende Testnamen — kein loses `assert.ok`).
+
+**`main.ts` ist seit `tests/main.test.mjs` ebenfalls testbar** (zuvor nicht, da `main.ts`
+`import ... from 'obsidian'` nutzt und das echte Paket außerhalb einer Obsidian-Laufzeit keine
+Runtime-Werte für `Plugin`/`Modal`/`TFile`/`Notice`/… liefert). Der Trick: `tests/
+obsidianStub.mjs` ist ein minimaler, handgeschriebener Ersatz für genau die Werte, die
+`main.ts` und alles, was es importiert (`settings.ts`, jedes `ui/*.ts`-Modal), beim
+Modul-Laden brauchen; `tests/testFakeObsidian.mjs` baut daraus eine EIGENE `jiti`-Instanz mit
+`alias: { obsidian: … }` (separat von `tests/_setup.mjs`s gemeinsamer Instanz, damit das
+Aliasing keine anderen Testdateien beeinflusst) sowie eine in-memory `createFakeApp()`
+(Vault/FileManager/Workspace) für `JwCongregationPlugin.importFile()`/`updateFile()`. Damit
+sind reale Test-Szenarien möglich (siehe `tests/main.test.mjs`): Rollback bei fehlgeschlagenem
+Import, create/skip/regenerate-Zählung, Marker-Merge- und Legacy-Feld-Korrektur-Verzweigung —
+jeweils gegen den ECHTEN `RtfParser`/`NoteBuilder`/`noteMerge`/`legacyFieldPatch` gefahren, nur
+der Obsidian-Host selbst ist gefakt. **Weiterhin NICHT getestet**: das tatsächliche Rendering/
+Verhalten der `ui/*.ts`-Modal-Klassen selbst (`onOpen()`, Button-Klicks, Live-Preview-
+Klick-Routing über `EditorView`) — der Stub deckt nur ab, was zum bloßen Modul-Laden nötig
+ist, nicht die UI-Logik dieser Klassen. Bei Änderungen an `importFile()`/`updateFile()` diese
+Testdatei erweitern statt eine neue Stub-Variante zu bauen.
 
 Manuell in Obsidian:
 

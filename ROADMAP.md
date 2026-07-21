@@ -20,9 +20,40 @@ Nothing queued right now — suggestions welcome via GitHub issues.
   Watchtower study edition) as meeting notes — the decryption, crypto and
   scripture-link infrastructure is fully reusable; unclear how much demand
   there is.
+- **Preview/diff for the regular marker-based merge, not just the legacy
+  fallback**: "Update convention notes" currently applies a marker-merge
+  immediately for 1.9.0+ notes, and only shows a review window (see
+  `LegacyMigrationModal`) for older, marker-free notes. Offering the same
+  per-note preview/confirmation for the regular path too would make the
+  behavior consistent regardless of a note's age.
+- **Bulk update across multiple already-imported conventions** in one run,
+  instead of picking one folder at a time via "Update convention notes".
+- **Speaker directory**: a generated overview note (or Dataview query
+  template) collecting who spoke when across conventions, built on top of
+  the existing free-text Speaker field.
+- **Customizable note template** beyond the current per-field show/hide
+  toggles — user-defined field order or additional structural elements.
+- **Calendar / Periodic Notes integration**: link convention days into
+  Obsidian's Daily/Periodic Notes, or export an `.ics` file for external
+  calendars.
+- **Test-coverage reporting in CI**: Node 20+'s built-in
+  `--experimental-test-coverage` flag needs no new dependency and would make
+  the test-suite's actual coverage surface visible instead of requiring a
+  manual audit to find gaps.
+- **Publish to the official Obsidian community plugin directory** — the
+  README currently says "not published yet, in review"; this remains the
+  single biggest lever for reach once it clears review.
 
 ## Recently shipped
 
+- **Quality-audit follow-through**: `main.ts` now has automated test coverage
+  (import/update rollback, create/skip/regenerate accounting, marker-merge
+  and legacy-field-correction branching) via a minimal Obsidian-API test
+  double; every decompression step (jwpub/RTF-ZIP file, unzipped entries,
+  decrypted blobs) is now guarded against zip-bomb-style oversized input;
+  parsing/decryption failures are translated into the interface language
+  instead of appearing as hardcoded German/English text; `LICENSE` and
+  `AGENTS.md` were corrected/brought back in sync with the current codebase.
 - **An inserted quote is now clickable, and removable from its own popup**:
   the callout title is a `jwlibrary://` link, same as any inline reference,
   and the verse-text body is one too (de-styled back to plain quote text, not

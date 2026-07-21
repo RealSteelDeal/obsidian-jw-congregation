@@ -2,6 +2,8 @@ import { unzipSync, type Unzipped } from 'fflate';
 import * as pako from 'pako';
 import initSqlJs, { Database } from 'sql.js';
 import { hexToBytes } from './bytes';
+import { ParseError } from './parseErrors';
+import { assertFileSize, assertInflatedBlobSize, assertUnpackedEntrySize } from './decompressionGuard';
 
 // jwpub decryption spec §4.3 — shared by every jwpub-format file (congress
 // programs, Bible publications, ...), since they all use the same
@@ -19,13 +21,16 @@ export async function openJwpubDatabase(
 	fileBuffer: Uint8Array,
 	sqlWasmBinary: Uint8Array,
 ): Promise<{ db: Database; innerZip: Unzipped }> {
+	assertFileSize(fileBuffer);
 	const outerZip = unzipSync(fileBuffer);
 	const contentsData = outerZip['contents'];
-	if (!contentsData) throw new Error('jwpub: missing "contents" entry');
+	if (!contentsData) throw new ParseError('jwpubMissingContents');
+	assertUnpackedEntrySize(contentsData);
 
 	const innerZip = unzipSync(contentsData);
 	const dbFileName = Object.keys(innerZip).find(name => name.endsWith('.db'));
-	if (!dbFileName) throw new Error('jwpub: no .db file in contents');
+	if (!dbFileName) throw new ParseError('jwpubNoDatabase');
+	assertUnpackedEntrySize(innerZip[dbFileName]!);
 
 	const wasmBinary = sqlWasmBinary.buffer.slice(
 		sqlWasmBinary.byteOffset,
@@ -37,7 +42,7 @@ export async function openJwpubDatabase(
 
 export function readPublication(db: Database): DbRow {
 	const res = db.exec('SELECT * FROM Publication LIMIT 1');
-	if (!res[0]) throw new Error('jwpub: Publication table empty');
+	if (!res[0]) throw new ParseError('jwpubEmptyPublication');
 	const cols = res[0].columns;
 	const vals = res[0].values[0] ?? [];
 	return Object.fromEntries(cols.map((c, i) => [c, vals[i]]));
@@ -76,5 +81,6 @@ export async function decryptBlob(content: Uint8Array, key: Uint8Array, iv: Uint
 		content as BufferSource,
 	);
 	const inflated = pako.inflate(new Uint8Array(decryptedBuffer));
+	assertInflatedBlobSize(inflated);
 	return new TextDecoder('utf-8').decode(inflated);
 }

@@ -14,6 +14,7 @@ import { hasNoMarkers, mergeNoteContent } from './util/noteMerge';
 import { UpdateNotesModal } from './ui/UpdateNotesModal';
 import { applyLegacyCorrections, findLegacyCorrections, LegacyFieldCorrection } from './util/legacyFieldPatch';
 import { LegacyMigrationCandidate, LegacyMigrationModal } from './ui/LegacyMigrationModal';
+import { ParseError } from './util/parseErrors';
 // esbuild's "binary" loader embeds this as base64 in main.js and decodes it to a
 // Uint8Array at bundle time — no separate file needs to ship alongside main.js.
 import sqlWasmBinary from 'sql.js/dist/sql-wasm.wasm';
@@ -32,6 +33,14 @@ export default class JwCongregationPlugin extends Plugin {
 
 	private get tr() {
 		return L[this.settings.lang];
+	}
+
+	/** Turns a caught error into a user-facing sentence in the UI's own language.
+	 *  A `ParseError` (see util/parseErrors.ts) is translated via `describeParseError` —
+	 *  everything else (an unexpected exception from a third-party library, a DOM API,
+	 *  etc.) falls back to its own `String(err)` message, same as before this existed. */
+	private describeError(err: unknown): string {
+		return err instanceof ParseError ? this.tr.describeParseError(err.code, err.detail) : String(err);
 	}
 
 	async onload() {
@@ -280,7 +289,7 @@ export default class JwCongregationPlugin extends Plugin {
 		try {
 			await this.app.vault.adapter.writeBinary(this.bibleFilePath(), arrayBuffer);
 		} catch (err) {
-			new Notice(this.tr.noticeBibleSaveFailed(String(err)));
+			new Notice(this.tr.noticeBibleSaveFailed(this.describeError(err)));
 			return; // settings.bibleFileLoaded is left untouched — nothing was actually saved
 		}
 		this.settings.bibleFileLoaded = true;
@@ -296,7 +305,7 @@ export default class JwCongregationPlugin extends Plugin {
 				await this.app.vault.adapter.remove(path);
 			}
 		} catch (err) {
-			new Notice(this.tr.noticeBibleRemoveFailed(String(err)));
+			new Notice(this.tr.noticeBibleRemoveFailed(this.describeError(err)));
 			return;
 		}
 		this.settings.bibleFileLoaded = false;
@@ -327,7 +336,7 @@ export default class JwCongregationPlugin extends Plugin {
 				this.bibleReader = reader;
 				return reader;
 			} catch (err) {
-				new Notice(this.tr.noticeBibleLoadFailed(String(err)));
+				new Notice(this.tr.noticeBibleLoadFailed(this.describeError(err)));
 				return null;
 			} finally {
 				this.bibleReaderLoading = null;
@@ -395,7 +404,7 @@ export default class JwCongregationPlugin extends Plugin {
 		try {
 			result = await router.route(filename, data);
 		} catch (err) {
-			new Notice(this.tr.noticeImportFailed(String(err)));
+			new Notice(this.tr.noticeImportFailed(this.describeError(err)));
 			return;
 		}
 
@@ -489,7 +498,7 @@ export default class JwCongregationPlugin extends Plugin {
 				const file = this.app.vault.getAbstractFileByPath(path);
 				if (file) await this.app.fileManager.trashFile(file);
 			}
-			new Notice(this.tr.noticeImportRolledBack(String(err)));
+			new Notice(this.tr.noticeImportRolledBack(this.describeError(err)));
 		}
 	}
 
@@ -531,7 +540,7 @@ export default class JwCongregationPlugin extends Plugin {
 		try {
 			result = await router.route(filename, data);
 		} catch (err) {
-			new Notice(this.tr.noticeImportFailed(String(err)));
+			new Notice(this.tr.noticeImportFailed(this.describeError(err)));
 			return;
 		}
 
@@ -632,7 +641,7 @@ export default class JwCongregationPlugin extends Plugin {
 				const file = this.app.vault.getAbstractFileByPath(path);
 				if (file) await this.app.fileManager.trashFile(file);
 			}
-			new Notice(this.tr.noticeImportRolledBack(String(err)));
+			new Notice(this.tr.noticeImportRolledBack(this.describeError(err)));
 		}
 	}
 

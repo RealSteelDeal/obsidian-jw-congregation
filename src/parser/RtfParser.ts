@@ -2,6 +2,8 @@ import { unzipSync } from 'fflate';
 import { Congress, CongressType, Day, ItemType, ProgramItem, Scripture, Session } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 import { latin1Decode } from '../util/bytes';
+import { ParseError } from '../util/parseErrors';
+import { assertFileSize, assertUnpackedEntrySize } from '../util/decompressionGuard';
 
 // RTF HYPERLINK field: field text contains the URL between quotes
 const HYPERLINK_RE = /HYPERLINK\s+"([^"]+)"/g;
@@ -51,7 +53,7 @@ export class RtfParser {
 
 	async parse(fileBuffer: Uint8Array): Promise<Congress> {
 		const rtfSources = this.collectRtfSources(fileBuffer);
-		if (rtfSources.length === 0) throw new Error('RTF-ZIP: keine .rtf-Dateien gefunden');
+		if (rtfSources.length === 0) throw new ParseError('rtfNoFiles');
 
 		const days: Day[] = [];
 		let theme = '';
@@ -98,6 +100,7 @@ export class RtfParser {
 
 	/** Accepts either a single raw .rtf file or a .zip containing one or more .rtf files. */
 	private collectRtfSources(fileBuffer: Uint8Array): string[] {
+		assertFileSize(fileBuffer);
 		if (this.isRawRtf(fileBuffer)) {
 			return [latin1Decode(fileBuffer)];
 		}
@@ -105,7 +108,11 @@ export class RtfParser {
 		const zip = unzipSync(fileBuffer);
 		return Object.keys(zip)
 			.filter(name => name.toLowerCase().endsWith('.rtf'))
-			.map(name => latin1Decode(zip[name]!)); // RTF is latin-1 encoded
+			.map(name => {
+				const entry = zip[name]!;
+				assertUnpackedEntrySize(entry);
+				return latin1Decode(entry); // RTF is latin-1 encoded
+			});
 	}
 
 	private isRawRtf(buf: Uint8Array): boolean {

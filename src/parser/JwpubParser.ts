@@ -5,6 +5,7 @@ import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 import { CongressLang } from '../normalizer/bookNames';
 import { NL, NoteStrings } from '../i18n';
 import { DbRow, decryptBlob, deriveKey, openJwpubDatabase, readPublication } from '../util/jwpubCrypto';
+import { ParseError } from '../util/parseErrors';
 
 // Matches jwpub://b/NWTR/book:chapter:verse[-book:chapter:verse]
 const BIBLE_HREF_RE = /^jwpub:\/\/b\/NWTR\/([\d:]+(?:-[\d:]+)?)$/;
@@ -100,16 +101,10 @@ export class JwpubParser {
 	 */
 	private assertPlatformSupport(): void {
 		if (typeof crypto === 'undefined' || !crypto.subtle) {
-			throw new Error(
-				'Dieses Gerät unterstützt die Web-Crypto-API (crypto.subtle) nicht, die für die ' +
-				'jwpub-Entschlüsselung benötigt wird. Bitte Obsidian aktualisieren oder den RTF-ZIP-Import verwenden.',
-			);
+			throw new ParseError('noWebCrypto');
 		}
 		if (typeof WebAssembly === 'undefined') {
-			throw new Error(
-				'Dieses Gerät unterstützt WebAssembly nicht, das sql.js für das Lesen der jwpub-Datenbank ' +
-				'benötigt. Bitte Obsidian aktualisieren oder den RTF-ZIP-Import verwenden.',
-			);
+			throw new ParseError('noWebAssembly');
 		}
 	}
 

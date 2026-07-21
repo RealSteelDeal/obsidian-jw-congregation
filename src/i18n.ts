@@ -1,5 +1,6 @@
 import { CongressLang, SupportedLang } from './normalizer/bookNames';
 import { CongressType } from './models/congress';
+import { ParseErrorCode } from './util/parseErrors';
 
 /**
  * Strings needed to generate notes from an imported programme file — driven by
@@ -91,6 +92,12 @@ export interface Strings extends NoteStrings {
 	noticeBibleLoadFailed: (err: string) => string;
 	noticeBibleHint: string;
 	noticeQuoteNeedsBibleFile: string;
+	/** Translates a structured parsing/decryption failure (see util/parseErrors.ts)
+	 *  into a full sentence in this language — used wherever a caught error is shown
+	 *  via Notice (noticeImportFailed, noticeImportRolledBack, noticeBibleLoadFailed),
+	 *  so a corrupted/unsupported file produces a message in the UI's own language
+	 *  instead of the English/German text ParseError's own `.message` happens to carry. */
+	describeParseError: (code: ParseErrorCode, detail?: string) => string;
 	noticeImportFailed: (err: string) => string;
 	noticeRtfFallback: string;
 	noticeImportProgress: (done: number, total: number) => string;
@@ -258,6 +265,19 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeBibleMissingOnDevice: 'Die Bibel-Datei fehlt auf diesem Gerät (Einstellungen werden synchronisiert, die Datei selbst nicht). Bitte in den Plugin-Einstellungen unter „Bibel-Datei" neu auswählen.',
 		noticeBibleLoadFailed: err => `Bibel-Datei konnte nicht geladen werden: ${err}`,
 		noticeQuoteNeedsBibleFile: 'Keine Bibel-Datei geladen – die Bibelstelle wurde stattdessen verlinkt. Für den Direkt-Zitat-Modus in den Plugin-Einstellungen eine Bibel-Datei hinterlegen.',
+		describeParseError: (code, detail) => {
+			switch (code) {
+				case 'unknownFormat': return `Unbekanntes Dateiformat: „${detail}". Bitte eine .jwpub- oder .rtf/.zip-Datei wählen.`;
+				case 'noWebCrypto': return 'Dieses Gerät unterstützt die Web-Crypto-API (crypto.subtle) nicht, die für die jwpub-Entschlüsselung benötigt wird. Bitte Obsidian aktualisieren oder den RTF-ZIP-Import verwenden.';
+				case 'noWebAssembly': return 'Dieses Gerät unterstützt WebAssembly nicht, das sql.js für das Lesen der jwpub-Datenbank benötigt. Bitte Obsidian aktualisieren oder den RTF-ZIP-Import verwenden.';
+				case 'rtfNoFiles': return 'Das RTF-ZIP enthält keine .rtf-Datei.';
+				case 'jwpubMissingContents': return 'Die jwpub-Datei ist beschädigt oder unvollständig: Der Eintrag „contents" fehlt.';
+				case 'jwpubNoDatabase': return 'Die jwpub-Datei ist beschädigt oder unvollständig: Es wurde keine Datenbankdatei gefunden.';
+				case 'jwpubEmptyPublication': return 'Die jwpub-Datei ist beschädigt: Die Publication-Tabelle ist leer.';
+				case 'fileTooLarge': return `Die Datei ist mit ${detail} ungewöhnlich groß und wurde sicherheitshalber abgelehnt.`;
+				case 'decompressedTooLarge': return `Der entpackte Inhalt ist mit ${detail} ungewöhnlich groß und wurde sicherheitshalber abgelehnt.`;
+			}
+		},
 		noticeBibleHint: 'Tipp: Hinterlege in den Plugin-Einstellungen eine Bibel-jwpub-Datei (z. B. die Studienbibel von jw.org), dann öffnet ein Klick auf eine Bibelstelle den Vers-Text samt Querverweisen und Studienanmerkungen direkt als Popup in Obsidian. (Klicken öffnet die Einstellungen)',
 		noticeImportFailed: err => `Import fehlgeschlagen: ${err}`,
 		noticeRtfFallback: 'Jwpub-Parsing fehlgeschlagen – RTF-Fallback verwendet.',
@@ -427,6 +447,19 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeBibleMissingOnDevice: 'The Bible file is missing on this device (settings sync between devices, the file itself does not). Please re-select it under "Bible file" in the plugin settings.',
 		noticeBibleLoadFailed: err => `The Bible file could not be loaded: ${err}`,
 		noticeQuoteNeedsBibleFile: 'No Bible file loaded – the scripture was linked instead. Add a Bible file in the plugin settings to insert quotes directly.',
+		describeParseError: (code, detail) => {
+			switch (code) {
+				case 'unknownFormat': return `Unknown file format: "${detail}". Please pick a .jwpub or .rtf/.zip file.`;
+				case 'noWebCrypto': return 'This device does not support the Web Crypto API (crypto.subtle), which jwpub decryption needs. Please update Obsidian or use the RTF-ZIP import instead.';
+				case 'noWebAssembly': return 'This device does not support WebAssembly, which sql.js needs to read the jwpub database. Please update Obsidian or use the RTF-ZIP import instead.';
+				case 'rtfNoFiles': return 'The RTF ZIP contains no .rtf file.';
+				case 'jwpubMissingContents': return 'The jwpub file is corrupted or incomplete: the "contents" entry is missing.';
+				case 'jwpubNoDatabase': return 'The jwpub file is corrupted or incomplete: no database file was found.';
+				case 'jwpubEmptyPublication': return 'The jwpub file is corrupted: the Publication table is empty.';
+				case 'fileTooLarge': return `The file is unusually large (${detail}) and was rejected as a precaution.`;
+				case 'decompressedTooLarge': return `The unpacked content is unusually large (${detail}) and was rejected as a precaution.`;
+			}
+		},
 		noticeBibleHint: 'Tip: Add a Bible jwpub file (e.g. the study edition from jw.org) in the plugin settings — clicking a scripture will then open the verse text with cross-references and study notes directly as a popup in Obsidian. (Click to open the settings)',
 		noticeImportFailed: err => `Import failed: ${err}`,
 		noticeRtfFallback: 'jwpub parsing failed – RTF fallback used.',
@@ -594,6 +627,19 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeBibleMissingOnDevice: 'Le fichier biblique est absent sur cet appareil (les réglages se synchronisent entre les appareils, pas le fichier lui-même). Veuillez le sélectionner à nouveau sous « Fichier biblique » dans les réglages du plugin.',
 		noticeBibleLoadFailed: err => `Le fichier biblique n’a pas pu être chargé : ${err}`,
 		noticeQuoteNeedsBibleFile: 'Aucun fichier biblique chargé – le texte biblique a été lié à la place. Ajoutez un fichier biblique dans les réglages du plugin pour insérer directement les citations.',
+		describeParseError: (code, detail) => {
+			switch (code) {
+				case 'unknownFormat': return `Format de fichier inconnu : « ${detail} ». Veuillez choisir un fichier .jwpub ou .rtf/.zip.`;
+				case 'noWebCrypto': return 'Cet appareil ne prend pas en charge l’API Web Crypto (crypto.subtle), nécessaire au déchiffrement jwpub. Veuillez mettre à jour Obsidian ou utiliser plutôt l’import RTF-ZIP.';
+				case 'noWebAssembly': return 'Cet appareil ne prend pas en charge WebAssembly, nécessaire à sql.js pour lire la base de données jwpub. Veuillez mettre à jour Obsidian ou utiliser plutôt l’import RTF-ZIP.';
+				case 'rtfNoFiles': return 'Le ZIP RTF ne contient aucun fichier .rtf.';
+				case 'jwpubMissingContents': return 'Le fichier jwpub est corrompu ou incomplet : l’entrée « contents » est manquante.';
+				case 'jwpubNoDatabase': return 'Le fichier jwpub est corrompu ou incomplet : aucun fichier de base de données n’a été trouvé.';
+				case 'jwpubEmptyPublication': return 'Le fichier jwpub est corrompu : la table Publication est vide.';
+				case 'fileTooLarge': return `Le fichier est inhabituellement volumineux (${detail}) et a été rejeté par précaution.`;
+				case 'decompressedTooLarge': return `Le contenu décompressé est inhabituellement volumineux (${detail}) et a été rejeté par précaution.`;
+			}
+		},
 		noticeBibleHint: 'Astuce : ajoutez un fichier jwpub de la Bible (par ex. l’édition d’étude de jw.org) dans les réglages du plugin — un clic sur un texte biblique ouvrira alors le texte du verset avec les références croisées et les notes d’étude directement en popup dans Obsidian. (Cliquer pour ouvrir les réglages)',
 		noticeImportFailed: err => `Échec de l’importation : ${err}`,
 		noticeRtfFallback: 'Échec de l’analyse du fichier jwpub – recours au RTF.',
@@ -761,6 +807,19 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeBibleMissingOnDevice: 'Il file della Bibbia non è presente su questo dispositivo (le impostazioni si sincronizzano tra i dispositivi, il file stesso no). Selezionalo di nuovo in "File della Bibbia" nelle impostazioni del plugin.',
 		noticeBibleLoadFailed: err => `Non è stato possibile caricare il file della Bibbia: ${err}`,
 		noticeQuoteNeedsBibleFile: 'Nessun file della Bibbia caricato – il testo biblico è stato collegato invece. Aggiungi un file della Bibbia nelle impostazioni del plugin per inserire le citazioni direttamente.',
+		describeParseError: (code, detail) => {
+			switch (code) {
+				case 'unknownFormat': return `Formato di file sconosciuto: "${detail}". Seleziona un file .jwpub o .rtf/.zip.`;
+				case 'noWebCrypto': return 'Questo dispositivo non supporta l’API Web Crypto (crypto.subtle), necessaria per decifrare i file jwpub. Aggiorna Obsidian oppure usa l’importazione RTF-ZIP.';
+				case 'noWebAssembly': return 'Questo dispositivo non supporta WebAssembly, necessario a sql.js per leggere il database jwpub. Aggiorna Obsidian oppure usa l’importazione RTF-ZIP.';
+				case 'rtfNoFiles': return 'Lo ZIP RTF non contiene alcun file .rtf.';
+				case 'jwpubMissingContents': return 'Il file jwpub è danneggiato o incompleto: manca la voce "contents".';
+				case 'jwpubNoDatabase': return 'Il file jwpub è danneggiato o incompleto: non è stato trovato alcun file di database.';
+				case 'jwpubEmptyPublication': return 'Il file jwpub è danneggiato: la tabella Publication è vuota.';
+				case 'fileTooLarge': return `Il file è insolitamente grande (${detail}) ed è stato rifiutato per precauzione.`;
+				case 'decompressedTooLarge': return `Il contenuto estratto è insolitamente grande (${detail}) ed è stato rifiutato per precauzione.`;
+			}
+		},
 		noticeBibleHint: 'Suggerimento: aggiungi un file jwpub della Bibbia (ad es. l’edizione di studio da jw.org) nelle impostazioni del plugin — un clic su un testo biblico aprirà quindi il testo del versetto con riferimenti incrociati e approfondimenti direttamente come popup in Obsidian. (Clicca per aprire le impostazioni)',
 		noticeImportFailed: err => `Importazione non riuscita: ${err}`,
 		noticeRtfFallback: 'Analisi del file jwpub non riuscita – utilizzato il fallback RTF.',
@@ -928,6 +987,19 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeBibleMissingOnDevice: 'O arquivo da Bíblia não está presente neste dispositivo (as configurações são sincronizadas entre dispositivos, mas o arquivo em si não). Selecione-o novamente em "Arquivo da Bíblia" nas configurações do plugin.',
 		noticeBibleLoadFailed: err => `Não foi possível carregar o arquivo da Bíblia: ${err}`,
 		noticeQuoteNeedsBibleFile: 'Nenhum arquivo da Bíblia carregado – o texto bíblico foi vinculado em vez disso. Adicione um arquivo da Bíblia nas configurações do plugin para inserir as citações diretamente.',
+		describeParseError: (code, detail) => {
+			switch (code) {
+				case 'unknownFormat': return `Formato de arquivo desconhecido: "${detail}". Selecione um arquivo .jwpub ou .rtf/.zip.`;
+				case 'noWebCrypto': return 'Este dispositivo não é compatível com a API Web Crypto (crypto.subtle), necessária para a descriptografia do jwpub. Atualize o Obsidian ou use a importação RTF-ZIP.';
+				case 'noWebAssembly': return 'Este dispositivo não é compatível com WebAssembly, necessário para o sql.js ler o banco de dados jwpub. Atualize o Obsidian ou use a importação RTF-ZIP.';
+				case 'rtfNoFiles': return 'O ZIP RTF não contém nenhum arquivo .rtf.';
+				case 'jwpubMissingContents': return 'O arquivo jwpub está corrompido ou incompleto: falta a entrada "contents".';
+				case 'jwpubNoDatabase': return 'O arquivo jwpub está corrompido ou incompleto: nenhum arquivo de banco de dados foi encontrado.';
+				case 'jwpubEmptyPublication': return 'O arquivo jwpub está corrompido: a tabela Publication está vazia.';
+				case 'fileTooLarge': return `O arquivo é incomumente grande (${detail}) e foi rejeitado por precaução.`;
+				case 'decompressedTooLarge': return `O conteúdo descompactado é incomumente grande (${detail}) e foi rejeitado por precaução.`;
+			}
+		},
 		noticeBibleHint: 'Dica: adicione um arquivo jwpub da Bíblia (por ex. a edição de estudo de jw.org) nas configurações do plugin — um clique em um texto bíblico abrirá o texto do versículo com referências cruzadas e notas de estudo diretamente em um popup no Obsidian. (Clique para abrir as configurações)',
 		noticeImportFailed: err => `Falha na importação: ${err}`,
 		noticeRtfFallback: 'Falha ao analisar o arquivo jwpub – usado o fallback RTF.',
@@ -1095,6 +1167,19 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeBibleMissingOnDevice: 'Файл Библии отсутствует на этом устройстве (настройки синхронизируются между устройствами, а сам файл — нет). Выберите его заново в разделе «Файл Библии» в настройках плагина.',
 		noticeBibleLoadFailed: err => `Не удалось загрузить файл Библии: ${err}`,
 		noticeQuoteNeedsBibleFile: 'Файл Библии не загружен — вместо цитаты добавлена ссылка. Чтобы вставлять цитаты напрямую, добавьте файл Библии в настройках плагина.',
+		describeParseError: (code, detail) => {
+			switch (code) {
+				case 'unknownFormat': return `Неизвестный формат файла: «${detail}». Выберите файл .jwpub или .rtf/.zip.`;
+				case 'noWebCrypto': return 'Это устройство не поддерживает Web Crypto API (crypto.subtle), необходимый для расшифровки jwpub. Обновите Obsidian или используйте импорт RTF-ZIP.';
+				case 'noWebAssembly': return 'Это устройство не поддерживает WebAssembly, необходимый sql.js для чтения базы данных jwpub. Обновите Obsidian или используйте импорт RTF-ZIP.';
+				case 'rtfNoFiles': return 'В RTF-ZIP не найдено ни одного файла .rtf.';
+				case 'jwpubMissingContents': return 'Файл jwpub повреждён или неполон: отсутствует запись «contents».';
+				case 'jwpubNoDatabase': return 'Файл jwpub повреждён или неполон: файл базы данных не найден.';
+				case 'jwpubEmptyPublication': return 'Файл jwpub повреждён: таблица Publication пуста.';
+				case 'fileTooLarge': return `Файл необычно большой (${detail}) и был отклонён из соображений безопасности.`;
+				case 'decompressedTooLarge': return `Распакованное содержимое необычно велико (${detail}) и было отклонено из соображений безопасности.`;
+			}
+		},
 		noticeBibleHint: 'Совет: добавьте файл Библии в формате jwpub (например, исследовательское издание с jw.org) в настройках плагина — тогда при нажатии на библейский текст будет открываться всплывающее окно прямо в Obsidian с текстом стиха, перекрёстными ссылками и учебными примечаниями. (Нажмите, чтобы открыть настройки)',
 		noticeImportFailed: err => `Не удалось выполнить импорт: ${err}`,
 		noticeRtfFallback: 'Не удалось обработать файл jwpub — использован резервный вариант RTF.',
@@ -1262,6 +1347,19 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeBibleMissingOnDevice: 'El archivo de la Biblia no está presente en este dispositivo (la configuración se sincroniza entre dispositivos, pero el archivo en sí no). Vuelva a seleccionarlo en "Archivo de la Biblia" en la configuración del plugin.',
 		noticeBibleLoadFailed: err => `No se pudo cargar el archivo de la Biblia: ${err}`,
 		noticeQuoteNeedsBibleFile: 'No hay ningún archivo de la Biblia cargado; en su lugar, se enlazó el texto bíblico. Agregue un archivo de la Biblia en la configuración del plugin para insertar citas directamente.',
+		describeParseError: (code, detail) => {
+			switch (code) {
+				case 'unknownFormat': return `Formato de archivo desconocido: "${detail}". Seleccione un archivo .jwpub o .rtf/.zip.`;
+				case 'noWebCrypto': return 'Este dispositivo no admite la API Web Crypto (crypto.subtle), necesaria para descifrar archivos jwpub. Actualice Obsidian o use la importación RTF-ZIP.';
+				case 'noWebAssembly': return 'Este dispositivo no admite WebAssembly, que sql.js necesita para leer la base de datos jwpub. Actualice Obsidian o use la importación RTF-ZIP.';
+				case 'rtfNoFiles': return 'El ZIP RTF no contiene ningún archivo .rtf.';
+				case 'jwpubMissingContents': return 'El archivo jwpub está dañado o incompleto: falta la entrada "contents".';
+				case 'jwpubNoDatabase': return 'El archivo jwpub está dañado o incompleto: no se encontró ningún archivo de base de datos.';
+				case 'jwpubEmptyPublication': return 'El archivo jwpub está dañado: la tabla Publication está vacía.';
+				case 'fileTooLarge': return `El archivo es inusualmente grande (${detail}) y fue rechazado por precaución.`;
+				case 'decompressedTooLarge': return `El contenido descomprimido es inusualmente grande (${detail}) y fue rechazado por precaución.`;
+			}
+		},
 		noticeBibleHint: 'Consejo: Agregue un archivo jwpub de la Biblia (por ejemplo, la edición de estudio de jw.org) en la configuración del plugin — al hacer clic en un texto bíblico se abrirá entonces el versículo con referencias y notas de estudio directamente en una ventana emergente en Obsidian. (Haga clic para abrir la configuración)',
 		noticeImportFailed: err => `Error al importar: ${err}`,
 		noticeRtfFallback: 'Error al procesar el archivo jwpub; se usó el método alternativo RTF.',

@@ -1,6 +1,7 @@
 import { Congress } from '../models/congress';
 import { JwpubParser } from './JwpubParser';
 import { RtfParser } from './RtfParser';
+import { ParseError } from '../util/parseErrors';
 
 export type ParseResult =
 	| { congress: Congress; source: 'jwpub' }
@@ -31,7 +32,7 @@ export class SourceRouter {
 			return { congress, source: 'rtf', fallback: true };
 		}
 
-		throw new Error(`Unbekanntes Dateiformat: ${filename}`);
+		throw new ParseError('unknownFormat', filename);
 	}
 
 	private isJwpub(filename: string, data: Uint8Array): boolean {

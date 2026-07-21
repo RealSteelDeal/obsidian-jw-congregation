@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.18.2
+
+### Improvements (Meeting Workbook import)
+
+- **Week notes now show the actual descriptive text of every programme
+  item**, not just a metadata summary (duration/scriptures) — the real
+  instructional paragraph(s) from the workbook, discussion questions with any
+  embedded scripture reference still clickable, and the ministry-assignment
+  label (e.g. "Von Haus zu Haus") bolded in place rather than duplicated.
+- **Every source-material citation is now a clickable link** to its real
+  jw.org/finder page (e.g. "th"/*Werde ein besserer Leser und Lehrer*,
+  "lmd"/*Liebt Menschen, macht sie zu Jüngern*) — the same mechanism songs
+  already used, extended to every citation in the item's own text.
+- **Each week's own cover image** is now extracted and embedded at the top of
+  its note (distinct from the per-item illustration images scattered through
+  the week, which are a different, repeated image category in the source
+  file — only the week's own single, document-level thumbnail is used).
+- **Week notes are now numbered chronologically** (`01.`, `02.`, …), so the
+  file explorer's default alphabetical sort matches the actual week order —
+  previously the raw date-range text alone didn't (e.g. "10.-16. AUGUST"
+  sorted before "3.-9. AUGUST").
+- Removed a redundant in-body "# `<date range>`" heading from each week
+  note — Obsidian's own inline title (derived from the filename) already
+  showed the exact same text right above it.
+- A photo's legal/technical image-source credit line (e.g. "Based on
+  NASA/Visible Earth imagery") no longer leaks into the note text as if it
+  were real instructional content.
+
 ## 1.18.1
 
 ### Fix

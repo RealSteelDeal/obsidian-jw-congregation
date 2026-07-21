@@ -52,7 +52,7 @@ src/
     bytes.ts                 # latin1Decode(), hexToBytes()
     parseErrors.ts           # ParseError/ParseErrorCode — strukturierte Fehler statt hartkodierter Strings (siehe unten)
     decompressionGuard.ts    # Größenlimits gegen Zip-Bomb-artige Dekompression (siehe unten)
-    noteMerge.ts             # Marker-basiertes Merge für "…Notizen aktualisieren" (%%jw:id%%-Blöcke) — von Kongress- UND mwb-Feature genutzt
+    noteMerge.ts             # Marker-basiertes Merge für "…Notizen aktualisieren" (unsichtbare <span>-Marker, siehe eigener Abschnitt unten) — von Kongress- UND mwb-Feature genutzt
     legacyFieldPatch.ts      # Heuristischer Fallback für Notizen ohne Marker (vor v1.9.0) — siehe eigener Abschnitt unten
     quoteBuilder.ts          # Vers-Text → Obsidian-Zitat-Callout (`> [!quote] …`)
     scriptureLinkScan.ts     # findet jwlibrary://-Links/Zitat-Callouts im Notiztext (Klick-Feature, Einfüge-/Löschpunkt)
@@ -63,7 +63,7 @@ src/
     MwbParser.ts             # .jwpub (Leben-und-Dienst-Arbeitsheft) → Mwb; nur Deutsch (siehe eigener Abschnitt unten)
     MwbSourceRouter.ts       # eigenständig (nicht Teil von SourceRouter/ParseResult) — prüft Publication.Symbol auf "mwb"-Präfix vor dem vollen Parse
   builder/
-    NoteBuilder.ts           # Congress → GeneratedNote[] (Ordnernamen, Nummerierung, Übersicht, Notiz-Rendering, %%jw:id%%-Marker)
+    NoteBuilder.ts           # Congress → GeneratedNote[] (Ordnernamen, Nummerierung, Übersicht, Notiz-Rendering, unsichtbare Marker)
     MwbNoteBuilder.ts        # Mwb → eine Notiz pro Woche (kein Ordner-pro-Tag, keine Notiz pro Programmpunkt) + optionale Gedächtnismahl-Notiz
   bible/
     BibleReader.ts           # Bibel-jwpub-Datei (nwt/nwtsty) → Vers-Text/Fußnoten/Querverweise (Bibeltext-Popup)

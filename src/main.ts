@@ -531,7 +531,7 @@ export default class JwCongregationPlugin extends Plugin {
 	// Purely-derived files (regenerate: true — the overview notes, cover
 	// images) are overwritten outright, same as on a plain re-import. Every
 	// other note is merged via mergeNoteContent() (see util/noteMerge.ts):
-	// only the invisible %%jw:id%% marker regions NoteBuilder wraps around
+	// only the invisible marker regions NoteBuilder wraps around
 	// derived fields are replaced, so a corrected weekday or scripture link
 	// lands without touching a single character the user typed themselves.
 	// A note whose marker structure doesn't line up (most commonly: it was

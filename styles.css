@@ -1,3 +1,14 @@
+/* Invisible merge markers (see util/noteMerge.ts) — always empty <span>
+   elements, hidden here explicitly rather than relying on them having no
+   text content, so they can't ever show as a stray blank line/widget in
+   Live Preview regardless of Obsidian version or theme. Scoped to this one
+   plugin-specific class, unlike Obsidian's own %%…%% comment syntax (the
+   pre-1.18.0 marker format), so it has no effect on any other %%…%% comment
+   elsewhere in the vault. */
+.jw-marker {
+	display: none;
+}
+
 .jw-import-preview {
 	margin-top: 1em;
 	padding: 0.75em 1em;

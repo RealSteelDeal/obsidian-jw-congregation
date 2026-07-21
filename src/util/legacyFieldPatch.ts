@@ -1,7 +1,7 @@
 import { NoteStrings } from '../i18n';
 
 /**
- * Heuristic fallback for notes that predate the %%jw:id%% marker mechanism
+ * Heuristic fallback for notes that predate the invisible-marker mechanism
  * (see noteMerge.ts) — plugin versions before 1.9.0 wrote no markers at all,
  * so mergeNoteContent() always bails to null for them and they're reported
  * as "needs a full re-import" without ever being touched. This module offers

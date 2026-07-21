@@ -4,12 +4,12 @@ import { jiti } from './_setup.mjs';
 
 const { NoteBuilder } = await jiti.import('../src/builder/NoteBuilder.ts');
 
-// Strips the invisible %%jw:id%% / %%/jw:id%% merge markers (see
-// src/util/noteMerge.ts) so positional assertions (line[0], exact-slice
-// equality, startsWith) keep testing the actual rendered content rather than
-// having to know which fields happen to be marker-wrapped.
+// Strips the invisible <span class="jw-marker" data-jw-start/end="…"> merge
+// markers (see src/util/noteMerge.ts) so positional assertions (line[0],
+// exact-slice equality, startsWith) keep testing the actual rendered content
+// rather than having to know which fields happen to be marker-wrapped.
 function stripMarkers(content) {
-	return content.split('\n').filter(l => !/^%%\/?jw:/.test(l.trim())).join('\n');
+	return content.split('\n').filter(l => !/^<span class="jw-marker" data-jw-(start|end)="/.test(l.trim())).join('\n');
 }
 
 function builder(opts = {}) {

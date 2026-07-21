@@ -32,8 +32,8 @@ const GERMAN_MONTH_ABBR = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Au
  * per week — NOT one note per programme item, unlike NoteBuilder's congress
  * notes (explicit user decision: a week's schedule is consumed as a whole,
  * not fragmented into a file per assignment). Every numbered item still gets
- * its own `%%jw:item-N%%` marker (the Congregation Bible Study gets `cbs`
- * instead, since it's always the last item and worth a stable, memorable id)
+ * its own `item-N` marker (the Congregation Bible Study gets `cbs` instead,
+ * since it's always the last item and worth a stable, memorable id)
  * with writing space after it — mirrors NoteBuilder.renderSeriesNote()'s
  * `part-N` scheme, just applied to a whole week's items in one note instead
  * of one talk-series' parts. Reuses `pushMarked`/`mergeNoteContent` (see

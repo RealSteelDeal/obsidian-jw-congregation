@@ -23,7 +23,7 @@ export interface GeneratedNote {
 	 *  outright on a plain re-import (JwCongregationPlugin.importFile()). Notes with
 	 *  writing space (talk notes, the review note) default to false/undefined and are
 	 *  left untouched there. JwCongregationPlugin.updateFile() (the "Update convention
-	 *  notes" command) instead merges those via the %%jw:id%% markers this class wraps
+	 *  notes" command) instead merges those via the invisible markers this class wraps
 	 *  around every derived field — see util/noteMerge.ts. */
 	regenerate?: boolean;
 }

@@ -10,7 +10,7 @@ export interface LegacyMigrationCandidate {
 
 /**
  * Follow-up to JwCongregationPlugin.updateFile() for notes that predate the
- * %%jw:id%% marker mechanism (see util/legacyFieldPatch.ts) — shows exactly
+ * invisible-marker mechanism (see util/noteMerge.ts, util/legacyFieldPatch.ts) — shows exactly
  * which lines would change (old → new), one section per note, each with its
  * own toggle (default on). Nothing is written until "Apply" is clicked, and
  * even then only for notes whose toggle is still on — this is the per-note

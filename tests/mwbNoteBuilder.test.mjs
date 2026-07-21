@@ -112,10 +112,10 @@ test('duration and source-citation fields are omitted when their toggles are off
 test('the Congregation Bible Study item gets the dedicated "cbs" marker id, not a positional item-N id', () => {
 	const result = builder().buildNotes(mwb());
 	const content = result.notes[0].content;
-	assert.match(content, /%%jw:cbs%%/);
-	assert.doesNotMatch(content, /%%jw:item-3%%/);
-	assert.match(content, /%%jw:item-1%%/);
-	assert.match(content, /%%jw:item-2%%/);
+	assert.match(content, /data-jw-start="cbs"/);
+	assert.doesNotMatch(content, /data-jw-start="item-3"/);
+	assert.match(content, /data-jw-start="item-1"/);
+	assert.match(content, /data-jw-start="item-2"/);
 });
 
 test('opening/mid-week/closing songs render as jw.org links using the real songDocid when available', () => {
@@ -154,8 +154,8 @@ test('a re-import only patches marked fields, preserving the user\'s own writing
 	// Simulate the user typing their own preparation notes right after item 1's
 	// marker (in the writing-space gap NoteBuilder-style rendering leaves there).
 	const withUserNotes = original.replace(
-		'%%/jw:item-1%%',
-		'%%/jw:item-1%%\nMeine eigene Vorbereitungsnotiz zu Punkt 1.',
+		'<span class="jw-marker" data-jw-end="item-1"></span>',
+		'<span class="jw-marker" data-jw-end="item-1"></span>\nMeine eigene Vorbereitungsnotiz zu Punkt 1.',
 	);
 
 	// Re-parse the SAME week, but with item 2's duration corrected (3 → 4 Min.) —

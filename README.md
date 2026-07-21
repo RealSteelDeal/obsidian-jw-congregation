@@ -75,7 +75,7 @@ Re-importing into an existing convention folder only refreshes purely derived fi
 
 If a plugin update fixes a bug in the generated notes themselves (e.g. a wrong weekday or a broken scripture link), you don't have to delete anything to pick it up. **Command palette → "Update convention notes"** (also reachable from the same settings-tab section as import) re-parses the same program file and patches an already-imported convention folder in place: every automatically generated field (day, time, scripture links, headings, the "Anschließend"/"Next" hint) is refreshed, while anything you typed yourself — speaker name, personal notes — is left completely untouched, even in the very same note.
 
-This works because every generated note carries invisible markers (Obsidian's own `%%…%%` comment syntax, never shown in Reading View or Live Preview) around each derived field. Only notes created by this plugin version or later have them — older notes fall back to being left alone, reported separately in the result notice.
+This works because every generated note carries invisible markers around each derived field (empty `<span>` elements hidden by this plugin's own stylesheet, never shown in Reading View or Live Preview). Only notes created by this plugin version or later have them — older notes fall back to being left alone, reported separately in the result notice.
 
 ### Correcting even older, marker-free notes
 

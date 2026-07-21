@@ -143,8 +143,9 @@ test('updateFile() leaves a marker-free (pre-1.9.0-style) note completely untouc
 	const itemPath = findItemNotePath(fake.notes);
 	const congressPath = dirname(itemPath);
 	// Simulate a note from before the marker mechanism existed: strip every
-	// %%jw:...%%/%%/jw:...%% line, keeping all visible content as-is.
-	const legacyContent = fake.notes.get(itemPath).replace(/^%%\/?jw:[^%]+%%\n?/gm, '');
+	// <span class="jw-marker" data-jw-start/end="…"></span> line, keeping all
+	// visible content as-is.
+	const legacyContent = fake.notes.get(itemPath).replace(/^<span class="jw-marker" data-jw-(?:start|end)="[^"]+"><\/span>\n?/gm, '');
 	fake.notes.set(itemPath, legacyContent);
 
 	Notice.instances.length = 0;

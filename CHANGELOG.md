@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.18.0
+
+### New feature
+
+- **Import of the Life and Ministry Meeting Workbook ("Leben und Dienst"),
+  German only for now** — a new, independent import/update flow (own ribbon
+  icon, commands and settings section) turns a Meeting Workbook `.jwpub`
+  file into one Markdown note per week: the three fixed programme sections,
+  every numbered item (duration, ministry-assignment label such as "Von Haus
+  zu Haus"/"Informell", the source-material citation, and any discussion
+  questions), the opening/mid-week/closing songs, and the always-last
+  Congregation Bible Study. The "Bibelleseprogramm für das Gedächtnismahl"
+  insert that appears in the Memorial-season issue is recognized separately
+  and turned into its own per-day reading-checklist note. Every derived
+  field is wrapped in the same invisible-marker mechanism convention notes
+  already use, so "Update Meeting Workbook notes" can later refresh a
+  corrected schedule without touching anything typed underneath an item.
+  Picking a file in an unsupported language, or a convention-program file by
+  mistake, is rejected with a clear, translated message.
+- Extracted the jwpub-format-agnostic pieces the new parser shares with the
+  existing convention-program parser (the MEPS-language table, scripture/
+  song href patterns, file-signature detection, the vault-folder-listing
+  helper every import/update modal uses) into small dedicated `util/` modules
+  instead of leaving them duplicated or private to `JwpubParser`/`SourceRouter`.
+
 ## 1.17.0
 
 ### Improvements

@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.18.1
+
+### Fix
+
+- **Invisible merge markers are now actually invisible in Live Preview, not
+  just in Reading View.** The `%%jw:id%%`/`%%/jw:id%%` markers used since
+  1.9.0 (Obsidian's own comment syntax) turned out to always render as
+  dimmed, visible text while editing — independent of cursor position —
+  since Obsidian has no built-in fully-invisible handling for that syntax
+  specifically; only Reading View ever dropped it entirely. Replaced with
+  empty `<span class="jw-marker">` elements hidden by this plugin's own
+  stylesheet, so they stay invisible in both views regardless of where the
+  cursor is. Existing notes (congress or Meeting Workbook) using the old
+  format keep merging correctly and are silently upgraded to the new marker
+  format the next time they're updated — nothing needs to be done manually,
+  and no content is ever lost.
+
 ## 1.18.0
 
 ### New feature

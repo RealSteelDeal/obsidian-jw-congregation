@@ -1,3 +1,4 @@
+import type { Unzipped } from 'fflate';
 import type { Database } from 'sql.js';
 import {
 	MemorialReadingDay,
@@ -6,9 +7,10 @@ import {
 	MwbItem,
 	MwbSection,
 	MwbSong,
+	MwbTextSegment,
 	MwbWeek,
 } from '../models/mwb';
-import { Scripture } from '../models/congress';
+import { CoverImage, Scripture } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 import { NL, NoteStrings } from '../i18n';
 import { DbRow, decryptBlob, deriveKey, openJwpubDatabase, readPublication } from '../util/jwpubCrypto';
@@ -31,6 +33,19 @@ const DURATION_RE = /\((\d{1,3})\s*Min\.?\)/;
 // weeks/year not yet seen — a missed/mismatched label would silently drop
 // real information, where verbatim capture loses nothing.
 const ASSIGNMENT_TYPE_RE = /^([A-ZÄÖÜß][A-ZÄÖÜß\s]{2,40})\./;
+// A paragraph whose ENTIRE text is just the duration marker, e.g. "(10 Min.)"
+// on its own line — excluded from MwbItem.paragraphs (already surfaced via
+// durationMin) rather than shown as a redundant, content-free paragraph.
+const DURATION_ONLY_RE = /^\(\d{1,3}\s*Min\.?\)$/;
+// Any jwpub://p/ publication cross-reference (source-material citation),
+// e.g. "jwpub://p/X:1102018451/" or "jwpub://p/X:1102023302/13-13" (with a
+// trailing paragraph-range anchor — not preserved in the resulting link,
+// since there's no confirmed jw.org/finder parameter to jump to a specific
+// paragraph; docid-level linking still lands on the right chapter/lesson).
+// Deliberately broader than jwpubLinks.ts's SONG_DOCID_HREF_RE (which
+// requires the href to end right at the docid, matching only real song
+// links) — citation links routinely carry that extra path segment.
+const CITATION_HREF_RE = /^jwpub:\/\/p\/[^:/]+:(\d+)(?:\/.*)?$/;
 
 /**
  * Parses a Life-and-Ministry-Meeting-Workbook ("Leben und Dienst" / mwb)
@@ -60,7 +75,7 @@ export class MwbParser {
 
 	async parse(fileBuffer: Uint8Array): Promise<Mwb> {
 		assertPlatformSupport();
-		const { db } = await openJwpubDatabase(fileBuffer, this.sqlWasmBinary);
+		const { db, innerZip } = await openJwpubDatabase(fileBuffer, this.sqlWasmBinary);
 		const pub = readPublication(db);
 
 		const lang = MEPS_LANGUAGE_INDEX[Number(pub['MepsLanguageIndex'])];
@@ -72,7 +87,7 @@ export class MwbParser {
 		const keyIv = await deriveKey(pub);
 		const docs = this.readDocuments(db);
 
-		const mwb = await this.buildMwb(docs, pub, keyIv);
+		const mwb = await this.buildMwb(docs, pub, keyIv, db, innerZip);
 		db.close();
 		return mwb;
 	}
@@ -84,7 +99,13 @@ export class MwbParser {
 		return res[0].values.map(row => Object.fromEntries(cols.map((c, i) => [c, row[i]])));
 	}
 
-	private async buildMwb(docs: DbRow[], pub: DbRow, keyIv: { key: Uint8Array; iv: Uint8Array }): Promise<Mwb> {
+	private async buildMwb(
+		docs: DbRow[],
+		pub: DbRow,
+		keyIv: { key: Uint8Array; iv: Uint8Array },
+		db: Database,
+		innerZip: Unzipped,
+	): Promise<Mwb> {
 		const weeks: MwbWeek[] = [];
 		let memorialReading: MemorialReadingSchedule | undefined;
 
@@ -110,7 +131,10 @@ export class MwbParser {
 			}
 
 			const week = this.parseWeekDocument(dom);
-			if (week) weeks.push(week);
+			if (week) {
+				week.coverImage = this.extractCoverImage(db, innerZip, docId);
+				weeks.push(week);
+			}
 		}
 
 		if (weeks.length === 0) {
@@ -174,6 +198,43 @@ export class MwbParser {
 		// "Versammlungs­bibelstudium") purely as a line-break hint — invisible
 		// to a human reader, but breaks a naive strict-equality label match.
 		return text.replace(/­/g, '').replace(/\s+/g, ' ').trim();
+	}
+
+	/**
+	 * The week's own document-level thumbnail. Confirmed against real files:
+	 * a week document's DocumentMultimedia rows include CategoryType 8
+	 * MULTIPLE times (once per numbered item's own inline illustration, e.g.
+	 * "…_cnt_1.jpg"/"…_cnt_2.jpg"/"…_cnt_3.jpg" at their own paragraph
+	 * ordinal) — unlike a congress day, where CategoryType 8 uniquely
+	 * identifies the day's one banner (see JwpubParser.extractCoverImage()).
+	 * The week's actual representative image is instead CategoryType 9 with
+	 * a NULL BeginParagraphOrdinal (a whole-document image, not tied to any
+	 * paragraph) — confirmed present exactly once per week document.
+	 */
+	private extractCoverImage(db: Database, innerZip: Unzipped, docId: number): CoverImage | undefined {
+		const res = db.exec(
+			`SELECT m.FilePath AS FilePath, m.MimeType AS MimeType
+			 FROM DocumentMultimedia dm
+			 JOIN Multimedia m ON m.MultimediaId = dm.MultimediaId
+			 WHERE dm.DocumentId = ${docId} AND m.CategoryType = 9 AND dm.BeginParagraphOrdinal IS NULL
+			 LIMIT 1`,
+		);
+		const cols = res[0]?.columns;
+		const vals = res[0]?.values[0];
+		if (!cols || !vals) return undefined;
+
+		const row = Object.fromEntries(cols.map((c, i) => [c, vals[i]]));
+		const filePath = String(row['FilePath'] ?? '');
+		if (!filePath) return undefined;
+
+		const entry = innerZip[filePath];
+		if (!entry) return undefined;
+
+		return {
+			data: entry,
+			filename: filePath,
+			mimeType: String(row['MimeType'] ?? 'image/jpeg'),
+		};
 	}
 
 	// ──────────────────────────────────────────────────────────────────────────
@@ -273,17 +334,49 @@ export class MwbParser {
 		const t = this.t;
 		const title = partial.title;
 		const isCongregationBibleStudy = !!t.cbsLabel && this.cleanText(title).toUpperCase() === t.cbsLabel.toUpperCase();
+		const durationMin = this.extractDuration(partial.contentEls);
+		const assignmentType = this.extractAssignmentType(partial.contentEls);
+		const paragraphs = this.extractParagraphs(partial.contentEls);
+		this.stripLeadingMetadataText(paragraphs, durationMin, assignmentType);
 		return {
 			number: partial.number,
 			section: partial.section ?? 'living',
 			title,
-			durationMin: this.extractDuration(partial.contentEls),
-			assignmentType: this.extractAssignmentType(partial.contentEls),
-			sourceCitation: this.extractSourceCitation(partial.contentEls),
-			scriptures: this.extractScriptures(partial.contentEls),
+			durationMin,
+			assignmentType,
+			paragraphs,
 			subQuestions: this.extractSubQuestions(partial.contentEls),
 			isCongregationBibleStudy,
 		};
+	}
+
+	/**
+	 * The leading "(N Min.)" duration marker and, right after it, an
+	 * ALL-CAPS assignment-type label (e.g. "VON HAUS ZU HAUS.") are both
+	 * ALREADY surfaced as their own structured fields (durationMin/
+	 * assignmentType) — shown separately by MwbNoteBuilder. Left untouched,
+	 * they'd also appear a second time as plain text at the very start of the
+	 * first rendered paragraph (the source embeds them inline, not as a
+	 * separate line). This trims the duration marker from the first
+	 * paragraph's first text segment, and turns the assignment-type prefix
+	 * (if any) into **bold** in place — leaving every other word of the
+	 * item's real instructional text exactly as-is, just without that one
+	 * duplicated lead-in.
+	 */
+	private stripLeadingMetadataText(paragraphs: MwbTextSegment[][], durationMin: number | undefined, assignmentType: string | undefined): void {
+		const firstParagraph = paragraphs[0];
+		const firstSegment = firstParagraph?.[0];
+		if (!firstSegment || firstSegment.type !== 'text') return;
+
+		let text = firstSegment.markdown;
+		if (durationMin !== undefined) {
+			text = text.replace(/^\(\d{1,3}\s*Min\.?\)\s*/, '');
+		}
+		if (assignmentType) {
+			const escaped = assignmentType.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			text = text.replace(new RegExp(`^${escaped}\\.\\s*`), `**${assignmentType}.** `);
+		}
+		firstSegment.markdown = text;
 	}
 
 	private extractDuration(els: Element[]): number | undefined {
@@ -304,15 +397,122 @@ export class MwbParser {
 		return undefined;
 	}
 
-	private extractSourceCitation(els: Element[]): string | undefined {
-		let last: string | undefined;
-		for (const el of els) {
-			for (const link of Array.from(el.querySelectorAll('a.xt[href^="jwpub://p/"]'))) {
-				const text = link.textContent?.trim();
-				if (text) last = text;
+	/**
+	 * Renders a small chunk of inline HTML as plain markdown text — bold/
+	 * italic only, no links. Used for a citation link's own visible label
+	 * (e.g. `<em>th</em> Lektion 11` → "*th* Lektion 11"), which never itself
+	 * contains a nested scripture/citation link in any real file seen so far.
+	 */
+	private renderInlineText(el: Element): string {
+		let out = '';
+		for (const child of Array.from(el.childNodes)) {
+			if (child.nodeType === 3) { // Node.TEXT_NODE
+				out += child.textContent ?? '';
+			} else if (child.nodeType === 1) { // Node.ELEMENT_NODE
+				const childEl = child as Element;
+				const inner = this.renderInlineText(childEl);
+				if (childEl.tagName === 'STRONG' || childEl.tagName === 'B') out += `**${inner}**`;
+				else if (childEl.tagName === 'EM' || childEl.tagName === 'I') out += `*${inner}*`;
+				else out += inner;
 			}
 		}
-		return last;
+		return out;
+	}
+
+	/**
+	 * Renders one `<p>`'s full content as an ordered list of segments (see
+	 * models/mwb.ts's MwbTextSegment doc comment) — plain text/bold/italic
+	 * stay inline as rendered markdown; a Bible-citation link becomes a
+	 * `scripture` segment (so MwbNoteBuilder can honor settings.mwbScriptureLinks
+	 * at render time); a source-material citation link becomes a `citation`
+	 * segment carrying the real jw.org/finder docid; any other link (e.g. a
+	 * "Zeig das VIDEO" jw.org URL) is kept as a plain markdown link baked
+	 * directly into the surrounding text, since it's already a real, working
+	 * URL independent of any plugin setting.
+	 */
+	private renderParagraphSegments(p: Element): MwbTextSegment[] {
+		const segments: MwbTextSegment[] = [];
+		let buffer = '';
+		const flush = () => {
+			if (buffer) {
+				segments.push({ type: 'text', markdown: this.cleanText(buffer) });
+				buffer = '';
+			}
+		};
+
+		const walk = (node: ChildNode): void => {
+			if (node.nodeType === 3) { // Node.TEXT_NODE
+				buffer += node.textContent ?? '';
+				return;
+			}
+			if (node.nodeType !== 1) return; // Node.ELEMENT_NODE
+			const el = node as Element;
+
+			if (el.tagName === 'A') {
+				const href = el.getAttribute('href') ?? '';
+				const bibleMatch = BIBLE_HREF_RE.exec(href);
+				if (bibleMatch?.[1]) {
+					try {
+						const scripture = ScriptureNormalizer.fromJwpub(bibleMatch[1]);
+						flush();
+						segments.push({ type: 'scripture', scripture });
+						return;
+					} catch {
+						// malformed reference — fall through to generic link handling below
+					}
+				}
+				const citationMatch = CITATION_HREF_RE.exec(href);
+				if (citationMatch?.[1]) {
+					flush();
+					segments.push({ type: 'citation', label: this.renderInlineText(el), docid: Number(citationMatch[1]) });
+					return;
+				}
+				if (/^https?:\/\//.test(href)) {
+					buffer += `[${this.renderInlineText(el)}](${href})`;
+					return;
+				}
+				buffer += this.renderInlineText(el); // unrecognized link scheme — keep the visible text, drop the link
+				return;
+			}
+			if (el.tagName === 'STRONG' || el.tagName === 'B') {
+				buffer += `**${this.renderInlineText(el)}**`;
+				return;
+			}
+			if (el.tagName === 'EM' || el.tagName === 'I') {
+				buffer += `*${this.renderInlineText(el)}*`;
+				return;
+			}
+			for (const child of Array.from(el.childNodes)) walk(child);
+		};
+
+		for (const child of Array.from(p.childNodes)) walk(child);
+		flush();
+		return segments;
+	}
+
+	/**
+	 * The item's real descriptive text — every `<p>` among `els` EXCEPT ones
+	 * that belong to a nested sub-question list (handled by
+	 * extractSubQuestions() instead) and a standalone "(N Min.)"-only
+	 * paragraph (already surfaced via durationMin, see finalizeItem()).
+	 */
+	private extractParagraphs(els: Element[]): MwbTextSegment[][] {
+		const paragraphs: MwbTextSegment[][] = [];
+		for (const el of els) {
+			for (const p of this.matchingSelfOrDescendants(el, 'p')) {
+				if (p.closest('ul, ol')) continue;
+				// A photo's legal/technical image-source credit (e.g. "Based on
+				// NASA/Visible Earth imagery") — distinct from a <figcaption>'s own
+				// descriptive text (kept, e.g. "Auch im Jahr 2025 haben Jehovas
+				// Zeugen …"), which is real, teaching-relevant caption content.
+				if (p.classList.contains('imgCredit')) continue;
+				const text = this.cleanText(p.textContent ?? '');
+				if (!text || DURATION_ONLY_RE.test(text)) continue;
+				const segments = this.renderParagraphSegments(p);
+				if (segments.length > 0) paragraphs.push(segments);
+			}
+		}
+		return paragraphs;
 	}
 
 	private extractScriptures(els: Element[]): Scripture[] {
@@ -333,14 +533,14 @@ export class MwbParser {
 		return scriptures;
 	}
 
-	private extractSubQuestions(els: Element[]): string[] {
-		const questions: string[] = [];
+	private extractSubQuestions(els: Element[]): MwbTextSegment[][] {
+		const questions: MwbTextSegment[][] = [];
 		for (const el of els) {
 			for (const li of Array.from(el.querySelectorAll('li'))) {
 				const clone = li.cloneNode(true) as HTMLElement;
 				clone.querySelectorAll('textarea, .dc-screenReaderText').forEach(node => node.remove());
-				const text = this.cleanText(clone.textContent ?? '');
-				if (text) questions.push(text);
+				const segments = this.renderParagraphSegments(clone);
+				if (segments.length > 0) questions.push(segments);
 			}
 		}
 		return questions;

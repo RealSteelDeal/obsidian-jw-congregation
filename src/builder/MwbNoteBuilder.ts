@@ -1,4 +1,4 @@
-import { Mwb, MwbSection, MwbSong, MwbWeek } from '../models/mwb';
+import { Mwb, MwbSection, MwbSong, MwbTextSegment, MwbWeek } from '../models/mwb';
 import { Scripture } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 import { NL } from '../i18n';
@@ -7,6 +7,8 @@ import { pushMarked } from '../util/noteMerge';
 export interface MwbBuilderOptions {
 	scriptureLinks: boolean;
 	showDurationField: boolean;
+	/** Whether a source-material citation (e.g. "th Lektion 11") renders as a
+	 *  clickable jw.org/finder link — off shows the plain label only. */
 	showSourceCitationField: boolean;
 	frontmatter: boolean;
 }
@@ -20,9 +22,16 @@ export interface GeneratedMwbNote {
 	regenerate?: boolean;
 }
 
+export interface GeneratedMwbAttachment {
+	filename: string;
+	data: Uint8Array;
+	regenerate?: boolean;
+}
+
 export interface MwbBuildResult {
 	issueFolder: string;
 	notes: GeneratedMwbNote[];
+	attachments: GeneratedMwbAttachment[];
 }
 
 const GERMAN_MONTH_ABBR = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
@@ -73,31 +82,67 @@ export class MwbNoteBuilder {
 
 	buildNotes(mwb: Mwb): MwbBuildResult {
 		const notes: GeneratedMwbNote[] = [];
+		const attachments: GeneratedMwbAttachment[] = [];
 
-		for (const week of mwb.weeks) {
+		mwb.weeks.forEach((week, index) => {
+			// Zero-padded like NoteBuilder's congress item notes, so the file
+			// explorer's default alphabetical sort matches chronological order —
+			// the raw date-range text alone doesn't (e.g. "10.-16. AUGUST" sorts
+			// before "3.-9. AUGUST", and "AUGUST" before "JULI").
+			const number = String(index + 1).padStart(2, '0');
+			const baseName = `${number}. ${this.sanitizeName(week.dateRangeLabel)}`;
+
+			let coverImageFilename: string | undefined;
+			if (week.coverImage) {
+				coverImageFilename = `${number}. ${this.t.coverImageBase}${this.extensionFor(week.coverImage.mimeType, week.coverImage.filename)}`;
+				attachments.push({ filename: coverImageFilename, data: week.coverImage.data, regenerate: true });
+			}
+
 			notes.push({
-				filename: `${this.sanitizeName(week.dateRangeLabel)}.md`,
-				content: this.renderWeekNote(week, mwb.year),
+				filename: `${baseName}.md`,
+				content: this.renderWeekNote(week, mwb.year, coverImageFilename),
 			});
-		}
+		});
 
 		if (mwb.memorialReading) {
 			notes.push({
-				filename: `${this.t.memorialReadingBase}.md`,
+				// Uses the parsed title verbatim (already includes the year, e.g.
+				// "Bibelleseprogramm für das Gedächtnismahl 2026") as the filename,
+				// so Obsidian's own inline note title (derived from the filename)
+				// carries the full title — no separate in-body heading needed.
+				filename: `${this.sanitizeName(mwb.memorialReading.title)}.md`,
 				content: this.renderMemorialReadingNote(mwb.memorialReading),
 			});
 		}
 
-		return { issueFolder: this.issueFolderName(mwb), notes };
+		return { issueFolder: this.issueFolderName(mwb), notes, attachments };
 	}
 
-	private renderWeekNote(week: MwbWeek, year: number): string {
+	private extensionFor(mimeType: string, originalFilename: string): string {
+		const known: Record<string, string> = {
+			'image/jpeg': '.jpg',
+			'image/png': '.png',
+			'image/gif': '.gif',
+			'image/webp': '.webp',
+		};
+		if (known[mimeType]) return known[mimeType];
+		const match = /\.[a-z0-9]+$/i.exec(originalFilename);
+		return match?.[0] ?? '.jpg';
+	}
+
+	// Deliberately no "# <dateRangeLabel>" heading here: the note's FILENAME
+	// already carries that exact text, and Obsidian shows it as the note's own
+	// inline title — an in-body heading with the same text just duplicated it
+	// (confirmed by real-world screenshot: "3.-9. AUGUST" appearing twice).
+	private renderWeekNote(week: MwbWeek, year: number, coverImageFilename: string | undefined): string {
 		const lines: string[] = [];
 		lines.push(...this.frontmatterLines(week, year));
 
 		pushMarked(lines, 'header', () => {
-			lines.push(`# ${week.dateRangeLabel}`);
-			lines.push('');
+			if (coverImageFilename) {
+				lines.push(`![[${coverImageFilename}]]`);
+				lines.push('');
+			}
 			const reading = week.bibleReading.length > 0 ? ` ${this.scriptureListText(week.bibleReading)}` : '';
 			lines.push(`**${this.t.weeklyBibleReadingLabel}:** ${week.bibleReadingLabel}${reading}`);
 			lines.push('');
@@ -124,18 +169,15 @@ export class MwbNoteBuilder {
 				const markerId = item.isCongregationBibleStudy ? 'cbs' : `item-${item.number}`;
 				pushMarked(lines, markerId, () => {
 					lines.push(`### ${item.number}. ${item.title}`);
-					if (item.assignmentType) lines.push(`*${item.assignmentType}*`);
 					if (this.opts.showDurationField && item.durationMin) {
 						lines.push(`**${this.t.durationLabel}:** ${item.durationMin} Min.`);
 					}
-					if (item.scriptures.length > 0) {
-						lines.push(`**${this.t.scripturesLabel}:** ${this.scriptureListText(item.scriptures)}`);
-					}
-					if (this.opts.showSourceCitationField && item.sourceCitation) {
-						lines.push(`**${this.t.sourceMaterialLabel}:** ${item.sourceCitation}`);
+					for (const paragraph of item.paragraphs) {
+						const text = this.renderSegments(paragraph);
+						if (text) lines.push(text);
 					}
 					for (const question of item.subQuestions) {
-						lines.push(`- ${question}`);
+						lines.push(`- ${this.renderSegments(question)}`);
 					}
 				});
 				lines.push(this.noteSpace());
@@ -154,11 +196,7 @@ export class MwbNoteBuilder {
 		const lines: string[] = [];
 
 		pushMarked(lines, 'header', () => {
-			lines.push(`# ${schedule.title}`);
-			if (schedule.intro) {
-				lines.push('');
-				lines.push(`*${schedule.intro}*`);
-			}
+			if (schedule.intro) lines.push(`*${schedule.intro}*`);
 		});
 		lines.push('');
 
@@ -183,6 +221,23 @@ export class MwbNoteBuilder {
 			case 'ministry': return this.t.ministryLabel ?? '';
 			case 'living': return this.t.livingLabel ?? '';
 		}
+	}
+
+	/** Renders one item paragraph's segments (see models/mwb.ts's
+	 *  MwbTextSegment doc comment) into a single markdown string — scripture
+	 *  references respect settings.mwbScriptureLinks, source-material
+	 *  citations respect settings.mwbShowSourceCitationField (link vs. plain
+	 *  label), plain text/bold/italic passes through as already-rendered
+	 *  markdown from MwbParser. */
+	private renderSegments(segments: MwbTextSegment[]): string {
+		return segments.map(seg => {
+			if (seg.type === 'text') return seg.markdown;
+			if (seg.type === 'scripture') return this.scriptureText(seg.scripture);
+			// citation
+			if (!this.opts.showSourceCitationField || seg.docid === undefined) return seg.label;
+			const url = `https://www.jw.org/finder?srcid=jwlshare&wtlocale=${ScriptureNormalizer.wtlocale('de')}&prefer=lang&docid=${seg.docid}`;
+			return `[${seg.label}](${url})`;
+		}).join('');
 	}
 
 	private scriptureText(s: Scripture): string {

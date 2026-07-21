@@ -54,12 +54,8 @@ export interface NoteStrings {
 	livingLabel?: string;
 	/** Exact text of the always-last "Versammlungsbibelstudium" item title. */
 	cbsLabel?: string;
-	weekOverviewBase?: string;
 	weeklyBibleReadingLabel?: string;
 	durationLabel?: string;
-	sourceMaterialLabel?: string;
-	/** Filename base for the Memorial Bible-reading-schedule note. */
-	memorialReadingBase?: string;
 }
 
 /**
@@ -281,11 +277,8 @@ export const L: Record<SupportedLang, Strings> = {
 		ministryLabel: 'UNS IM DIENST VERBESSERN',
 		livingLabel: 'UNSER LEBEN ALS CHRIST',
 		cbsLabel: 'Versammlungsbibelstudium',
-		weekOverviewBase: '00. Übersicht',
 		weeklyBibleReadingLabel: 'Wochenlesung',
 		durationLabel: 'Dauer',
-		sourceMaterialLabel: 'Quelle',
-		memorialReadingBase: 'Bibelleseprogramm für das Gedächtnismahl',
 
 		popupLoading: 'Lade Bibeltext …',
 		popupMissing: 'Kein Vers-Text verfügbar (diese Stelle ist in der geladenen Bibel-Datei nicht indiziert).',

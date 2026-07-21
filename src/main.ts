@@ -684,11 +684,11 @@ export default class JwCongregationPlugin extends Plugin {
 	}
 
 	// The meeting-workbook counterpart to importFile(): same rollback-on-failure
-	// and progress-notice pattern, but simpler — one note per week (no per-day
-	// folders/attachments), via MwbSourceRouter/MwbNoteBuilder instead of
-	// SourceRouter/NoteBuilder. Own, independent settings (mwbTargetFolder,
-	// mwbScriptureLinks, …) rather than reusing the congress ones — the two
-	// note types are conceptually different content.
+	// and progress-notice pattern, and the same regenerate-flagged-attachment
+	// handling (each week's own cover image), via MwbSourceRouter/MwbNoteBuilder
+	// instead of SourceRouter/NoteBuilder. Own, independent settings
+	// (mwbTargetFolder, mwbScriptureLinks, …) rather than reusing the congress
+	// ones — the two note types are conceptually different content.
 	async importMwbFile(filename: string, data: Uint8Array, targetFolder?: string): Promise<void> {
 		const router = new MwbSourceRouter(this.sqlWasmBinary);
 		const builder = new MwbNoteBuilder({
@@ -706,7 +706,7 @@ export default class JwCongregationPlugin extends Plugin {
 			return;
 		}
 
-		const { issueFolder, notes } = builder.buildNotes(result.mwb);
+		const { issueFolder, notes, attachments } = builder.buildNotes(result.mwb);
 		const rawBase = (targetFolder ?? this.settings.mwbTargetFolder).trim();
 		const baseFolder = rawBase ? normalizePath(rawBase) : '';
 		const issuePath = baseFolder ? normalizePath(`${baseFolder}/${issueFolder}`) : normalizePath(issueFolder);
@@ -715,7 +715,7 @@ export default class JwCongregationPlugin extends Plugin {
 		let updated = 0;
 		let skipped = 0;
 
-		const total = notes.length;
+		const total = notes.length + attachments.length;
 		let done = 0;
 		const progress = total > 3 ? new Notice(this.tr.noticeImportProgress(0, total), 0) : null;
 
@@ -736,6 +736,26 @@ export default class JwCongregationPlugin extends Plugin {
 				} else {
 					await this.app.vault.create(notePath, note.content);
 					createdPaths.push(notePath);
+				}
+				done++;
+				progress?.setMessage(this.tr.noticeImportProgress(done, total));
+			}
+
+			for (const attachment of attachments) {
+				const attachPath = await this.resolvePath(issuePath, undefined, attachment.filename);
+				const existing = this.app.vault.getAbstractFileByPath(attachPath);
+				const buf = attachment.data;
+				const arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
+				if (existing) {
+					if (attachment.regenerate && existing instanceof TFile) {
+						await this.app.vault.modifyBinary(existing, arrayBuffer);
+						updated++;
+					} else {
+						skipped++;
+					}
+				} else {
+					await this.app.vault.createBinary(attachPath, arrayBuffer);
+					createdPaths.push(attachPath);
 				}
 				done++;
 				progress?.setMessage(this.tr.noticeImportProgress(done, total));
@@ -782,7 +802,7 @@ export default class JwCongregationPlugin extends Plugin {
 			return;
 		}
 
-		const { notes } = builder.buildNotes(result.mwb);
+		const { notes, attachments } = builder.buildNotes(result.mwb);
 
 		let merged = 0;
 		let created = 0;
@@ -790,7 +810,7 @@ export default class JwCongregationPlugin extends Plugin {
 		let needsReimport = 0;
 		const createdPaths: string[] = [];
 
-		const total = notes.length;
+		const total = notes.length + attachments.length;
 		let done = 0;
 		const progress = total > 3 ? new Notice(this.tr.noticeImportProgress(0, total), 0) : null;
 
@@ -817,6 +837,27 @@ export default class JwCongregationPlugin extends Plugin {
 				} else {
 					await this.app.vault.create(notePath, note.content);
 					createdPaths.push(notePath);
+					created++;
+				}
+				done++;
+				progress?.setMessage(this.tr.noticeImportProgress(done, total));
+			}
+
+			for (const attachment of attachments) {
+				const attachPath = await this.resolvePath(issuePath, undefined, attachment.filename);
+				const existing = this.app.vault.getAbstractFileByPath(attachPath);
+				const buf = attachment.data;
+				const arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
+				if (existing instanceof TFile) {
+					if (attachment.regenerate) {
+						await this.app.vault.modifyBinary(existing, arrayBuffer);
+						merged++;
+					} else {
+						unchanged++;
+					}
+				} else {
+					await this.app.vault.createBinary(attachPath, arrayBuffer);
+					createdPaths.push(attachPath);
 					created++;
 				}
 				done++;

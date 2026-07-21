@@ -19,6 +19,12 @@ function song(overrides = {}) {
 	return { songNumber: 1, songDocid: 1102016800, ...overrides };
 }
 
+// A single text segment is the common case in these tests — most assertions
+// don't need a scripture/citation segment mixed in.
+function textParagraph(markdown) {
+	return [{ type: 'text', markdown }];
+}
+
 function item(overrides = {}) {
 	return {
 		number: 1,
@@ -26,8 +32,7 @@ function item(overrides = {}) {
 		title: 'Testtitel',
 		durationMin: 10,
 		assignmentType: undefined,
-		sourceCitation: undefined,
-		scriptures: [{ book: 20, chapter: 16, verseStart: 20 }],
+		paragraphs: [textParagraph('Testinhalt für Punkt eins.')],
 		subQuestions: [],
 		isCongregationBibleStudy: false,
 		...overrides,
@@ -44,8 +49,15 @@ function week(overrides = {}) {
 		closingSong: song({ songNumber: 3, songDocid: 1102016802 }),
 		items: [
 			item({ number: 1, section: 'treasures' }),
-			item({ number: 2, section: 'ministry', title: 'Testdienst', assignmentType: 'VON HAUS ZU HAUS', durationMin: 3 }),
-			item({ number: 3, section: 'living', title: 'Versammlungsbibelstudium', durationMin: 30, isCongregationBibleStudy: true }),
+			item({
+				number: 2, section: 'ministry', title: 'Testdienst', durationMin: 3,
+				paragraphs: [textParagraph('**VON HAUS ZU HAUS.** Sprich mit jemandem über eine Testwahrheit.')],
+			}),
+			item({
+				number: 3, section: 'living', title: 'Versammlungsbibelstudium', durationMin: 30,
+				isCongregationBibleStudy: true,
+				paragraphs: [[{ type: 'citation', label: 'tb Geschichte 1', docid: 1234567 }]],
+			}),
 		],
 		...overrides,
 	};
@@ -68,18 +80,27 @@ test('issueFolderName falls back to just the year when IssueTagNumber is malform
 	assert.equal(builder().issueFolderName(mwb({ issueTagNumber: 'not-a-number', year: 2026 })), 'Leben und Dienst 2026');
 });
 
-test('buildNotes produces exactly one note per week, named after the date-range label', () => {
+test('buildNotes produces exactly one note per week, named with a zero-padded chronological number before the date-range label', () => {
 	const result = builder().buildNotes(mwb({ weeks: [week({ dateRangeLabel: '1.-7. Januar' }), week({ dateRangeLabel: '8.-14. Januar' })] }));
 	assert.equal(result.notes.length, 2);
-	assert.deepEqual(result.notes.map(n => n.filename).sort(), ['1.-7. Januar.md', '8.-14. Januar.md']);
+	// Confirms the fix for "10.-16. AUGUST" sorting before "3.-9. AUGUST"
+	// alphabetically — a numeric prefix makes the file explorer's default sort
+	// match chronological order regardless of the raw date-range text.
+	assert.deepEqual(result.notes.map(n => n.filename), ['01. 1.-7. Januar.md', '02. 8.-14. Januar.md']);
 });
 
-test('buildNotes adds one extra note for the Memorial reading schedule when present', () => {
+test('buildNotes adds one extra note for the Memorial reading schedule when present, named after its own title (year included)', () => {
 	const result = builder().buildNotes(mwb({
-		memorialReading: { title: 'Testleseprogramm', days: [{ dayLabel: 'TESTTAG', readings: [{ scripture: { book: 20, chapter: 1, verseStart: 1 } }] }] },
+		memorialReading: { title: 'Testleseprogramm 2026', days: [{ dayLabel: 'TESTTAG', readings: [{ scripture: { book: 20, chapter: 1, verseStart: 1 } }] }] },
 	}));
 	assert.equal(result.notes.length, 2);
-	assert.ok(result.notes.some(n => n.filename === 'Bibelleseprogramm für das Gedächtnismahl.md'));
+	assert.ok(result.notes.some(n => n.filename === 'Testleseprogramm 2026.md'));
+});
+
+test('week note has no in-body "# <date range>" heading — Obsidian\'s own inline title (from the filename) already shows it, and a second one duplicated it', () => {
+	const result = builder().buildNotes(mwb({ weeks: [week({ dateRangeLabel: '1.-7. Januar' })] }));
+	const content = result.notes[0].content;
+	assert.doesNotMatch(content, /^# 1\.-7\. Januar$/m);
 });
 
 test('week note renders all 3 section headings and every item under its own section', () => {
@@ -93,20 +114,31 @@ test('week note renders all 3 section headings and every item under its own sect
 	assert.match(content, /### 3\. Versammlungsbibelstudium/);
 });
 
-test('week note shows the assignment-type label and duration for items that have them', () => {
+test('week note renders the item\'s actual descriptive text (not just metadata), with the assignment-type prefix already bolded by the parser', () => {
 	const result = builder().buildNotes(mwb());
 	const content = result.notes[0].content;
-	assert.match(content, /\*VON HAUS ZU HAUS\*/);
+	assert.match(content, /Testinhalt für Punkt eins\./);
+	assert.match(content, /\*\*VON HAUS ZU HAUS\.\*\* Sprich mit jemandem über eine Testwahrheit\./);
+});
+
+test('week note shows the duration for items that have it', () => {
+	const result = builder().buildNotes(mwb());
+	const content = result.notes[0].content;
 	assert.match(content, /\*\*Dauer:\*\* 3 Min\./);
 });
 
-test('duration and source-citation fields are omitted when their toggles are off', () => {
-	const result = builder({ showDurationField: false, showSourceCitationField: false }).buildNotes(
-		mwb({ weeks: [week({ items: [item({ sourceCitation: 'Testquelle Lektion 1' })] })] }),
-	);
+test('source-material citations render as jw.org/finder links using the real docid', () => {
+	const result = builder().buildNotes(mwb());
+	const content = result.notes[0].content;
+	assert.match(content, /\[tb Geschichte 1\]\(https:\/\/www\.jw\.org\/finder\?srcid=jwlshare&wtlocale=X&prefer=lang&docid=1234567\)/);
+});
+
+test('duration line and citation link are omitted (but text/label kept) when their toggles are off', () => {
+	const result = builder({ showDurationField: false, showSourceCitationField: false }).buildNotes(mwb());
 	const content = result.notes[0].content;
 	assert.doesNotMatch(content, /\*\*Dauer:\*\*/);
-	assert.doesNotMatch(content, /Testquelle Lektion 1/);
+	assert.doesNotMatch(content, /\[tb Geschichte 1\]\(/, 'the citation must not be a link when the toggle is off (songs still are — unaffected by this toggle)');
+	assert.match(content, /tb Geschichte 1/, 'the citation label itself must still be shown, just not as a link');
 });
 
 test('the Congregation Bible Study item gets the dedicated "cbs" marker id, not a positional item-N id', () => {
@@ -126,10 +158,29 @@ test('opening/mid-week/closing songs render as jw.org links using the real songD
 	assert.match(content, /\[Lied 3\]\(https:\/\/www\.jw\.org\/finder\?srcid=jwlshare&wtlocale=X&prefer=lang&docid=1102016802\)/);
 });
 
-test('Memorial-reading note renders one checkbox line per reading, grouped under each day heading', () => {
+test('a week\'s cover image is embedded at the very top of the note and returned as its own attachment, named after the week number', () => {
+	const result = builder().buildNotes(mwb({
+		weeks: [week({ coverImage: { data: new Uint8Array([1, 2, 3]), filename: 'foo.jpg', mimeType: 'image/jpeg' } })],
+	}));
+	assert.equal(result.attachments.length, 1);
+	assert.equal(result.attachments[0].filename, '01. Titelbild.jpg');
+	assert.deepEqual(Array.from(result.attachments[0].data), [1, 2, 3]);
+	const content = result.notes[0].content;
+	assert.match(content, /!\[\[01\. Titelbild\.jpg\]\]/);
+	// The embed must come before the rest of the header content (Wochenlesung, opening song).
+	assert.ok(content.indexOf('01. Titelbild.jpg') < content.indexOf('Wochenlesung'));
+});
+
+test('a week with no cover image produces no attachment and no embed line', () => {
+	const result = builder().buildNotes(mwb());
+	assert.equal(result.attachments.length, 0);
+	assert.doesNotMatch(result.notes[0].content, /!\[\[/);
+});
+
+test('Memorial-reading note renders one checkbox line per reading, grouped under each day heading, with no separate title heading', () => {
 	const result = builder().buildNotes(mwb({
 		memorialReading: {
-			title: 'Testleseprogramm',
+			title: 'Testleseprogramm 2026',
 			intro: 'Testeinleitung',
 			days: [
 				{ dayLabel: 'TESTTAG EINS', readings: [{ scripture: { book: 20, chapter: 1, verseStart: 1 }, sourceCitation: 'Testquelle' }] },
@@ -137,8 +188,8 @@ test('Memorial-reading note renders one checkbox line per reading, grouped under
 			],
 		},
 	}));
-	const note = result.notes.find(n => n.filename === 'Bibelleseprogramm für das Gedächtnismahl.md');
-	assert.match(note.content, /# Testleseprogramm/);
+	const note = result.notes.find(n => n.filename === 'Testleseprogramm 2026.md');
+	assert.doesNotMatch(note.content, /^# Testleseprogramm/m);
 	assert.match(note.content, /\*Testeinleitung\*/);
 	assert.match(note.content, /## TESTTAG EINS/);
 	assert.match(note.content, /- \[ \] .*\(Testquelle\)/);
@@ -164,7 +215,10 @@ test('a re-import only patches marked fields, preserving the user\'s own writing
 		weeks: [week({
 			items: [
 				item({ number: 1, section: 'treasures' }),
-				item({ number: 2, section: 'ministry', title: 'Testdienst', assignmentType: 'VON HAUS ZU HAUS', durationMin: 4 }),
+				item({
+					number: 2, section: 'ministry', title: 'Testdienst', durationMin: 4,
+					paragraphs: [textParagraph('**VON HAUS ZU HAUS.** Sprich mit jemandem über eine Testwahrheit.')],
+				}),
 				item({ number: 3, section: 'living', title: 'Versammlungsbibelstudium', durationMin: 30, isCongregationBibleStudy: true }),
 			],
 		})],

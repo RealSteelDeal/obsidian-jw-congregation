@@ -96,8 +96,23 @@ test('parseWeekDocument extracts item 1 correctly even though its <h3> is wrappe
 	const item1 = week.items[0];
 	assert.equal(item1.title, 'Testtitel eins');
 	assert.equal(item1.durationMin, 10);
-	assert.deepEqual(item1.scriptures, [{ book: 20, chapter: 16, verseStart: 20, verseEnd: 20 }]);
+	// The standalone "(10 Min.)" paragraph is excluded from `paragraphs` (already
+	// surfaced via durationMin) — only the real descriptive-text paragraph remains,
+	// with its embedded scripture reference as its own segment.
+	assert.equal(item1.paragraphs.length, 1);
+	assert.deepEqual(item1.paragraphs[0], [
+		{ type: 'text', markdown: 'Testinhalt mit Bibelstelle (' },
+		{ type: 'scripture', scripture: { book: 20, chapter: 16, verseStart: 20, verseEnd: 20 } },
+		{ type: 'text', markdown: ').' },
+	]);
 });
+
+// Flattens a question's segments into plain text for content assertions —
+// mirrors what MwbNoteBuilder.renderSegments() would show for a text-only
+// segment list (scripture/citation segments aren't expected in these cases).
+function flatten(segments) {
+	return segments.map(s => s.markdown ?? s.label ?? '').join('');
+}
 
 test('parseWeekDocument strips <textarea> and screen-reader-only labels from sub-questions', () => {
 	const dom = parseHtml(WEEK_HTML);
@@ -105,23 +120,80 @@ test('parseWeekDocument strips <textarea> and screen-reader-only labels from sub
 	const item2 = week.items[1];
 	assert.equal(item2.subQuestions.length, 2);
 	for (const q of item2.subQuestions) {
-		assert.ok(!q.includes('Deine Antwort'), 'screen-reader-only label must be stripped');
-		assert.ok(!q.includes('geheimer Text'), 'textarea placeholder content must be stripped');
+		const text = flatten(q);
+		assert.ok(!text.includes('Deine Antwort'), 'screen-reader-only label must be stripped');
+		assert.ok(!text.includes('geheimer Text'), 'textarea placeholder content must be stripped');
 	}
-	assert.ok(item2.subQuestions[0].includes('Testfrage?'));
+	assert.ok(flatten(item2.subQuestions[0]).includes('Testfrage?'));
 });
 
-test('parseWeekDocument captures the assignment-type label verbatim, and the source citation', () => {
+test('sub-questions render an embedded scripture reference as its own clickable segment, not plain text', () => {
+	const dom = parseHtml(WEEK_HTML);
+	const week = parser()['parseWeekDocument'](dom);
+	const item2 = week.items[1];
+	const firstQuestion = item2.subQuestions[0];
+	assert.ok(firstQuestion.some(s => s.type === 'scripture'), 'the scripture reference inside the sub-question must be its own segment');
+});
+
+test('parseWeekDocument captures the assignment-type label verbatim as metadata, and the duration', () => {
 	const dom = parseHtml(WEEK_HTML);
 	const week = parser()['parseWeekDocument'](dom);
 	const item3 = week.items[2];
 	assert.equal(item3.assignmentType, 'VON HAUS ZU HAUS');
 	assert.equal(item3.durationMin, 3);
-	assert.equal(item3.sourceCitation, 'tb Lektion 1');
 
 	const item4 = week.items[3];
 	assert.equal(item4.assignmentType, 'INFORMELL');
 	assert.equal(item4.durationMin, 2);
+});
+
+test('parseWeekDocument strips the leading duration marker from the rendered paragraph text and bolds the assignment-type prefix in place, instead of duplicating both', () => {
+	const dom = parseHtml(WEEK_HTML);
+	const week = parser()['parseWeekDocument'](dom);
+	const item3 = week.items[2];
+	assert.equal(item3.paragraphs.length, 1);
+	const firstSegment = item3.paragraphs[0][0];
+	assert.equal(firstSegment.type, 'text');
+	assert.ok(!firstSegment.markdown.includes('(3 Min.)'), 'duration marker must not remain in the paragraph text');
+	assert.ok(firstSegment.markdown.startsWith('**VON HAUS ZU HAUS.**'), 'assignment-type prefix must be bolded in place');
+});
+
+test('parseWeekDocument turns a source-material citation link into its own "citation" segment carrying the real jw.org docid', () => {
+	const dom = parseHtml(WEEK_HTML);
+	const week = parser()['parseWeekDocument'](dom);
+	const item3 = week.items[2];
+	const citation = item3.paragraphs[0].find(seg => seg.type === 'citation');
+	assert.ok(citation, 'a citation segment must be present');
+	assert.equal(citation.label, 'tb Lektion 1');
+	assert.equal(citation.docid, 9999999);
+});
+
+test('renderParagraphSegments preserves a plain https:// link (e.g. a "Zeig das VIDEO" prompt) as a real markdown link baked into the text', () => {
+	const dom = parseHtml('<p>Schau dir <a href="https://www.jw.org/finder?lank=pub-ljf_1_VIDEO"><strong>das VIDEO</strong></a> an.</p>');
+	const p = dom.querySelector('p');
+	const segments = parser()['renderParagraphSegments'](p);
+	assert.equal(segments.length, 1);
+	assert.deepEqual(segments[0], {
+		type: 'text',
+		markdown: 'Schau dir [**das VIDEO**](https://www.jw.org/finder?lank=pub-ljf_1_VIDEO) an.',
+	});
+});
+
+test('extractParagraphs excludes a photo\'s legal image-source credit (<p class="imgCredit">) but keeps the figcaption\'s own descriptive text', () => {
+	const dom = parseHtml(`
+		<div>
+		<p>Besprechung.</p>
+		<div id="f1"><figure>
+		<img src="jwpub-media://test.jpg" alt="Testbild" />
+		<p class="imgCredit">Based on NASA/Visible Earth imagery</p>
+		<figcaption class="figcaption"><p>Eine echte Bildunterschrift mit Lehrinhalt</p></figcaption>
+		</figure></div>
+		</div>
+	`);
+	const paragraphs = parser()['extractParagraphs']([dom.querySelector('div')]);
+	const allText = paragraphs.map(p => p.map(s => s.markdown ?? '').join('')).join(' | ');
+	assert.ok(!allText.includes('NASA'), 'image credit must be excluded');
+	assert.ok(allText.includes('Eine echte Bildunterschrift mit Lehrinhalt'), 'figcaption text must still be kept');
 });
 
 test('parseWeekDocument flags the last "living"-section item as the Congregation Bible Study via its title', () => {
@@ -131,7 +203,9 @@ test('parseWeekDocument flags the last "living"-section item as the Congregation
 	assert.equal(cbs.title, 'Versammlungsbibelstudium');
 	assert.equal(cbs.isCongregationBibleStudy, true);
 	assert.equal(cbs.durationMin, 30);
-	assert.equal(cbs.sourceCitation, 'tb2 Geschichte 1');
+	const citation = cbs.paragraphs[0].find(seg => seg.type === 'citation');
+	assert.equal(citation.label, 'tb2 Geschichte 1');
+	assert.equal(citation.docid, 8888888);
 	assert.ok(!week.items[4].isCongregationBibleStudy);
 });
 

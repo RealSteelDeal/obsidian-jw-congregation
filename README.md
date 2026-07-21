@@ -33,7 +33,7 @@ An Obsidian community plugin that imports official convention program files of J
 - **Type a scripture reference anywhere, in any note** (e.g. `Psalm 12:1`, or an abbreviation like `Matth. 5:2`) and a suggestion pops up right after typing it, offering up to four actions – both fully offline, using the loaded Bible file: link it, link it and open JW Library immediately, insert the verse text as a quote (replacing the typed reference), or insert the quote while turning the reference into a link instead. Each of the four can be individually enabled/disabled and freely reordered in the settings.
 - **Review note** (`Review.md`; `Wiederholung.md` for German imports) with the three standard reflection questions for the congregation's convention review
 - **Printed review questions** ("Find Answers to These Questions") become their own note with one heading per question, always numbered last
-- **Meeting Workbook ("Leben und Dienst") import — German only, new**: imports the Life-and-Ministry-Meeting-Workbook `.jwpub` file as one note per week (not one per assignment) — the three fixed sections, every numbered item (with duration, ministry-assignment label, source citation and discussion questions where present), the opening/mid-week/closing songs, and the always-last Congregation Bible Study. A "Bibelleseprogramm für das Gedächtnismahl" insert (appears in the Memorial-season issue) gets its own per-day reading checklist note. Has its own import/update commands, ribbon icon and settings section, fully independent of the convention-program feature above.
+- **Meeting Workbook ("Leben und Dienst") import — German only, new**: imports the Life-and-Ministry-Meeting-Workbook `.jwpub` file as one note per week (not one per assignment) — the three fixed sections, every numbered item with its actual descriptive text from the workbook (not just a metadata summary), the ministry-assignment label bolded in place, duration, discussion questions (with any embedded scripture reference kept clickable), the opening/mid-week/closing songs, and the always-last Congregation Bible Study. Every source-material citation (e.g. "th"/"Werde ein besserer Leser und Lehrer", "lmd"/"Liebt Menschen, macht sie zu Jüngern") links to its real jw.org/finder page, exactly like songs already do. Each week's own cover image is embedded at the top of its note, and notes are numbered chronologically (`01.`, `02.`, …) so the file explorer's default sort matches the actual week order. A "Bibelleseprogramm für das Gedächtnismahl" insert (appears in the Memorial-season issue) gets its own per-day reading checklist note. Has its own import/update commands, ribbon icon and settings section, fully independent of the convention-program feature above.
 
 ### Tip: pairs well with JW Library Linker
 
@@ -136,6 +136,18 @@ By default (target folder = vault root), each convention is its own top-level fo
 ```
 
 (Examples show English imports; a German program file produces German names throughout — e.g. `Regionaler Kongress 2026 – …`, `00. Übersicht.md`, `Titelbild.jpg`, `Wiederholung.md`.)
+
+A Meeting Workbook issue is its own top-level folder too, with one numbered note per week (German only, so always German names):
+
+```
+Leben und Dienst 2026 Jan⁄Feb/
+  01. 5.-11. JANUAR.md
+  01. Titelbild.jpg
+  02. 12.-18. JANUAR.md
+  02. Titelbild.jpg
+  ...
+  Bibelleseprogramm für das Gedächtnismahl 2026.md   ← only in the Memorial-season issue
+```
 
 ## Technical details
 

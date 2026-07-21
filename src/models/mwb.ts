@@ -1,9 +1,22 @@
-import { Scripture } from './congress';
+import { CoverImage, Scripture } from './congress';
 
 /** Internal section keys, language-independent — the visible heading text
  *  (SCHÄTZE AUS GOTTES WORT / UNS IM DIENST VERBESSERN / UNSER LEBEN ALS
  *  CHRIST for German) lives in NoteStrings (treasuresLabel/ministryLabel/livingLabel). */
 export type MwbSection = 'treasures' | 'ministry' | 'living';
+
+/**
+ * One piece of an item's descriptive paragraph text, in source order — lets
+ * MwbNoteBuilder render the item's REAL instructional text (not just
+ * extracted metadata) while still respecting settings.mwbScriptureLinks and
+ * always linking source-material citations to their real jw.org/finder docid
+ * (read straight out of the jwpub file's own "jwpub://p/<lang>:<docid>/…"
+ * link, same mechanism as MwbSong.songDocid).
+ */
+export type MwbTextSegment =
+	| { type: 'text'; markdown: string }
+	| { type: 'scripture'; scripture: Scripture }
+	| { type: 'citation'; label: string; docid?: number };
 
 export interface MwbSong {
 	songNumber: number;
@@ -26,14 +39,24 @@ export interface MwbItem {
 	/** Parsed from a trailing "(N Min.)" duration marker. */
 	durationMin?: number;
 	/** Raw, verbatim ALL-CAPS assignment-type label (e.g. "VON HAUS ZU HAUS"),
-	 *  if present — deliberately not a closed enum, see MwbParser's doc comment. */
+	 *  if present — deliberately not a closed enum, see MwbParser's doc comment.
+	 *  Kept as structured metadata; MwbNoteBuilder shows it in bold INSIDE the
+	 *  rendered paragraph text below rather than as a separate line, since
+	 *  `paragraphs` already contains it once (MwbParser strips/re-bolds it in
+	 *  place rather than duplicating it). */
 	assignmentType?: string;
-	/** Visible text of the item's own source-material citation link, e.g. "lmd Lektion 2 Punkt 3". */
-	sourceCitation?: string;
-	scriptures: Scripture[];
+	/** The item's own descriptive text from the workbook — one entry per
+	 *  source `<p>` (excluding a standalone "(N Min.)"-only paragraph and any
+	 *  paragraph that belongs to a nested sub-question list instead, see
+	 *  `subQuestions`). Rendered by MwbNoteBuilder as the item's actual body
+	 *  text, not just a scripture/citation summary line. */
+	paragraphs: MwbTextSegment[][];
 	/** Discussion/sub-question text pulled from any nested <li>, with <textarea>
-	 *  answer-placeholder content stripped out first. */
-	subQuestions: string[];
+	 *  answer-placeholder content stripped out first — same segment shape as
+	 *  `paragraphs`, so an embedded scripture/citation inside a discussion
+	 *  question (e.g. "Jes 20:2 – … (w06 …)") is just as clickable as one in
+	 *  the item's main text. */
+	subQuestions: MwbTextSegment[][];
 	/** True for the always-last item of the "living" section ("Versammlungsbibelstudium"). */
 	isCongregationBibleStudy: boolean;
 }
@@ -53,6 +76,15 @@ export interface MwbWeek {
 	closingSong: MwbSong;
 	/** All numbered items, across all 3 sections, in source order. */
 	items: MwbItem[];
+	/** The week's own document-level thumbnail — resolved via the
+	 *  DocumentMultimedia/Multimedia tables, CategoryType 9 with a null
+	 *  BeginParagraphOrdinal (a whole-document image, not tied to any specific
+	 *  paragraph). NOT the same CategoryType congress days use (8) — for a
+	 *  meeting-workbook week, CategoryType 8 is used repeatedly for each
+	 *  numbered item's own inline illustration, not a single week banner;
+	 *  confirmed against real files (CategoryType 9 appears exactly once per
+	 *  week document, at document level). */
+	coverImage?: CoverImage;
 }
 
 export interface MemorialReadingDay {

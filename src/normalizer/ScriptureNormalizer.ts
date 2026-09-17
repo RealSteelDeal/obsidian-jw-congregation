@@ -148,6 +148,11 @@ export class ScriptureNormalizer {
 	 * parameter shape (see AGENTS.md, "Lieder-Link-Historie"). That is why a
 	 * gapped citation is rendered as several links rather than one — never
 	 * reintroduce the comma here without new evidence.
+	 *
+	 * The several-links form was confirmed on the same day against the same
+	 * install: both links of "1. Tim. 4:12, 14-16" navigate correctly. So it is
+	 * an established shape in its own right, not merely the safe fallback —
+	 * don't collapse it back into a single link either.
 	 */
 	private static bibleParam(s: Scripture, run: VerseRun, isHead: boolean): string {
 		// Only the leading stretch can run into a later chapter; a stretch after

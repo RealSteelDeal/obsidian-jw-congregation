@@ -412,7 +412,10 @@ Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohn
   **Konsequenz:** Eine Lücken-Zitation wird als **mehrere Links** gerendert, einer je
   Abschnitt, jeder in einem belegten Format (`ScriptureNormalizer.toMarkdownLink()`).
   `toJwLibraryLink()` liefert für so eine Stelle nur noch den **führenden** Abschnitt, weil
-  eine einzelne URL sie nicht abbilden kann. Das Komma im `bible=` **nicht ohne neue Evidenz
+  eine einzelne URL sie nicht abbilden kann. **Die Mehr-Link-Darstellung ist am 17.09.2026
+  am echten JW Library bestätigt worden:** Bei `1. Tim. 4:12, 14-16` springen beide Links
+  korrekt. Sie ist damit belegt und nicht bloß ein Rückzug auf Bewährtes — **nicht** wieder
+  zu einem einzigen Link zusammenfassen. Das Komma im `bible=` **nicht ohne neue Evidenz
   wieder einführen** — die Erkennung der Komma-Schreibweise im Text war davon nie betroffen.
   `fromRtf()` liest die Komma-Form weiterhin, weil Links aus einem 1.19.0-Entwicklungsstand
   bereits in echten Notizen stehen.

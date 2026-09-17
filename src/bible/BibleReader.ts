@@ -8,6 +8,18 @@ import { decryptBlob, deriveKey, openJwpubDatabase, readPublication } from '../u
 // to seed the index (see buildVerseIdIndex()).
 const BIBLE_HREF_RE = /^jwpub:\/\/b\/NWTR\/(\d+):(\d+):(\d+)/;
 
+/** The individual verse numbers a citation names after a gap, ranges expanded
+ *  ("1. Tim. 4:12, 15-17" → 15, 16, 17). Each one still has to be resolved to
+ *  its own BibleVerseId: unlike the leading range, they are not consecutive
+ *  ids, so nothing may be derived by counting on from the one before. */
+function expandExtraVerses(scripture: Scripture): number[] {
+	const verses: number[] = [];
+	for (const run of scripture.extraVerses ?? []) {
+		for (let verse = run.start; verse <= (run.end ?? run.start); verse++) verses.push(verse);
+	}
+	return verses;
+}
+
 export interface FootnoteRef {
 	symbol: string;
 	html: string;
@@ -314,7 +326,7 @@ export class BibleReader {
 			}
 			// Verses cited across a gap are not part of the contiguous id run —
 			// same handling as in getVerseDetails(), see the note there.
-			for (const verseNumber of scripture.extraVerses ?? []) {
+			for (const verseNumber of expandExtraVerses(scripture)) {
 				const extraId = this.resolveVerseId(scripture.book, scripture.chapter, verseNumber);
 				if (extraId === undefined) continue;
 				const verse = await this.readVerseRow(extraId);
@@ -395,11 +407,11 @@ export class BibleReader {
 				entries.push({ verseId, chapter: cursorChapter, verse: cursorVerse });
 			}
 
-			// Verses cited across a gap ("1. Tim. 4:12, 15") are not part of the
-			// contiguous id run and each resolve on their own — same chapter by
-			// definition (see Scripture.extraVerses). Appended after the range so
-			// the popup lists them in the order they were cited.
-			for (const verse of scripture.extraVerses ?? []) {
+			// Verses cited across a gap ("1. Tim. 4:12, 15-17") are not part of
+			// the contiguous id run and each resolve on their own — same chapter
+			// by definition (see Scripture.extraVerses). Appended after the range
+			// so the popup lists them in the order they were cited.
+			for (const verse of expandExtraVerses(scripture)) {
 				const extraId = this.resolveVerseId(scripture.book, scripture.chapter, verse);
 				if (extraId !== undefined) entries.push({ verseId: extraId, chapter: scripture.chapter, verse });
 			}

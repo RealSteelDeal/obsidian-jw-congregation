@@ -1,4 +1,4 @@
-import { Scripture } from '../models/congress';
+import { Scripture, VerseRun } from '../models/congress';
 import { SupportedLang, lookupBookNumber } from './bookNames';
 
 export interface ScriptureTextMatch {
@@ -22,14 +22,21 @@ export interface ScriptureTextMatch {
 //   14,15     two adjacent verses — the official comma spelling of a range
 //   12,15     two or more verses that are NOT adjacent
 //   3-5,9     a range plus a further single verse
+//   12,15-17  a further range after a gap
+// Any number of comma-separated parts is allowed, each a verse or a range.
 // An en dash is accepted alongside the hyphen because format() itself writes
 // one for cross-chapter citations, so the plugin's own output is recognised
 // again when it is typed or pasted back.
-const TRAILING_REFERENCE_RE = /(\d{1,3}):(\d{1,3}(?:\s*[-–]\s*(?:\d{1,3}:)?\d{1,3})?(?:\s*,\s*\d{1,3})*)$/;
+const TRAILING_REFERENCE_RE = /(\d{1,3}):(\d{1,3}(?:\s*[-–]\s*(?:\d{1,3}:)?\d{1,3})?(?:\s*,\s*\d{1,3}(?:\s*[-–]\s*\d{1,3})?)*)$/;
 
 // The leading part of <spec>, before any comma: a verse, a same-chapter range,
 // or a range whose end carries its own chapter.
 const SPEC_HEAD_RE = /^(\d{1,3})(?:\s*[-–]\s*(?:(\d{1,3}):)?(\d{1,3}))?$/;
+
+// Every part after a comma: a verse or a same-chapter range. A second chapter
+// cannot appear here — a citation only ever enters a new chapter once, at its
+// very end (see the cross-chapter branch in parseVerseSpec).
+const SPEC_PART_RE = /^(\d{1,3})(?:\s*[-–]\s*(\d{1,3}))?$/;
 
 // How many whitespace-separated words before the chapter:verse to consider as
 // part of the book name — covers the longest real book names ("Song of
@@ -79,17 +86,17 @@ export function findScriptureReferenceAtEnd(text: string, lang: SupportedLang): 
  * Turns the citation tail after "chapter:" into the verse-bearing fields of a
  * Scripture, or null if it doesn't describe a sane citation.
  *
- * Rejected rather than guessed at: any non-ascending sequence ("12:5-3",
- * "4:15,12"), a range running back into an earlier chapter, and a comma part
- * that is itself a range ("4:12,15-17") — the last one has no representation
- * in Scripture, and silently linking only part of what the user wrote would be
- * worse than leaving the whole reference unlinked.
+ * Rejected rather than guessed at: any non-ascending or overlapping sequence
+ * ("12:5-3", "4:15,12", "4:12-14,13") and a range running back into an earlier
+ * chapter — a citation that contradicts itself is more likely a typo or not a
+ * citation at all than something worth linking to a guessed passage.
  *
- * A leading run of CONTIGUOUS verses always collapses into verseStart/verseEnd
- * rather than becoming extraVerses, so the common comma spellings ("2:14,15")
- * produce exactly the same single, known-good `bible=BB…-BB…` link that the
- * hyphen spelling has always produced — extraVerses is reserved for genuine
- * gaps (see Scripture.extraVerses).
+ * Every part is expanded into the verses it names and the runs are derived
+ * from that, rather than taken from how it happened to be written. So a
+ * CONTIGUOUS stretch always ends up as verseStart/verseEnd, however it was
+ * spelled ("2:14,15" and "5:3-5,6" alike), which keeps an unbroken citation on
+ * the single, known-good `bible=BB…-BB…` link — extraVerses is left to carry
+ * only genuine gaps (see Scripture.extraVerses).
  */
 function parseVerseSpec(chapter: number, spec: string): Omit<Scripture, 'book'> | null {
 	const parts = spec.split(',').map(part => part.trim());
@@ -99,10 +106,10 @@ function parseVerseSpec(chapter: number, spec: string): Omit<Scripture, 'book'> 
 	const verseStart = Number(headMatch[1]);
 	if (verseStart < 1) return null;
 
-	// A range whose end names its own chapter (Hebr. 5:13-6:1). The verse ids
-	// of the chapters in between are only resolvable against a real Bible file
-	// (see BibleReader), so nothing here may be expanded into a verse list —
-	// which is also why a further comma part cannot be combined with it.
+	// A range whose end names its own chapter (Hebr. 5:13-6:1). Which verses
+	// lie in between is only answerable against a real Bible file (see
+	// BibleReader), so this one cannot be expanded here — which is also why no
+	// further comma part may follow it.
 	if (headMatch[2] !== undefined) {
 		const chapterEnd = Number(headMatch[2]);
 		const verseEnd = Number(headMatch[3]);
@@ -111,26 +118,41 @@ function parseVerseSpec(chapter: number, spec: string): Omit<Scripture, 'book'> 
 		return { chapter, verseStart, verseEnd, chapterEnd };
 	}
 
-	const cited: number[] = [verseStart];
-	if (headMatch[3] !== undefined) {
-		const verseEnd = Number(headMatch[3]);
-		if (verseEnd <= verseStart) return null;
-		for (let v = verseStart + 1; v <= verseEnd; v++) cited.push(v);
-	}
-
+	const cited: number[] = [];
+	if (!collectRun(cited, verseStart, headMatch[3])) return null;
 	for (const part of parts.slice(1)) {
-		if (!/^\d{1,3}$/.test(part)) return null;
-		const verse = Number(part);
-		if (verse <= cited[cited.length - 1]!) return null;
-		cited.push(verse);
+		const partMatch = SPEC_PART_RE.exec(part);
+		if (!partMatch || !collectRun(cited, Number(partMatch[1]), partMatch[2])) return null;
 	}
 
-	let run = 1;
-	while (run < cited.length && cited[run] === cited[run - 1]! + 1) run++;
+	const runs: VerseRun[] = [];
+	for (const verse of cited) {
+		const open = runs[runs.length - 1];
+		if (open && verse === (open.end ?? open.start) + 1) open.end = verse;
+		else runs.push({ start: verse });
+	}
 
-	const scripture: Omit<Scripture, 'book'> = { chapter, verseStart };
-	if (run > 1) scripture.verseEnd = cited[run - 1];
-	const extraVerses = cited.slice(run);
-	if (extraVerses.length > 0) scripture.extraVerses = extraVerses;
+	const head = runs[0]!;
+	const scripture: Omit<Scripture, 'book'> = { chapter, verseStart: head.start };
+	if (head.end !== undefined) scripture.verseEnd = head.end;
+	if (runs.length > 1) scripture.extraVerses = runs.slice(1);
 	return scripture;
+}
+
+/**
+ * Appends every verse of one citation part to `cited`, or reports false if the
+ * part doesn't continue strictly after what was already cited — which is what
+ * rejects both a descending list and one that overlaps itself.
+ */
+function collectRun(cited: number[], start: number, rawEnd: string | undefined): boolean {
+	const last = cited[cited.length - 1];
+	if (start < 1 || (last !== undefined && start <= last)) return false;
+	if (rawEnd === undefined) {
+		cited.push(start);
+		return true;
+	}
+	const end = Number(rawEnd);
+	if (end <= start) return false;
+	for (let verse = start; verse <= end; verse++) cited.push(verse);
+	return true;
 }

@@ -92,19 +92,19 @@ test('recognizes two adjacent verses written with a comma as a plain range ("Rö
 test('recognizes two verses cited across a gap as extraVerses ("1. Tim. 4:12,15")', () => {
 	const match = findScriptureReferenceAtEnd('1. Tim. 4:12,15', 'de');
 	assert.ok(match);
-	assert.deepEqual(match.scripture, { book: 54, chapter: 4, verseStart: 12, extraVerses: [15] });
+	assert.deepEqual(match.scripture, { book: 54, chapter: 4, verseStart: 12, extraVerses: [{ start: 15 }] });
 });
 
 test('accepts a space after the comma, as the citation convention writes it', () => {
 	const match = findScriptureReferenceAtEnd('1. Tim. 4:12, 15', 'de');
 	assert.ok(match);
-	assert.deepEqual(match.scripture, { book: 54, chapter: 4, verseStart: 12, extraVerses: [15] });
+	assert.deepEqual(match.scripture, { book: 54, chapter: 4, verseStart: 12, extraVerses: [{ start: 15 }] });
 });
 
 test('recognizes three or more verses cited across gaps', () => {
 	const match = findScriptureReferenceAtEnd('1. Tim. 4:12,15,20', 'de');
 	assert.ok(match);
-	assert.deepEqual(match.scripture, { book: 54, chapter: 4, verseStart: 12, extraVerses: [15, 20] });
+	assert.deepEqual(match.scripture, { book: 54, chapter: 4, verseStart: 12, extraVerses: [{ start: 15 }, { start: 20 }] });
 });
 
 test('collapses a whole run of adjacent verses, however it is spelled', () => {
@@ -116,7 +116,35 @@ test('collapses a whole run of adjacent verses, however it is spelled', () => {
 test('recognizes a range followed by a further single verse ("Matthäus 5:3-5,9")', () => {
 	const match = findScriptureReferenceAtEnd('Matthäus 5:3-5,9', 'de');
 	assert.ok(match);
-	assert.deepEqual(match.scripture, { book: 40, chapter: 5, verseStart: 3, verseEnd: 5, extraVerses: [9] });
+	assert.deepEqual(match.scripture, { book: 40, chapter: 5, verseStart: 3, verseEnd: 5, extraVerses: [{ start: 9 }] });
+});
+
+test('recognizes a further range after a gap ("1. Tim. 4:12,15-17")', () => {
+	const match = findScriptureReferenceAtEnd('1. Tim. 4:12,15-17', 'de');
+	assert.ok(match);
+	assert.deepEqual(match.scripture, { book: 54, chapter: 4, verseStart: 12, extraVerses: [{ start: 15, end: 17 }] });
+});
+
+test('recognizes a leading range and a further range ("Matthäus 5:3-5,9-11")', () => {
+	const match = findScriptureReferenceAtEnd('Matthäus 5:3-5,9-11', 'de');
+	assert.ok(match);
+	assert.deepEqual(match.scripture, { book: 40, chapter: 5, verseStart: 3, verseEnd: 5, extraVerses: [{ start: 9, end: 11 }] });
+});
+
+test('recognizes a range and a single verse after it ("1. Tim. 4:12,15-17,20")', () => {
+	const match = findScriptureReferenceAtEnd('1. Tim. 4:12,15-17,20', 'de');
+	assert.ok(match);
+	assert.deepEqual(match.scripture, {
+		book: 54, chapter: 4, verseStart: 12, extraVerses: [{ start: 15, end: 17 }, { start: 20 }],
+	});
+});
+
+test('merges a comma part that continues the range without a gap ("Matthäus 5:3-5,6")', () => {
+	// Derived from the verses named, not from how they were written — 3 to 6
+	// runs unbroken, so it is one range and keeps the single known-good link.
+	const match = findScriptureReferenceAtEnd('Matthäus 5:3-5,6', 'de');
+	assert.ok(match);
+	assert.deepEqual(match.scripture, { book: 40, chapter: 5, verseStart: 3, verseEnd: 6 });
 });
 
 test('recognizes a range running into a later chapter ("Hebräer 5:13-6:1")', () => {
@@ -140,8 +168,7 @@ test('rejects a range running back into an earlier chapter', () => {
 	assert.equal(findScriptureReferenceAtEnd('Hebräer 6:1-5:13', 'de'), null);
 });
 
-test('rejects a comma part that is itself a range, instead of linking only half of it', () => {
-	// Scripture has no shape for this, and linking just "4:12" would quietly
-	// drop what the user wrote.
-	assert.equal(findScriptureReferenceAtEnd('1. Tim. 4:12,15-17', 'de'), null);
+test('rejects a citation that overlaps itself rather than merging it silently', () => {
+	assert.equal(findScriptureReferenceAtEnd('1. Tim. 4:12-14,13', 'de'), null);
+	assert.equal(findScriptureReferenceAtEnd('1. Tim. 4:12,15-14', 'de'), null);
 });

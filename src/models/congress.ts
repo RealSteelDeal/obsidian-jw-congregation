@@ -12,6 +12,13 @@ export type ItemType =
 	| 'aside'
 	| 'other';
 
+/** One stretch of consecutive verses inside a citation — a single verse when
+ *  `end` is absent, e.g. the "15-17" of "1. Tim. 4:12, 15-17". */
+export interface VerseRun {
+	start: number;
+	end?: number;
+}
+
 export interface Scripture {
 	book: number;        // 1–66 canonical book number
 	chapter: number;
@@ -23,18 +30,22 @@ export interface Scripture {
 	 *  lists cite exactly this shape. Absent (or equal to `chapter`) for an
 	 *  ordinary single-chapter reference/range. */
 	chapterEnd?: number;
-	/** Further single verses of the SAME chapter cited alongside the leading
-	 *  verse/range, in the order written — the comma form of a citation, e.g.
-	 *  "1. Tim. 4:12, 15" → verseStart 12, extraVerses [15]. Only for verses
-	 *  that are NOT contiguous with what comes before them: exactly two
-	 *  adjacent verses ("Röm. 2:14, 15") are the official comma spelling of a
-	 *  two-verse RANGE and stay verseStart/verseEnd, so that they keep
-	 *  producing the single, known-good `bible=BB…-BB…` link (see
-	 *  ScriptureNormalizer.format(), which renders that range back with a
-	 *  comma). Absent for every ordinary reference — nothing in the jwpub/RTF
-	 *  import path produces it, only free-text recognition does
-	 *  (ScriptureTextParser). */
-	extraVerses?: number[];
+	/** Further verses of the SAME chapter cited after a gap, in ascending order
+	 *  — the comma form of a citation, e.g. "1. Tim. 4:12, 15" → verseStart 12,
+	 *  extraVerses [{start:15}], and "1. Tim. 4:12, 15-17" → extraVerses
+	 *  [{start:15,end:17}].
+	 *
+	 *  Only ever holds what is genuinely separated by a gap: a run of adjacent
+	 *  verses always collapses into verseStart/verseEnd instead, however it was
+	 *  spelled ("Röm. 2:14, 15" → the range 14-15), so an unbroken citation
+	 *  keeps producing the single, known-good `bible=BB…-BB…` link — see
+	 *  ScriptureNormalizer.format(), which renders a two-verse range back with
+	 *  a comma. Consequently extraVerses[0].start is always at least two
+	 *  greater than the end of what precedes it.
+	 *
+	 *  Absent for every ordinary reference — nothing in the jwpub/RTF import
+	 *  path produces it, only free-text recognition does (ScriptureTextParser). */
+	extraVerses?: VerseRun[];
 }
 
 export interface ProgramItem {

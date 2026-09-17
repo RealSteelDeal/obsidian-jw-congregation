@@ -387,15 +387,21 @@ Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohn
   `3-16` kam erst mit 1.19.0 dazu, nachdem ein Nutzer sie aus echter Notizarbeit als nicht
   verlinkbar gemeldet hatte:
   `14` · `3-16` · `13-6:1` (kapitelübergreifend, Bindestrich oder Halbgeviertstrich) ·
-  `14,15` · `12,15` · `3-5,9`
-  - Ein **zusammenhängender Lauf** von Versen wird immer zu `verseStart`/`verseEnd`
-    zusammengezogen, gleich wie er geschrieben wurde (`2:14,15` → Bereich 14-15). Damit
-    entsteht weiterhin genau der eine, belegte `bible=BB…-BB…`-Link. `Scripture.extraVerses`
-    trägt ausschließlich **echte Lücken** (`4:12,15`).
-  - Abgelehnt statt geraten: absteigende Folgen (`4:15,12`), ein Bereich zurück in ein
-    früheres Kapitel (`6:1-5:13`) und ein Komma-Teil, der selbst ein Bereich ist
-    (`4:12,15-17`) — für den gibt es keine Darstellung in `Scripture`, und nur die Hälfte
-    zu verlinken wäre schlechter als gar nicht zu verlinken.
+  `14,15` · `12,15` · `3-5,9` · `12,15-17` · `12,15-17,20`
+  Beliebig viele Komma-Teile, jeder ein Vers oder ein Bereich.
+  - **Nicht die Schreibweise wird übernommen, sondern die genannten Verse werden
+    eingesammelt und die Läufe daraus abgeleitet.** Ein zusammenhängender Lauf wird deshalb
+    immer zu `verseStart`/`verseEnd` zusammengezogen, gleich wie er dastand (`2:14,15` und
+    `5:3-5,6` beide → ein Bereich). Damit entsteht für eine lückenlose Zitation weiterhin
+    genau der eine, belegte `bible=BB…-BB…`-Link; `Scripture.extraVerses` (`VerseRun[]`)
+    trägt ausschließlich **echte Lücken**.
+  - Abgelehnt statt geraten: absteigende oder sich überschneidende Folgen (`4:15,12`,
+    `4:12-14,13`) und ein Bereich zurück in ein früheres Kapitel (`6:1-5:13`) — eine
+    Zitation, die sich selbst widerspricht, ist eher ein Tippfehler als etwas, das man auf
+    eine geratene Stelle verlinken sollte.
+  - Der kapitelübergreifende Fall ist der einzige, der **nicht** expandiert werden kann
+    (welche Verse dazwischenliegen, weiß nur eine echte Bibeldatei) — deshalb duldet er als
+    einziger keinen weiteren Komma-Teil hinter sich.
 - ⚠️ **Unbelegt: die Komma-Liste im `bible=`-Parameter.** Für eine Lücken-Zitation schreibt
   `ScriptureNormalizer.bibleParam()` `…012,…015`. Ein echter JW-Library-Share-Link mit Komma
   wurde **nie gesehen**; belegt sind nur `BBCCCVVV` und `BBCCCVVV-BBCCCVVV`. Bewusst so

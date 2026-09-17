@@ -1,4 +1,4 @@
-import { Scripture } from '../models/congress';
+import { Scripture, VerseRun } from '../models/congress';
 import { CongressLang, getBookName } from './bookNames';
 
 export class ScriptureNormalizer {
@@ -59,13 +59,23 @@ export class ScriptureNormalizer {
 				if (end.chapter !== start.chapter) start.chapterEnd = end.chapter;
 			}
 		}
-		// A different book or chapter in the tail is not a shape this ever
-		// writes — dropped rather than guessed at, exactly as fromJwpub() does
-		// for a foreign end segment.
-		const extraVerses = extraRaw
-			.map(code => ScriptureNormalizer.parseRtfSingle(code))
-			.filter(v => v.book === start.book && v.chapter === start.chapter)
-			.map(v => v.verseStart);
+		// Each tail part mirrors the head: one code for a single verse, two for
+		// a range. A different book or chapter is not a shape this ever writes
+		// — dropped rather than guessed at, exactly as fromJwpub() does for a
+		// foreign end segment.
+		const extraVerses: VerseRun[] = [];
+		for (const part of extraRaw) {
+			const codes = part.split('-');
+			const from = ScriptureNormalizer.parseRtfSingle(codes[0] ?? '');
+			if (from.book !== start.book || from.chapter !== start.chapter) continue;
+			const run: VerseRun = { start: from.verseStart };
+			if (codes.length === 2) {
+				const to = ScriptureNormalizer.parseRtfSingle(codes[1] ?? '');
+				if (to.book !== start.book || to.chapter !== start.chapter) continue;
+				if (to.verseStart > from.verseStart) run.end = to.verseStart;
+			}
+			extraVerses.push(run);
+		}
 		if (extraVerses.length > 0) start.extraVerses = extraVerses;
 		return start;
 	}
@@ -135,7 +145,11 @@ export class ScriptureNormalizer {
 			? `${start}-${ScriptureNormalizer.toRtfCode(s.book, endChapter, s.verseEnd)}`
 			: start;
 		if (!s.extraVerses || s.extraVerses.length === 0) return head;
-		const extras = s.extraVerses.map(v => ScriptureNormalizer.toRtfCode(s.book, s.chapter, v));
+		const extras = s.extraVerses.map(run => {
+			const from = ScriptureNormalizer.toRtfCode(s.book, s.chapter, run.start);
+			if (run.end === undefined || run.end === run.start) return from;
+			return `${from}-${ScriptureNormalizer.toRtfCode(s.book, s.chapter, run.end)}`;
+		});
 		return [head, ...extras].join(',');
 	}
 
@@ -165,15 +179,19 @@ export class ScriptureNormalizer {
 		if (s.chapterEnd !== undefined && s.chapterEnd !== s.chapter) {
 			return `${bookName} ${s.chapter}:${s.verseStart}–${s.chapterEnd}:${s.verseEnd}`;
 		}
-		let base = `${bookName} ${s.chapter}:${s.verseStart}`;
-		if (s.verseEnd !== undefined && s.verseEnd !== s.verseStart) {
-			const separator = s.verseEnd - s.verseStart === 1 ? ', ' : '-';
-			base = `${base}${separator}${s.verseEnd}`;
-		}
-		// Further verses cited across a gap keep the comma the citation
-		// convention uses between non-adjacent verses ("1. Tim. 4:12, 15").
-		for (const verse of s.extraVerses ?? []) base = `${base}, ${verse}`;
-		return base;
+		// Every stretch is written the same way, and they are joined with the
+		// comma the citation convention uses across a gap ("1. Tim. 4:12, 15-17").
+		const head: VerseRun = { start: s.verseStart };
+		if (s.verseEnd !== undefined) head.end = s.verseEnd;
+		const runs = [head, ...(s.extraVerses ?? [])];
+		return `${bookName} ${s.chapter}:${runs.map(run => ScriptureNormalizer.formatRun(run)).join(', ')}`;
+	}
+
+	/** One stretch of verses in the citation convention's own spelling: "15",
+	 *  "15, 16" for exactly two adjacent verses, "15-17" for three or more. */
+	private static formatRun(run: VerseRun): string {
+		if (run.end === undefined || run.end === run.start) return String(run.start);
+		return run.end - run.start === 1 ? `${run.start}, ${run.end}` : `${run.start}-${run.end}`;
 	}
 
 	/** Renders a Scripture as a Markdown link: [Spr 16:20](jwlibrary:///finder?bible=20016020) */

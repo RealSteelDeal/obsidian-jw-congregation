@@ -10,11 +10,11 @@ all three reported from a real convention note:
 - **Verses cited with a comma are now recognized.** Both the adjacent form
   ("Röm. 2:14,15", linked as the verse range it is) and the gapped form
   ("1. Tim. 4:12,15", kept as two distinct verses instead of the wrong 12–15
-  range); also with a space after the comma, with three or more verses, and
-  combined with a leading range ("Matthäus 5:3-5,9"). Previously only
-  "chapter:verse" and "chapter:verse-verse" were understood — so the plugin
-  did not even recognize its own output, since it writes exactly two adjacent
-  verses with a comma itself.
+  range). Any number of comma-separated parts works, and each may itself be a
+  range ("1. Tim. 4:12,15-17", "Matthäus 5:3-5,9-11"), with or without a space
+  after the comma. Previously only "chapter:verse" and "chapter:verse-verse"
+  were understood — so the plugin did not even recognize its own output, since
+  it writes exactly two adjacent verses with a comma itself.
 - **References running into a later chapter are now recognized**
   ("Hebräer 5:13-6:1"), written with either a hyphen or an en dash. The
   underlying model, the link format and the verse popup already handled
@@ -25,10 +25,11 @@ all three reported from a real convention note:
   the link, adding a space unless the line already continues with one.
 
 Verses cited across a gap show up in the verse popup and in an inserted quote
-just like any other reference. A nonsensical citation is left unlinked rather
-than guessed at — a descending list ("4:15,12"), a range running back into an
-earlier chapter ("6:1-5:13"), or a comma part that is itself a range
-("4:12,15-17").
+just like any other reference. What counts as one stretch of verses is derived
+from the verses actually named, not from how they were written, so an unbroken
+citation stays a single range however it is spelled ("5:3-5,6" → 5:3-6). A
+citation that contradicts itself is left unlinked rather than guessed at — a
+descending list ("4:15,12") or one that overlaps itself ("4:12-14,13").
 
 **Worth verifying after installing:** for a gapped citation the link's
 `bible=` parameter carries a comma-separated verse list (`…012,…015`). That

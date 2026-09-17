@@ -20,16 +20,6 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   Meeting Workbook import would additionally need the three Korean section headings and the
   Congregation Bible Study title, which double as the parser's detection anchors (see
   "Meeting-Workbook support for languages other than German" below).
-- **The release workflow still runs a Node-20 action.** `softprops/action-gh-release@v2`
-  declares `using: "node20"`, so GitHub forces it onto Node 24 and annotates every release
-  run with a deprecation warning (seen on the 1.19.0 run, 17.09.2026). It works today and
-  will stop working once that fallback ends — this is borrowed time, not a false alarm.
-  `v3.0.3` declares `using: "node24"`, read off both action manifests rather than assumed.
-  It is a major version bump though, so before switching, check its inputs and its
-  draft/immutable-release behaviour against what `.github/workflows/release.yml` actually
-  passes (`tag_name`, `name`, `body_path`, `files`). Nothing else needs touching: the
-  warning named only this action, not `actions/checkout@v6`, `actions/setup-node@v6` or
-  `actions/attest@v4`.
 
 ## Later (deliberately deferred)
 
@@ -72,6 +62,14 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 
 ## Recently shipped
 
+- **The release workflow no longer runs a Node-20 action.**
+  `softprops/action-gh-release` moved from `v2` to `v3`, whose only change is the action's
+  own runtime (Node 20 → 24); the four inputs the workflow passes are unchanged. GitHub was
+  already forcing `v2` onto Node 24 and annotating every release run — borrowed time that
+  would have ended with a broken release. Verified at the next release run.
+- **Test coverage is reported in CI**, on one Node version, printed in the job log. No
+  threshold is set: picking one is a policy decision, and nothing here can fail a build over
+  it. Also available locally as `npm run test:coverage`.
 - **Every citation form typed as plain text is now recognized and linked.**
   Previously only "chapter:verse" and "chapter:verse-verse" were, which left
   three forms from ordinary note-taking silently unlinked: verses listed with

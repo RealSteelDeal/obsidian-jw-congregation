@@ -38,7 +38,12 @@ jobs:
               run: node scripts/extract-changelog.mjs "${{ github.ref_name }}" > /tmp/release-notes.md
 
             - name: Create release
-              uses: softprops/action-gh-release@v2
+              # v3 only moves the action's own runtime from Node 20 to Node 24
+              # (its release notes say so, and its manifest declares
+              # using: "node24"); the four inputs below are unchanged. v2 still
+              # worked, but GitHub was already forcing it onto Node 24 and
+              # warning on every release run.
+              uses: softprops/action-gh-release@v3
               with:
                   tag_name: ${{ github.ref_name }}
                   name: ${{ github.ref_name }}

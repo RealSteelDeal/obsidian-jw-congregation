@@ -20,6 +20,16 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   Meeting Workbook import would additionally need the three Korean section headings and the
   Congregation Bible Study title, which double as the parser's detection anchors (see
   "Meeting-Workbook support for languages other than German" below).
+- **The release workflow still runs a Node-20 action.** `softprops/action-gh-release@v2`
+  declares `using: "node20"`, so GitHub forces it onto Node 24 and annotates every release
+  run with a deprecation warning (seen on the 1.19.0 run, 17.09.2026). It works today and
+  will stop working once that fallback ends — this is borrowed time, not a false alarm.
+  `v3.0.3` declares `using: "node24"`, read off both action manifests rather than assumed.
+  It is a major version bump though, so before switching, check its inputs and its
+  draft/immutable-release behaviour against what `.github/workflows/release.yml` actually
+  passes (`tag_name`, `name`, `body_path`, `files`). Nothing else needs touching: the
+  warning named only this action, not `actions/checkout@v6`, `actions/setup-node@v6` or
+  `actions/attest@v4`.
 
 ## Later (deliberately deferred)
 

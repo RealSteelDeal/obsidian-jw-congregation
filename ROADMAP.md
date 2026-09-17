@@ -6,19 +6,40 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 ## Planned
 
 - **Korean program files** (requested in
-  [#1](https://github.com/RealSteelDeal/obsidian-jw-congregation/issues/1)). The parsers
-  themselves are language-agnostic — what is missing is verified data, and none of it can
-  be guessed at. Three facts have to be read off a real Korean program file first:
-  - its `Publication.MepsLanguageIndex` value, for `MEPS_LANGUAGE_INDEX`
-    (`src/util/jwpubLinks.ts`) — every supported language's index was confirmed against its
-    own real file, never derived;
-  - the MEPS locale symbol that belongs in the `wtlocale=` link parameter, for
-    `ScriptureNormalizer.WTLOCALE`;
-  - the 66 Korean Bible book names, for `src/normalizer/bookNames.ts` — these also drive
-    recognition of references typed as plain text.
+  [#1](https://github.com/RealSteelDeal/obsidian-jw-congregation/issues/1)).
+
+  **Established on 17.09.2026**, from official sources rather than derived:
+  - MEPS locale symbol for the `wtlocale=` link parameter: **`KO`** — jw.org's media API
+    answers `langwritten=KO` with `한국어`;
+  - `Publication.MepsLanguageIndex`: **`129`** — read from the official `nwt_KO.jwpub`. The
+    method was validated first against a German file, which reports the `2` already recorded
+    here;
+  - the 66 book names — extracted from that file's `BibleBook` table
+    (`scripts/dump-book-names.mjs`). **Their citation form is unconfirmed**: the column they
+    come from holds the formal title in German, not the short form, so the choice is proven
+    per language and Korean's could not be checked the same way.
+
+  **What still blocks it, and it is larger than those three facts.** `SupportedLang` and
+  `CongressLang` are one and the same set, so adding `'ko'` makes the compiler demand a
+  complete localisation: all 160 keys of `Strings` (`src/i18n.ts`), and `LANG_DISPLAY_NAMES`
+  grows from 49 to 64 entries because every existing language also needs its name in Korean.
+  There is no intermediate state where only the three data points are present.
+
+  Six of those keys are not translation at all but **parser anchors** — `caFallbackDay`,
+  `defaultSession`, `reviewQuestionsSession`, `questionsTitle`, `bibleDramaFallback`,
+  `song(n)` — matched against the real file's own HTML. Invented values compile cleanly and
+  break the import silently, which is the worst possible failure mode here. They have to be
+  read off a real Korean **convention programme**; the Bible file used above does not contain
+  them.
+
+  **A realistic path**, should the full localisation be too much to ask of a reporter: build
+  `ko` as `{ ...L.en, <the Korean values that are known> }`, so untranslated interface text
+  falls back to English instead of blocking the feature. That reduces the genuine ask to the
+  six parser anchors plus roughly ten note labels (Day, Time, Scriptures, Speaker, "Next:",
+  the overview/review/cover-image names) — and the anchors still need a real programme file.
 
   Meeting Workbook import would additionally need the three Korean section headings and the
-  Congregation Bible Study title, which double as the parser's detection anchors (see
+  Congregation Bible Study title, which likewise double as detection anchors (see
   "Meeting-Workbook support for languages other than German" below).
 
 ## Later (deliberately deferred)

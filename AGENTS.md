@@ -694,7 +694,24 @@ Skripte (Node, ohne Obsidian):
 ```bash
 node scripts/dump-structure.mjs <datei.jwpub>
 node scripts/test-parse.mjs <datei1.jwpub> [datei2.jwpub ...]
+node scripts/dump-book-names.mjs [--compare=<lang>] <datei.jwpub>
 ```
+
+**Eine Sprache hinzufügen** braucht drei Angaben, keine davon darf geraten werden: das
+MEPS-Symbol für `wtlocale=` (die Medien-API von jw.org antwortet auf
+`GETPUBMEDIALINKS?pub=nwt&langwritten=<symbol>` mit dem Eigennamen der Sprache),
+`Publication.MepsLanguageIndex` (erste Zeile von `dump-structure.mjs`) und die 66 Buchnamen
+(`dump-book-names.mjs`, liest die `BibleBook`-Tabelle einer `nwt`/`nwtsty`-Datei).
+
+⚠️ **`--compare=<lang>` immer zuerst gegen eine bereits unterstützte Sprache laufen lassen.**
+Es hält die Titel der Datei gegen `bookNames.ts` und zeigt damit, ob die Spalte, die man
+gleich auslesen will, in dieser Sprache überhaupt die kurze Zitierform trägt. Am 17.09.2026
+hat genau das einen Fehler abgefangen: Im Deutschen steht in `BookDisplayTitle` der
+förmliche Titel („Das erste Buch Mose (Genesis)"), nicht „1. Mose" — **41 von 66 Büchern
+passen zu keiner der beiden Namensspalten**, die übrigen 25 zufällig doch. Diese
+Teiltrefferquote ist die eigentliche Falle: Eine Stichprobe hätte gut ausgesehen. Im
+Koreanischen liefert dieselbe Spalte die Kurzform — die Spaltenwahl ist also **je Sprache**
+zu belegen und nie von einer Sprache auf eine andere zu übertragen.
 
 `scripts/out/` ist in `.gitignore` – kein urheberrechtlich geschütztes Material committen.
 

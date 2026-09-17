@@ -179,7 +179,10 @@ Analysis scripts for development & debugging:
 ```bash
 node scripts/dump-structure.mjs <file.jwpub>   # DB metadata + per-document structure
 node scripts/test-parse.mjs <file.jwpub> ...   # parse real files with the actual parser
+node scripts/dump-book-names.mjs <file.jwpub>  # Bible book names out of an nwt/nwtsty file
 ```
+
+Adding a language needs three facts, none of which should be guessed: the MEPS locale symbol for the `wtlocale=` link parameter (jw.org's own media API answers with the language's name for a given `langwritten=` symbol), `Publication.MepsLanguageIndex` (the first line `dump-structure.mjs` prints), and the 66 book names (`dump-book-names.mjs`). Run the last one with `--compare=<a language already supported>` first — it diffs the file's own titles against `bookNames.ts` and shows whether the column you are about to read really holds the short citation form in that language.
 
 ## File structure
 

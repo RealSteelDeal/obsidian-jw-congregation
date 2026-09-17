@@ -63,7 +63,11 @@ function scripturesEqual(a: Scripture, b: Scripture): boolean {
 		&& a.chapter === b.chapter
 		&& a.verseStart === b.verseStart
 		&& (a.verseEnd ?? null) === (b.verseEnd ?? null)
-		&& (a.chapterEnd ?? null) === (b.chapterEnd ?? null);
+		&& (a.chapterEnd ?? null) === (b.chapterEnd ?? null)
+		// Without this, "1. Tim. 4:12, 15" and "1. Tim. 4:12" would count as the
+		// same reference, and the popup's "remove quote" could take out the
+		// wrong callout when a note cites both.
+		&& (a.extraVerses ?? []).join() === (b.extraVerses ?? []).join();
 }
 
 /** Whether `text` contains a jwlibrary:// scripture link (markdown or raw-HTML form) matching `target`. */

@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.19.0
+
+### Fixes (recognizing scripture references typed as plain text)
+
+Three reference forms from everyday note-taking were silently left unlinked —
+all three reported from a real convention note:
+
+- **Verses cited with a comma are now recognized.** Both the adjacent form
+  ("Röm. 2:14,15", linked as the verse range it is) and the gapped form
+  ("1. Tim. 4:12,15", kept as two distinct verses instead of the wrong 12–15
+  range); also with a space after the comma, with three or more verses, and
+  combined with a leading range ("Matthäus 5:3-5,9"). Previously only
+  "chapter:verse" and "chapter:verse-verse" were understood — so the plugin
+  did not even recognize its own output, since it writes exactly two adjacent
+  verses with a comma itself.
+- **References running into a later chapter are now recognized**
+  ("Hebräer 5:13-6:1"), written with either a hyphen or an en dash. The
+  underlying model, the link format and the verse popup already handled
+  cross-chapter ranges; only the free-text recognizer did not.
+- **The finished link no longer keeps showing its own markup.** After
+  inserting a link the cursor stayed on the closing bracket, where Live
+  Preview still shows the raw "[…](…)" source. It now moves one character past
+  the link, adding a space unless the line already continues with one.
+
+Verses cited across a gap show up in the verse popup and in an inserted quote
+just like any other reference. A nonsensical citation is left unlinked rather
+than guessed at — a descending list ("4:15,12"), a range running back into an
+earlier chapter ("6:1-5:13"), or a comma part that is itself a range
+("4:12,15-17").
+
+**Worth verifying after installing:** for a gapped citation the link's
+`bible=` parameter carries a comma-separated verse list (`…012,…015`). That
+shape has not been confirmed against a real JW Library install — see the
+warning in `AGENTS.md` and on `ScriptureNormalizer.bibleParam()`.
+
 ## 1.18.2
 
 ### Improvements (Meeting Workbook import)

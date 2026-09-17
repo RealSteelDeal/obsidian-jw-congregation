@@ -77,3 +77,71 @@ test('rejects an ambiguous abbreviation that prefixes more than one book ("Jo")'
 	// "Jo" prefixes Johannes, Joel and Jona — must not silently guess.
 	assert.equal(findScriptureReferenceAtEnd('Jo 1:1', 'de'), null);
 });
+
+// The comma and cross-chapter forms below were all reported from real
+// note-taking as references the plugin refused to link.
+
+test('recognizes two adjacent verses written with a comma as a plain range ("Röm. 2:14,15")', () => {
+	const match = findScriptureReferenceAtEnd('Röm. 2:14,15', 'de');
+	assert.ok(match);
+	// Collapsed into a range on purpose: same verses, and it keeps the single
+	// known-good "bible=45002014-45002015" link the hyphen spelling produces.
+	assert.deepEqual(match.scripture, { book: 45, chapter: 2, verseStart: 14, verseEnd: 15 });
+});
+
+test('recognizes two verses cited across a gap as extraVerses ("1. Tim. 4:12,15")', () => {
+	const match = findScriptureReferenceAtEnd('1. Tim. 4:12,15', 'de');
+	assert.ok(match);
+	assert.deepEqual(match.scripture, { book: 54, chapter: 4, verseStart: 12, extraVerses: [15] });
+});
+
+test('accepts a space after the comma, as the citation convention writes it', () => {
+	const match = findScriptureReferenceAtEnd('1. Tim. 4:12, 15', 'de');
+	assert.ok(match);
+	assert.deepEqual(match.scripture, { book: 54, chapter: 4, verseStart: 12, extraVerses: [15] });
+});
+
+test('recognizes three or more verses cited across gaps', () => {
+	const match = findScriptureReferenceAtEnd('1. Tim. 4:12,15,20', 'de');
+	assert.ok(match);
+	assert.deepEqual(match.scripture, { book: 54, chapter: 4, verseStart: 12, extraVerses: [15, 20] });
+});
+
+test('collapses a whole run of adjacent verses, however it is spelled', () => {
+	const match = findScriptureReferenceAtEnd('Matthäus 5:3,4,5', 'de');
+	assert.ok(match);
+	assert.deepEqual(match.scripture, { book: 40, chapter: 5, verseStart: 3, verseEnd: 5 });
+});
+
+test('recognizes a range followed by a further single verse ("Matthäus 5:3-5,9")', () => {
+	const match = findScriptureReferenceAtEnd('Matthäus 5:3-5,9', 'de');
+	assert.ok(match);
+	assert.deepEqual(match.scripture, { book: 40, chapter: 5, verseStart: 3, verseEnd: 5, extraVerses: [9] });
+});
+
+test('recognizes a range running into a later chapter ("Hebräer 5:13-6:1")', () => {
+	const match = findScriptureReferenceAtEnd('Hebräer 5:13-6:1', 'de');
+	assert.ok(match);
+	assert.deepEqual(match.scripture, { book: 58, chapter: 5, verseStart: 13, verseEnd: 1, chapterEnd: 6 });
+});
+
+test('recognizes a cross-chapter range written with an en dash, as format() writes it', () => {
+	const match = findScriptureReferenceAtEnd('Hebräer 5:13–6:1', 'de');
+	assert.ok(match);
+	assert.deepEqual(match.scripture, { book: 58, chapter: 5, verseStart: 13, verseEnd: 1, chapterEnd: 6 });
+});
+
+test('rejects a descending comma list rather than reordering it', () => {
+	assert.equal(findScriptureReferenceAtEnd('1. Tim. 4:15,12', 'de'), null);
+	assert.equal(findScriptureReferenceAtEnd('1. Tim. 4:12,12', 'de'), null);
+});
+
+test('rejects a range running back into an earlier chapter', () => {
+	assert.equal(findScriptureReferenceAtEnd('Hebräer 6:1-5:13', 'de'), null);
+});
+
+test('rejects a comma part that is itself a range, instead of linking only half of it', () => {
+	// Scripture has no shape for this, and linking just "4:12" would quietly
+	// drop what the user wrote.
+	assert.equal(findScriptureReferenceAtEnd('1. Tim. 4:12,15-17', 'de'), null);
+});

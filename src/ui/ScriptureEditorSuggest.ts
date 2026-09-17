@@ -99,9 +99,19 @@ export class ScriptureEditorSuggest extends EditorSuggest<ScriptureSuggestItem> 
 		}
 	}
 
+	// Live Preview keeps showing a link's raw "[…](…)" source for as long as the
+	// cursor still touches it — and straight after the replacement it sits
+	// exactly there, on the closing bracket, so the user was left looking at the
+	// markup instead of the finished link (reported from real note-taking). The
+	// caret is therefore parked one character past the link. That character is a
+	// space the insertion adds itself, unless the line already continues with
+	// one, which would otherwise leave a double space mid-sentence.
 	private insertLink(editor: Editor, start: EditorPosition, end: EditorPosition, rawText: string, scripture: Scripture): void {
 		const href = ScriptureNormalizer.toJwLibraryLink(scripture, this.lang);
-		editor.replaceRange(`[${rawText}](${href})`, start, end);
+		const link = `[${rawText}](${href})`;
+		const padding = editor.getLine(end.line).slice(end.ch).startsWith(' ') ? '' : ' ';
+		editor.replaceRange(`${link}${padding}`, start, end);
+		editor.setCursor({ line: start.line, ch: start.ch + link.length + padding.length });
 	}
 
 	// keepLink=false replaces the typed reference itself with the quote — the

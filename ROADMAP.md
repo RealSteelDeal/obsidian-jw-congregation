@@ -5,7 +5,21 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 
 ## Planned
 
-Nothing queued right now — suggestions welcome via GitHub issues.
+- **Korean program files** (requested in
+  [#1](https://github.com/RealSteelDeal/obsidian-jw-congregation/issues/1)). The parsers
+  themselves are language-agnostic — what is missing is verified data, and none of it can
+  be guessed at. Three facts have to be read off a real Korean program file first:
+  - its `Publication.MepsLanguageIndex` value, for `MEPS_LANGUAGE_INDEX`
+    (`src/util/jwpubLinks.ts`) — every supported language's index was confirmed against its
+    own real file, never derived;
+  - the MEPS locale symbol that belongs in the `wtlocale=` link parameter, for
+    `ScriptureNormalizer.WTLOCALE`;
+  - the 66 Korean Bible book names, for `src/normalizer/bookNames.ts` — these also drive
+    recognition of references typed as plain text.
+
+  Meeting Workbook import would additionally need the three Korean section headings and the
+  Congregation Bible Study title, which double as the parser's detection anchors (see
+  "Meeting-Workbook support for languages other than German" below).
 
 ## Later (deliberately deferred)
 

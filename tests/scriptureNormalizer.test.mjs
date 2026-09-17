@@ -101,3 +101,65 @@ test('toJwLibraryLink encodes a cross-chapter range as two full BBCCCVVV codes',
 		'jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=41001021-41003019&pub=nwtsty',
 	);
 });
+
+test('format separates verses cited across a gap with a comma', () => {
+	const s = { book: 54, chapter: 4, verseStart: 12, extraVerses: [15] };
+	assert.equal(ScriptureNormalizer.format(s, 'de'), '1. Timotheus 4:12, 15');
+});
+
+test('format appends gapped verses after a leading range', () => {
+	const s = { book: 40, chapter: 5, verseStart: 3, verseEnd: 5, extraVerses: [9] };
+	assert.equal(ScriptureNormalizer.format(s, 'de'), 'Matthäus 5:3-5, 9');
+});
+
+// The comma-separated bible= list is this project's one UNVERIFIED link shape —
+// see the warning on ScriptureNormalizer.bibleParam(). These tests pin down what
+// is emitted so a later correction is a single, visible change.
+test('toJwLibraryLink appends gapped verses to bible= as further BBCCCVVV codes', () => {
+	const s = { book: 54, chapter: 4, verseStart: 12, extraVerses: [15] };
+	assert.equal(
+		ScriptureNormalizer.toJwLibraryLink(s),
+		'jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=54004012,54004015&pub=nwtsty',
+	);
+});
+
+test('toJwLibraryLink keeps the range form as the head of a gapped citation', () => {
+	const s = { book: 40, chapter: 5, verseStart: 3, verseEnd: 5, extraVerses: [9] };
+	assert.equal(
+		ScriptureNormalizer.toJwLibraryLink(s),
+		'jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=40005003-40005005,40005009&pub=nwtsty',
+	);
+});
+
+test('fromRtf reads a comma-separated verse list back into extraVerses', () => {
+	assert.deepEqual(
+		ScriptureNormalizer.fromRtf('54004012,54004015'),
+		{ book: 54, chapter: 4, verseStart: 12, extraVerses: [15] },
+	);
+});
+
+test('fromRtf reads a range followed by gapped verses back', () => {
+	assert.deepEqual(
+		ScriptureNormalizer.fromRtf('40005003-40005005,40005009'),
+		{ book: 40, chapter: 5, verseStart: 3, verseEnd: 5, extraVerses: [9] },
+	);
+});
+
+test('fromRtf drops a tail code from another book or chapter rather than guessing', () => {
+	// Not a shape toJwLibraryLink ever writes — same defensive handling as a
+	// foreign end segment in fromJwpub().
+	assert.deepEqual(
+		ScriptureNormalizer.fromRtf('54004012,55004015'),
+		{ book: 54, chapter: 4, verseStart: 12 },
+	);
+	assert.deepEqual(
+		ScriptureNormalizer.fromRtf('54004012,54005015'),
+		{ book: 54, chapter: 4, verseStart: 12 },
+	);
+});
+
+test('a gapped citation survives the full link round-trip', () => {
+	const s = { book: 54, chapter: 4, verseStart: 12, extraVerses: [15, 20] };
+	const bible = new URL(ScriptureNormalizer.toJwLibraryLink(s)).searchParams.get('bible');
+	assert.deepEqual(ScriptureNormalizer.fromRtf(bible), s);
+});

@@ -23,6 +23,18 @@ export interface Scripture {
 	 *  lists cite exactly this shape. Absent (or equal to `chapter`) for an
 	 *  ordinary single-chapter reference/range. */
 	chapterEnd?: number;
+	/** Further single verses of the SAME chapter cited alongside the leading
+	 *  verse/range, in the order written — the comma form of a citation, e.g.
+	 *  "1. Tim. 4:12, 15" → verseStart 12, extraVerses [15]. Only for verses
+	 *  that are NOT contiguous with what comes before them: exactly two
+	 *  adjacent verses ("Röm. 2:14, 15") are the official comma spelling of a
+	 *  two-verse RANGE and stay verseStart/verseEnd, so that they keep
+	 *  producing the single, known-good `bible=BB…-BB…` link (see
+	 *  ScriptureNormalizer.format(), which renders that range back with a
+	 *  comma). Absent for every ordinary reference — nothing in the jwpub/RTF
+	 *  import path produces it, only free-text recognition does
+	 *  (ScriptureTextParser). */
+	extraVerses?: number[];
 }
 
 export interface ProgramItem {

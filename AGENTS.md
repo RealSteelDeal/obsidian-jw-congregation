@@ -382,6 +382,29 @@ Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohn
     der Link direkt im Standardbrowser geöffnet wird, nicht wenn Obsidian/Electron ihn per
     `shell.openExternal` weiterreicht – vor einer Codeänderung mit dem Nutzer verifizieren.
 
+- **Als Klartext getippte Bibelstellen** (`ScriptureTextParser.findScriptureReferenceAtEnd()`,
+  Grundlage des Editor-Suggesters) werden in diesen Formen erkannt — alles außer `14` und
+  `3-16` kam erst mit 1.19.0 dazu, nachdem ein Nutzer sie aus echter Notizarbeit als nicht
+  verlinkbar gemeldet hatte:
+  `14` · `3-16` · `13-6:1` (kapitelübergreifend, Bindestrich oder Halbgeviertstrich) ·
+  `14,15` · `12,15` · `3-5,9`
+  - Ein **zusammenhängender Lauf** von Versen wird immer zu `verseStart`/`verseEnd`
+    zusammengezogen, gleich wie er geschrieben wurde (`2:14,15` → Bereich 14-15). Damit
+    entsteht weiterhin genau der eine, belegte `bible=BB…-BB…`-Link. `Scripture.extraVerses`
+    trägt ausschließlich **echte Lücken** (`4:12,15`).
+  - Abgelehnt statt geraten: absteigende Folgen (`4:15,12`), ein Bereich zurück in ein
+    früheres Kapitel (`6:1-5:13`) und ein Komma-Teil, der selbst ein Bereich ist
+    (`4:12,15-17`) — für den gibt es keine Darstellung in `Scripture`, und nur die Hälfte
+    zu verlinken wäre schlechter als gar nicht zu verlinken.
+- ⚠️ **Unbelegt: die Komma-Liste im `bible=`-Parameter.** Für eine Lücken-Zitation schreibt
+  `ScriptureNormalizer.bibleParam()` `…012,…015`. Ein echter JW-Library-Share-Link mit Komma
+  wurde **nie gesehen**; belegt sind nur `BBCCCVVV` und `BBCCCVVV-BBCCCVVV`. Bewusst so
+  entschieden (Nutzerentscheidung vom 17.09.2026, gegen die Alternative „ein Link je Vers"),
+  **noch gegen eine echte JW-Library-Installation zu prüfen**. Vgl. die Lieder-Link-Historie
+  oben: dort wurde fünf Versionen lang auf Verdacht gebaut und viermal an echten Geräten
+  gescheitert. Fällt die Prüfung negativ aus, ist `bibleParam()` die einzige zu ändernde
+  Stelle — die Erkennung der Komma-Schreibweise bleibt davon unberührt.
+
 ### Bibeltext-Popup (BibleReader, Phase 1–3 abgeschlossen)
 
 Klick auf eine Bibelstelle zeigt (falls eine Bibel-Datei geladen ist) den Vers-Text samt

@@ -312,6 +312,14 @@ export class BibleReader {
 				const verse = await this.readVerseRow(startId + i);
 				if (verse) verses.push(verse);
 			}
+			// Verses cited across a gap are not part of the contiguous id run —
+			// same handling as in getVerseDetails(), see the note there.
+			for (const verseNumber of scripture.extraVerses ?? []) {
+				const extraId = this.resolveVerseId(scripture.book, scripture.chapter, verseNumber);
+				if (extraId === undefined) continue;
+				const verse = await this.readVerseRow(extraId);
+				if (verse) verses.push(verse);
+			}
 			return verses.length > 0 ? verses : undefined;
 		} catch {
 			// A schema this code doesn't expect (e.g. a table only the study
@@ -368,6 +376,7 @@ export class BibleReader {
 			// range — this cursor is the general form of that, still falling back to
 			// arithmetic (not the citation index) for verses cited nowhere in the
 			// file, e.g. Psalm 117:2.
+			const entries: { verseId: number; chapter: number; verse: number }[] = [];
 			let cursorChapter = scripture.chapter;
 			let cursorVerse = scripture.verseStart;
 			let cursorBounds = this.chapterBounds(scripture.book, cursorChapter);
@@ -383,12 +392,25 @@ export class BibleReader {
 						cursorVerse++;
 					}
 				}
+				entries.push({ verseId, chapter: cursorChapter, verse: cursorVerse });
+			}
 
+			// Verses cited across a gap ("1. Tim. 4:12, 15") are not part of the
+			// contiguous id run and each resolve on their own — same chapter by
+			// definition (see Scripture.extraVerses). Appended after the range so
+			// the popup lists them in the order they were cited.
+			for (const verse of scripture.extraVerses ?? []) {
+				const extraId = this.resolveVerseId(scripture.book, scripture.chapter, verse);
+				if (extraId !== undefined) entries.push({ verseId: extraId, chapter: scripture.chapter, verse });
+			}
+
+			for (const entry of entries) {
+				const verseId = entry.verseId;
 				const verse = await this.readVerseRow(verseId);
 				if (!verse) continue;
 
 				const ref = this.referenceByVerseId.get(verseId)
-					?? { book: scripture.book, chapter: cursorChapter, verse: cursorVerse };
+					?? { book: scripture.book, chapter: entry.chapter, verse: entry.verse };
 
 				let isChapterStart = false;
 				// Falls back to the (marker-free) BibleVerse.Content as a single text

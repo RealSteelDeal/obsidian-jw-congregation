@@ -43,7 +43,13 @@ export class ScriptureNormalizer {
 	 * e.g. "40005001" → Matthew 5:1
 	 */
 	static fromRtf(raw: string): Scripture {
-		const parts = raw.split('-');
+		// A comma-separated tail carries the further single verses of a gapped
+		// citation (see toJwLibraryLink/bibleParam) — reading it back is what
+		// lets a click on such a link resolve to the same Scripture it was
+		// written from, so the verse popup shows all cited verses and
+		// "remove quote" still recognises its own callout (scriptureLinkScan).
+		const [headRaw, ...extraRaw] = raw.split(',');
+		const parts = (headRaw ?? '').split('-');
 		const start = ScriptureNormalizer.parseRtfSingle(parts[0] ?? '');
 		if (parts.length === 2) {
 			const end = ScriptureNormalizer.parseRtfSingle(parts[1] ?? '');
@@ -53,6 +59,14 @@ export class ScriptureNormalizer {
 				if (end.chapter !== start.chapter) start.chapterEnd = end.chapter;
 			}
 		}
+		// A different book or chapter in the tail is not a shape this ever
+		// writes — dropped rather than guessed at, exactly as fromJwpub() does
+		// for a foreign end segment.
+		const extraVerses = extraRaw
+			.map(code => ScriptureNormalizer.parseRtfSingle(code))
+			.filter(v => v.book === start.book && v.chapter === start.chapter)
+			.map(v => v.verseStart);
+		if (extraVerses.length > 0) start.extraVerses = extraVerses;
 		return start;
 	}
 
@@ -88,17 +102,41 @@ export class ScriptureNormalizer {
 	 * callers without a language context.
 	 */
 	static toJwLibraryLink(s: Scripture, lang: CongressLang = 'de'): string {
-		const start = ScriptureNormalizer.toRtfCode(s.book, s.chapter, s.verseStart);
 		const params = `srcid=jwlshare&wtlocale=${ScriptureNormalizer.wtlocale(lang)}&prefer=lang`;
+		return `jwlibrary:///finder?${params}&bible=${ScriptureNormalizer.bibleParam(s)}&pub=nwtsty`;
+	}
+
+	/**
+	 * Builds the `bible=` value — the single place the citation's shape is
+	 * turned into JW Library's own reference syntax.
+	 *
+	 * Verified shapes: `BBCCCVVV` for one verse and `BBCCCVVV-BBCCCVVV` for a
+	 * range, same-chapter or cross-chapter alike (the range form is what JW
+	 * Library's own "Share" produces).
+	 *
+	 * ⚠️ NOT verified: the comma-separated list written for a gapped citation
+	 * ("1. Tim. 4:12, 15" → `…012,…015`). No real JW Library share link with a
+	 * comma has been seen, and this project's own history is a warning against
+	 * assuming a parameter shape works — the song links were built on an
+	 * unverified `docid=`/`lank=` guess through five releases and failed on
+	 * real devices every time (see AGENTS.md, "Lieder-Link-Historie"). Chosen
+	 * deliberately over emitting two separate links, to be confirmed against a
+	 * real JW Library install. If it turns out unsupported, this method is the
+	 * only place to change: drop the extras here and have the caller render one
+	 * link per verse instead.
+	 */
+	private static bibleParam(s: Scripture): string {
+		const start = ScriptureNormalizer.toRtfCode(s.book, s.chapter, s.verseStart);
 		const endChapter = s.chapterEnd ?? s.chapter;
-		if (s.verseEnd !== undefined && (endChapter !== s.chapter || s.verseEnd !== s.verseStart)) {
-			// The bible= param is just two BBCCCVVV codes — it already supports a
-			// cross-chapter range natively, no different handling needed here than
-			// for a same-chapter one.
-			const end = ScriptureNormalizer.toRtfCode(s.book, endChapter, s.verseEnd);
-			return `jwlibrary:///finder?${params}&bible=${start}-${end}&pub=nwtsty`;
-		}
-		return `jwlibrary:///finder?${params}&bible=${start}&pub=nwtsty`;
+		// The bible= param is just two BBCCCVVV codes — it already supports a
+		// cross-chapter range natively, no different handling needed here than
+		// for a same-chapter one.
+		const head = s.verseEnd !== undefined && (endChapter !== s.chapter || s.verseEnd !== s.verseStart)
+			? `${start}-${ScriptureNormalizer.toRtfCode(s.book, endChapter, s.verseEnd)}`
+			: start;
+		if (!s.extraVerses || s.extraVerses.length === 0) return head;
+		const extras = s.extraVerses.map(v => ScriptureNormalizer.toRtfCode(s.book, s.chapter, v));
+		return [head, ...extras].join(',');
 	}
 
 	// MEPS locale symbols, confirmed against real jwpub filenames and song
@@ -127,11 +165,14 @@ export class ScriptureNormalizer {
 		if (s.chapterEnd !== undefined && s.chapterEnd !== s.chapter) {
 			return `${bookName} ${s.chapter}:${s.verseStart}–${s.chapterEnd}:${s.verseEnd}`;
 		}
-		const base = `${bookName} ${s.chapter}:${s.verseStart}`;
+		let base = `${bookName} ${s.chapter}:${s.verseStart}`;
 		if (s.verseEnd !== undefined && s.verseEnd !== s.verseStart) {
 			const separator = s.verseEnd - s.verseStart === 1 ? ', ' : '-';
-			return `${base}${separator}${s.verseEnd}`;
+			base = `${base}${separator}${s.verseEnd}`;
 		}
+		// Further verses cited across a gap keep the comma the citation
+		// convention uses between non-adjacent verses ("1. Tim. 4:12, 15").
+		for (const verse of s.extraVerses ?? []) base = `${base}, ${verse}`;
 		return base;
 	}
 

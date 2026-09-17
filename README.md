@@ -59,7 +59,7 @@ The [JW Library Linker](https://github.com/msakowski/obsidian-library-linker) pl
 
 ### Community plugin store
 
-> Not published yet – currently in review.
+Listed in Obsidian's official community plugin directory: **Settings → Community plugins → Browse**, search for "JW Convention Program".
 
 ## Usage
 

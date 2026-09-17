@@ -38,7 +38,7 @@ src/
   settings.ts                # JwPluginSettings, DEFAULT_SETTINGS, JwSettingTab
   i18n.ts                    # Strings/NoteStrings-Interfaces + L/NL für alle 7 Sprachen (siehe Abschnitt "Sprachen" unten)
   models/
-    congress.ts              # Typen: Congress, Day, Session, ProgramItem, Scripture
+    congress.ts              # Typen: Congress, Day, Session, ProgramItem, Scripture, VerseRun
     mwb.ts                   # Typen für den Leben-und-Dienst-Import: Mwb, MwbWeek, MwbItem, MemorialReadingSchedule
   normalizer/
     bookNames.ts             # Buchnamenstabelle 1–66, alle 7 Sprachen (DE/EN/FR/IT/PT/RU/ES)

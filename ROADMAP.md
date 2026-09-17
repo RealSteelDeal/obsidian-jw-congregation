@@ -59,12 +59,22 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   `--experimental-test-coverage` flag needs no new dependency and would make
   the test-suite's actual coverage surface visible instead of requiring a
   manual audit to find gaps.
-- **Publish to the official Obsidian community plugin directory** — the
-  README currently says "not published yet, in review"; this remains the
-  single biggest lever for reach once it clears review.
 
 ## Recently shipped
 
+- **Every citation form typed as plain text is now recognized and linked.**
+  Previously only "chapter:verse" and "chapter:verse-verse" were, which left
+  three forms from ordinary note-taking silently unlinked: verses listed with
+  commas, whether adjacent ("Röm. 2:14,15") or across a gap and themselves
+  possibly ranges ("1. Tim. 4:12,15-17"); references running into a later
+  chapter ("Hebräer 5:13-6:1"); and — separately — a finished link that kept
+  showing its own "[…](…)" markup, because the cursor was left touching it.
+  What counts as one stretch of verses is derived from the verses named, not
+  from where the comma sits, so an unbroken citation stays a single range
+  however it is written.
+- **Published in the official Obsidian community plugin directory**, so the
+  plugin installs through **Settings → Community plugins → Browse** instead of
+  copying files into the vault by hand.
 - **Import of the Life and Ministry Meeting Workbook ("Leben und Dienst")**,
   German only for now: one Markdown note per week — not one per assignment,
   since a week's schedule is read as a whole — covering all three fixed

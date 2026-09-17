@@ -26,3 +26,11 @@ jobs:
             - run: npm run build --if-present
             - run: npm run lint
             - run: npm test
+            # Reported, never enforced: the numbers are here to be looked at.
+            # A threshold would fail builds on a policy nobody has decided, so
+            # this deliberately has no --test-coverage-* limit. One matrix leg
+            # is enough — the same suite on three Node versions covers the same
+            # lines three times.
+            - name: Report test coverage
+              if: matrix.node-version == '24.x'
+              run: npm run test:coverage

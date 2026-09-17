@@ -172,7 +172,10 @@ npm run dev      # watch mode (esbuild)
 npm run build    # production build (TypeScript check + esbuild)
 npm run lint     # ESLint
 npm test         # unit tests (node:test)
+npm run test:coverage   # the same suite, with Node's built-in coverage report
 ```
+
+CI runs the coverage report on one Node version and prints it in the job log. It is reported, not enforced — there is no threshold that can fail a build.
 
 Analysis scripts for development & debugging:
 

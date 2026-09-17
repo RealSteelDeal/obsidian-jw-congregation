@@ -122,31 +122,49 @@ test('format applies the two-adjacent-verses comma rule to a gapped run as well'
 	assert.equal(ScriptureNormalizer.format(s, 'de'), '1. Timotheus 4:12, 15, 16');
 });
 
-// The comma-separated bible= list is this project's one UNVERIFIED link shape —
-// see the warning on ScriptureNormalizer.bibleParam(). These tests pin down what
-// is emitted so a later correction is a single, visible change.
-test('toJwLibraryLink appends gapped verses to bible= as further BBCCCVVV codes', () => {
-	const s = { book: 54, chapter: 4, verseStart: 12, extraVerses: [{ start: 15 }] };
+// A comma-separated bible= list does NOT work: JW Library opens and closes
+// again (confirmed against a real install, 17.09.2026). Only one verse or one
+// range per link — these tests exist to keep the comma from creeping back in.
+test('toJwLibraryLink never writes a comma, covering only the leading stretch', () => {
+	const s = { book: 54, chapter: 4, verseStart: 12, extraVerses: [{ start: 15, end: 17 }] };
+	const href = ScriptureNormalizer.toJwLibraryLink(s);
 	assert.equal(
-		ScriptureNormalizer.toJwLibraryLink(s),
-		'jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=54004012,54004015&pub=nwtsty',
+		href,
+		'jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=54004012&pub=nwtsty',
 	);
+	assert.ok(!href.includes(','));
 });
 
-test('toJwLibraryLink writes a gapped range as its own start-end code pair', () => {
+test('toMarkdownLink renders a gapped citation as one link per stretch', () => {
 	const s = { book: 54, chapter: 4, verseStart: 12, extraVerses: [{ start: 15, end: 17 }] };
 	assert.equal(
-		ScriptureNormalizer.toJwLibraryLink(s),
-		'jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=54004012,54004015-54004017&pub=nwtsty',
+		ScriptureNormalizer.toMarkdownLink(s, 'de'),
+		'[1. Timotheus 4:12](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=54004012&pub=nwtsty)'
+		+ ', [15-17](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=54004015-54004017&pub=nwtsty)',
 	);
 });
 
-test('toJwLibraryLink keeps the range form as the head of a gapped citation', () => {
+test('toMarkdownLink keeps the leading range in its own link', () => {
 	const s = { book: 40, chapter: 5, verseStart: 3, verseEnd: 5, extraVerses: [{ start: 9 }] };
 	assert.equal(
-		ScriptureNormalizer.toJwLibraryLink(s),
-		'jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=40005003-40005005,40005009&pub=nwtsty',
+		ScriptureNormalizer.toMarkdownLink(s, 'de'),
+		'[Matthäus 5:3-5](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=40005003-40005005&pub=nwtsty)'
+		+ ', [9](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=40005009&pub=nwtsty)',
 	);
+});
+
+test('toMarkdownLink uses a caller-supplied prefix so a typed abbreviation is kept', () => {
+	const s = { book: 54, chapter: 4, verseStart: 12, extraVerses: [{ start: 14, end: 16 }] };
+	const markdown = ScriptureNormalizer.toMarkdownLink(s, 'de', '1. Tim. 4:');
+	assert.ok(markdown.startsWith('[1. Tim. 4:12]('));
+	assert.ok(markdown.includes('), [14-16]('));
+});
+
+test('no link of a gapped citation carries a comma in its bible= parameter', () => {
+	const s = { book: 54, chapter: 4, verseStart: 12, extraVerses: [{ start: 15, end: 17 }, { start: 20 }] };
+	for (const href of ScriptureNormalizer.toMarkdownLink(s, 'de').matchAll(/\((jwlibrary:[^)]+)\)/g)) {
+		assert.ok(!new URL(href[1]).searchParams.get('bible').includes(','), href[1]);
+	}
 });
 
 test('fromRtf reads a comma-separated verse list back into extraVerses', () => {
@@ -183,8 +201,12 @@ test('fromRtf drops a tail code from another book or chapter rather than guessin
 	);
 });
 
-test('a gapped citation survives the full link round-trip', () => {
-	const s = { book: 54, chapter: 4, verseStart: 12, extraVerses: [{ start: 15, end: 17 }, { start: 20 }] };
-	const bible = new URL(ScriptureNormalizer.toJwLibraryLink(s)).searchParams.get('bible');
-	assert.deepEqual(ScriptureNormalizer.fromRtf(bible), s);
+test('fromRtf still reads the comma form written by a 1.19.0 development build', () => {
+	// No longer written (JW Library rejects it), but such links already sit in
+	// real notes — a click on one must still open the popup on every verse it
+	// names rather than silently dropping the tail.
+	assert.deepEqual(
+		ScriptureNormalizer.fromRtf('54004012,54004014-54004016'),
+		{ book: 54, chapter: 4, verseStart: 12, extraVerses: [{ start: 14, end: 16 }] },
+	);
 });

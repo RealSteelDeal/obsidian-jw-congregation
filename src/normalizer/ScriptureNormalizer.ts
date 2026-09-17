@@ -43,11 +43,12 @@ export class ScriptureNormalizer {
 	 * e.g. "40005001" → Matthew 5:1
 	 */
 	static fromRtf(raw: string): Scripture {
-		// A comma-separated tail carries the further single verses of a gapped
-		// citation (see toJwLibraryLink/bibleParam) — reading it back is what
-		// lets a click on such a link resolve to the same Scripture it was
-		// written from, so the verse popup shows all cited verses and
-		// "remove quote" still recognises its own callout (scriptureLinkScan).
+		// A comma-separated tail carries the further stretches of a gapped
+		// citation. Nothing writes that form any more — JW Library does not
+		// understand it (see bibleParam()) — but links written by a 1.19.0
+		// development build already sit in real notes, and reading them back is
+		// what lets a click on one still open the popup on every verse it
+		// names instead of silently dropping the tail.
 		const [headRaw, ...extraRaw] = raw.split(',');
 		const parts = (headRaw ?? '').split('-');
 		const start = ScriptureNormalizer.parseRtfSingle(parts[0] ?? '');
@@ -110,47 +111,54 @@ export class ScriptureNormalizer {
 	 * favour the user's own language either way, so X mostly still worked, but
 	 * matching the note's language is the correct hint. Defaults to 'de' for
 	 * callers without a language context.
+	 *
+	 * A citation with a gap in it ("1. Tim. 4:12, 14-16") cannot be expressed as
+	 * ONE link — see bibleParam() — so this returns the link for its LEADING
+	 * stretch only. Callers that render the whole citation use
+	 * toMarkdownLink(), which emits one link per stretch.
 	 */
 	static toJwLibraryLink(s: Scripture, lang: CongressLang = 'de'): string {
+		return ScriptureNormalizer.linkForRun(s, ScriptureNormalizer.runs(s)[0]!, true, lang);
+	}
+
+	/** Every stretch of verses the citation names, its leading one first. */
+	private static runs(s: Scripture): VerseRun[] {
+		const head: VerseRun = { start: s.verseStart };
+		if (s.verseEnd !== undefined) head.end = s.verseEnd;
+		return [head, ...(s.extraVerses ?? [])];
+	}
+
+	private static linkForRun(s: Scripture, run: VerseRun, isHead: boolean, lang: CongressLang): string {
 		const params = `srcid=jwlshare&wtlocale=${ScriptureNormalizer.wtlocale(lang)}&prefer=lang`;
-		return `jwlibrary:///finder?${params}&bible=${ScriptureNormalizer.bibleParam(s)}&pub=nwtsty`;
+		return `jwlibrary:///finder?${params}&bible=${ScriptureNormalizer.bibleParam(s, run, isHead)}&pub=nwtsty`;
 	}
 
 	/**
-	 * Builds the `bible=` value — the single place the citation's shape is
-	 * turned into JW Library's own reference syntax.
+	 * Builds the `bible=` value for ONE stretch of verses — the single place a
+	 * citation is turned into JW Library's own reference syntax.
 	 *
-	 * Verified shapes: `BBCCCVVV` for one verse and `BBCCCVVV-BBCCCVVV` for a
-	 * range, same-chapter or cross-chapter alike (the range form is what JW
-	 * Library's own "Share" produces).
+	 * Only the two established shapes are ever written: `BBCCCVVV` for a single
+	 * verse and `BBCCCVVV-BBCCCVVV` for a range, same-chapter or cross-chapter
+	 * alike (the range form is what JW Library's own "Share" produces).
 	 *
-	 * ⚠️ NOT verified: the comma-separated list written for a gapped citation
-	 * ("1. Tim. 4:12, 15" → `…012,…015`). No real JW Library share link with a
-	 * comma has been seen, and this project's own history is a warning against
-	 * assuming a parameter shape works — the song links were built on an
-	 * unverified `docid=`/`lank=` guess through five releases and failed on
-	 * real devices every time (see AGENTS.md, "Lieder-Link-Historie"). Chosen
-	 * deliberately over emitting two separate links, to be confirmed against a
-	 * real JW Library install. If it turns out unsupported, this method is the
-	 * only place to change: drop the extras here and have the caller render one
-	 * link per verse instead.
+	 * **A comma-separated list of verses does not work** — tried in development
+	 * for 1.19.0 with `…012,…014-…016` and confirmed against a real JW Library
+	 * install on 17.09.2026: the app opens and immediately closes again, the
+	 * same bounce the song links produced for years on an equally unverified
+	 * parameter shape (see AGENTS.md, "Lieder-Link-Historie"). That is why a
+	 * gapped citation is rendered as several links rather than one — never
+	 * reintroduce the comma here without new evidence.
 	 */
-	private static bibleParam(s: Scripture): string {
-		const start = ScriptureNormalizer.toRtfCode(s.book, s.chapter, s.verseStart);
-		const endChapter = s.chapterEnd ?? s.chapter;
+	private static bibleParam(s: Scripture, run: VerseRun, isHead: boolean): string {
+		// Only the leading stretch can run into a later chapter; a stretch after
+		// a gap is same-chapter by definition (see Scripture.extraVerses).
+		const endChapter = isHead ? s.chapterEnd ?? s.chapter : s.chapter;
+		const start = ScriptureNormalizer.toRtfCode(s.book, s.chapter, run.start);
+		if (run.end === undefined || (endChapter === s.chapter && run.end === run.start)) return start;
 		// The bible= param is just two BBCCCVVV codes — it already supports a
 		// cross-chapter range natively, no different handling needed here than
 		// for a same-chapter one.
-		const head = s.verseEnd !== undefined && (endChapter !== s.chapter || s.verseEnd !== s.verseStart)
-			? `${start}-${ScriptureNormalizer.toRtfCode(s.book, endChapter, s.verseEnd)}`
-			: start;
-		if (!s.extraVerses || s.extraVerses.length === 0) return head;
-		const extras = s.extraVerses.map(run => {
-			const from = ScriptureNormalizer.toRtfCode(s.book, s.chapter, run.start);
-			if (run.end === undefined || run.end === run.start) return from;
-			return `${from}-${ScriptureNormalizer.toRtfCode(s.book, s.chapter, run.end)}`;
-		});
-		return [head, ...extras].join(',');
+		return `${start}-${ScriptureNormalizer.toRtfCode(s.book, endChapter, run.end)}`;
 	}
 
 	// MEPS locale symbols, confirmed against real jwpub filenames and song
@@ -175,30 +183,46 @@ export class ScriptureNormalizer {
 	 * plain hyphen there is reserved for a same-chapter verse range.
 	 */
 	static format(s: Scripture, lang: CongressLang): string {
-		const bookName = getBookName(s.book, lang);
-		if (s.chapterEnd !== undefined && s.chapterEnd !== s.chapter) {
-			return `${bookName} ${s.chapter}:${s.verseStart}–${s.chapterEnd}:${s.verseEnd}`;
-		}
 		// Every stretch is written the same way, and they are joined with the
 		// comma the citation convention uses across a gap ("1. Tim. 4:12, 15-17").
-		const head: VerseRun = { start: s.verseStart };
-		if (s.verseEnd !== undefined) head.end = s.verseEnd;
-		const runs = [head, ...(s.extraVerses ?? [])];
-		return `${bookName} ${s.chapter}:${runs.map(run => ScriptureNormalizer.formatRun(run)).join(', ')}`;
+		const body = ScriptureNormalizer.runs(s)
+			.map((run, i) => ScriptureNormalizer.runLabel(s, run, i === 0))
+			.join(', ');
+		return `${getBookName(s.book, lang)} ${s.chapter}:${body}`;
 	}
 
 	/** One stretch of verses in the citation convention's own spelling: "15",
-	 *  "15, 16" for exactly two adjacent verses, "15-17" for three or more. */
-	private static formatRun(run: VerseRun): string {
+	 *  "15, 16" for exactly two adjacent verses, "15-17" for three or more, and
+	 *  the en-dash "13–6:1" form when the leading stretch runs into a later
+	 *  chapter. */
+	private static runLabel(s: Scripture, run: VerseRun, isHead: boolean): string {
+		if (isHead && s.chapterEnd !== undefined && s.chapterEnd !== s.chapter) {
+			return `${run.start}–${s.chapterEnd}:${run.end}`;
+		}
 		if (run.end === undefined || run.end === run.start) return String(run.start);
 		return run.end - run.start === 1 ? `${run.start}, ${run.end}` : `${run.start}-${run.end}`;
 	}
 
-	/** Renders a Scripture as a Markdown link: [Spr 16:20](jwlibrary:///finder?bible=20016020) */
-	static toMarkdownLink(s: Scripture, lang: CongressLang): string {
-		const label = ScriptureNormalizer.format(s, lang);
-		const href  = ScriptureNormalizer.toJwLibraryLink(s, lang);
-		return `[${label}](${href})`;
+	/**
+	 * Renders a Scripture as Markdown: [Spr 16:20](jwlibrary:///finder?bible=20016020)
+	 *
+	 * A citation with a gap becomes SEVERAL links, one per stretch of verses —
+	 * "[1. Timotheus 4:12](…), [14-16](…)" — since JW Library has no reference
+	 * syntax covering a gap (see bibleParam()). Each link on its own uses only
+	 * an established shape, so every part of the citation actually navigates.
+	 *
+	 * `prefix` replaces what precedes the first stretch's verse numbers. The
+	 * editor suggester passes the user's own spelling ("1. Tim. 4:") so that
+	 * linking a typed reference never rewrites it into the full book name.
+	 */
+	static toMarkdownLink(s: Scripture, lang: CongressLang, prefix?: string): string {
+		const head = prefix ?? `${getBookName(s.book, lang)} ${s.chapter}:`;
+		return ScriptureNormalizer.runs(s)
+			.map((run, i) => {
+				const label = (i === 0 ? head : '') + ScriptureNormalizer.runLabel(s, run, i === 0);
+				return `[${label}](${ScriptureNormalizer.linkForRun(s, run, i === 0, lang)})`;
+			})
+			.join(', ');
 	}
 
 	private static toRtfCode(book: number, chapter: number, verse: number): string {

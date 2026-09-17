@@ -107,11 +107,31 @@ export class ScriptureEditorSuggest extends EditorSuggest<ScriptureSuggestItem> 
 	// space the insertion adds itself, unless the line already continues with
 	// one, which would otherwise leave a double space mid-sentence.
 	private insertLink(editor: Editor, start: EditorPosition, end: EditorPosition, rawText: string, scripture: Scripture): void {
-		const href = ScriptureNormalizer.toJwLibraryLink(scripture, this.lang);
-		const link = `[${rawText}](${href})`;
+		const link = this.renderLink(rawText, scripture);
 		const padding = editor.getLine(end.line).slice(end.ch).startsWith(' ') ? '' : ' ';
 		editor.replaceRange(`${link}${padding}`, start, end);
 		editor.setCursor({ line: start.line, ch: start.ch + link.length + padding.length });
+	}
+
+	/**
+	 * An ordinary citation becomes one link carrying the reference exactly as
+	 * typed — abbreviation, spacing and all.
+	 *
+	 * A citation with a gap ("1. Tim. 4:12, 14-16") cannot: JW Library has no
+	 * reference syntax that covers a gap, confirmed the hard way against a real
+	 * install (see ScriptureNormalizer.bibleParam()). It therefore becomes one
+	 * link per stretch of verses, and only the leading label needs the book and
+	 * chapter. That prefix is taken from what the user typed — everything up to
+	 * the colon, which no book name contains — so linking still never rewrites
+	 * their own spelling of the book.
+	 */
+	private renderLink(rawText: string, scripture: Scripture): string {
+		if (!scripture.extraVerses || scripture.extraVerses.length === 0) {
+			return `[${rawText}](${ScriptureNormalizer.toJwLibraryLink(scripture, this.lang)})`;
+		}
+		const colon = rawText.indexOf(':');
+		const prefix = colon === -1 ? undefined : rawText.slice(0, colon + 1);
+		return ScriptureNormalizer.toMarkdownLink(scripture, this.lang, prefix);
 	}
 
 	// keepLink=false replaces the typed reference itself with the quote — the

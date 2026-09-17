@@ -402,14 +402,20 @@ Seit der Mobile-Kompatibilität (`isDesktopOnly: false`) läuft das komplett ohn
   - Der kapitelübergreifende Fall ist der einzige, der **nicht** expandiert werden kann
     (welche Verse dazwischenliegen, weiß nur eine echte Bibeldatei) — deshalb duldet er als
     einziger keinen weiteren Komma-Teil hinter sich.
-- ⚠️ **Unbelegt: die Komma-Liste im `bible=`-Parameter.** Für eine Lücken-Zitation schreibt
-  `ScriptureNormalizer.bibleParam()` `…012,…015`. Ein echter JW-Library-Share-Link mit Komma
-  wurde **nie gesehen**; belegt sind nur `BBCCCVVV` und `BBCCCVVV-BBCCCVVV`. Bewusst so
-  entschieden (Nutzerentscheidung vom 17.09.2026, gegen die Alternative „ein Link je Vers"),
-  **noch gegen eine echte JW-Library-Installation zu prüfen**. Vgl. die Lieder-Link-Historie
-  oben: dort wurde fünf Versionen lang auf Verdacht gebaut und viermal an echten Geräten
-  gescheitert. Fällt die Prüfung negativ aus, ist `bibleParam()` die einzige zu ändernde
-  Stelle — die Erkennung der Komma-Schreibweise bleibt davon unberührt.
+- **Widerlegt: die Komma-Liste im `bible=`-Parameter.** Für eine Lücken-Zitation sollte
+  `bibleParam()` zunächst `…012,…014-…016` schreiben — ein Format, für das es **nie einen
+  echten Share-Link als Beleg gab**; belegt sind ausschließlich `BBCCCVVV` und
+  `BBCCCVVV-BBCCCVVV`. So entschieden am 17.09.2026, gegen die Alternative „ein Link je
+  Abschnitt", und **noch am selben Tag am echten JW Library widerlegt**: Beim Öffnen von
+  `bible=54004012,54004014-54004016` startet die App und schließt sich sofort wieder —
+  derselbe Bounce, den die Lieder-Links jahrelang zeigten (siehe Lieder-Link-Historie oben).
+  **Konsequenz:** Eine Lücken-Zitation wird als **mehrere Links** gerendert, einer je
+  Abschnitt, jeder in einem belegten Format (`ScriptureNormalizer.toMarkdownLink()`).
+  `toJwLibraryLink()` liefert für so eine Stelle nur noch den **führenden** Abschnitt, weil
+  eine einzelne URL sie nicht abbilden kann. Das Komma im `bible=` **nicht ohne neue Evidenz
+  wieder einführen** — die Erkennung der Komma-Schreibweise im Text war davon nie betroffen.
+  `fromRtf()` liest die Komma-Form weiterhin, weil Links aus einem 1.19.0-Entwicklungsstand
+  bereits in echten Notizen stehen.
 
 ### Bibeltext-Popup (BibleReader, Phase 1–3 abgeschlossen)
 

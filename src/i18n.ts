@@ -230,11 +230,18 @@ export interface Strings extends NoteStrings {
 	setMwbFrontmatterDesc?: string;
 }
 
+/** One programme-file language's name, in each UI language that has its own
+ *  wording for it. English is required as the fallback (see displayName) —
+ *  every other UI language is optional, so a newly added language only has to
+ *  bring its own row instead of being written into all the existing ones
+ *  first. Every row is complete today; nothing falls back yet. */
+type LanguageDisplayNames = Partial<Record<SupportedLang, string>> & { en: string };
+
 /** Display name of every detectable programme-file language, in every UI
  *  language the settings/import-modal itself is translated into — used by
  *  `langDisplay` in each `L.<lang>`. Indexed [program-file language][UI
  *  language]; e.g. LANG_DISPLAY_NAMES.fr.es is Spanish for "French". */
-const LANG_DISPLAY_NAMES: Record<CongressLang, Record<SupportedLang, string>> = {
+const LANG_DISPLAY_NAMES: Record<CongressLang, LanguageDisplayNames> = {
 	de: { de: 'Deutsch', en: 'German', fr: 'Allemand', it: 'Tedesco', pt: 'Alemão', ru: 'Немецкий', es: 'Alemán' },
 	en: { de: 'Englisch', en: 'English', fr: 'Anglais', it: 'Inglese', pt: 'Inglês', ru: 'Английский', es: 'Inglés' },
 	fr: { de: 'Französisch', en: 'French', fr: 'Français', it: 'Francese', pt: 'Francês', ru: 'Французский', es: 'Francés' },
@@ -244,6 +251,27 @@ const LANG_DISPLAY_NAMES: Record<CongressLang, Record<SupportedLang, string>> = 
 	es: { de: 'Spanisch', en: 'Spanish', fr: 'Espagnol', it: 'Spagnolo', pt: 'Espanhol', ru: 'Испанский', es: 'Español' },
 };
 
+/** A programme language's name as the given UI language writes it, falling
+ *  back to English where that UI language has no wording of its own. */
+export function displayName(lang: CongressLang, ui: SupportedLang): string {
+	return LANG_DISPLAY_NAMES[lang][ui] ?? LANG_DISPLAY_NAMES[lang].en;
+}
+
+/**
+ * Every string, per language.
+ *
+ * **Adding a language that is only partly translated** — the realistic case
+ * when the wording has to come from a native speaker (see ROADMAP, Korean):
+ * pull the complete literal below into a `BASE` constant and write the new
+ * language as `{ ...BASE.en, ...<what is known> }`, so untranslated interface
+ * text reads English instead of blocking the language entirely. Note that six
+ * keys are NOT interface text and must not be left on the English fallback
+ * silently: `caFallbackDay`, `defaultSession`, `reviewQuestionsSession`,
+ * `questionsTitle`, `bibleDramaFallback` and `song()` belong to the parser,
+ * and `questionsTitle` is matched against the programme file's own heading —
+ * an English value there simply fails to find the printed-questions document
+ * in a file written in another language.
+ */
 export const L: Record<SupportedLang, Strings> = {
 	de: {
 		caFallbackDay: 'Samstag',
@@ -402,7 +430,7 @@ export const L: Record<SupportedLang, Strings> = {
 		rowSourceRtf: 'RTF (Fallback)',
 		rowItems: 'Programmpunkte',
 		rowLanguage: 'Sprache',
-		langDisplay: lang => LANG_DISPLAY_NAMES[lang].de,
+		langDisplay: lang => displayName(lang, 'de'),
 		typeLabels: {
 			'CO': 'Regionaler Kongress',
 			'CA-copgm': 'Kreiskongress (Kreisaufseher)',
@@ -617,7 +645,7 @@ export const L: Record<SupportedLang, Strings> = {
 		rowSourceRtf: 'RTF (fallback)',
 		rowItems: 'Program items',
 		rowLanguage: 'Language',
-		langDisplay: lang => LANG_DISPLAY_NAMES[lang].en,
+		langDisplay: lang => displayName(lang, 'en'),
 		typeLabels: {
 			'CO': 'Regional Convention',
 			'CA-copgm': 'Circuit Assembly (Circuit Overseer)',
@@ -800,7 +828,7 @@ export const L: Record<SupportedLang, Strings> = {
 		rowSourceRtf: 'RTF (secours)',
 		rowItems: 'Points du programme',
 		rowLanguage: 'Langue',
-		langDisplay: lang => LANG_DISPLAY_NAMES[lang].fr,
+		langDisplay: lang => displayName(lang, 'fr'),
 		typeLabels: {
 			'CO': 'Assemblée régionale',
 			'CA-copgm': 'Assemblée de circonscription (responsable de circonscription)',
@@ -983,7 +1011,7 @@ export const L: Record<SupportedLang, Strings> = {
 		rowSourceRtf: 'RTF (fallback)',
 		rowItems: 'Punti del programma',
 		rowLanguage: 'Lingua',
-		langDisplay: lang => LANG_DISPLAY_NAMES[lang].it,
+		langDisplay: lang => displayName(lang, 'it'),
 		typeLabels: {
 			'CO': 'Congresso regionale',
 			'CA-copgm': 'Assemblea di circoscrizione (sorvegliante di circoscrizione)',
@@ -1166,7 +1194,7 @@ export const L: Record<SupportedLang, Strings> = {
 		rowSourceRtf: 'RTF (fallback)',
 		rowItems: 'Pontos do programa',
 		rowLanguage: 'Idioma',
-		langDisplay: lang => LANG_DISPLAY_NAMES[lang].pt,
+		langDisplay: lang => displayName(lang, 'pt'),
 		typeLabels: {
 			'CO': 'Congresso regional',
 			'CA-copgm': 'Assembleia de Circuito (Superintendente de Circuito)',
@@ -1349,7 +1377,7 @@ export const L: Record<SupportedLang, Strings> = {
 		rowSourceRtf: 'RTF (резервный вариант)',
 		rowItems: 'Пункты программы',
 		rowLanguage: 'Язык',
-		langDisplay: lang => LANG_DISPLAY_NAMES[lang].ru,
+		langDisplay: lang => displayName(lang, 'ru'),
 		typeLabels: {
 			'CO': 'Конгресс',
 			'CA-copgm': 'Районный конгресс (с районным старейшиной)',
@@ -1532,7 +1560,7 @@ export const L: Record<SupportedLang, Strings> = {
 		rowSourceRtf: 'RTF (alternativo)',
 		rowItems: 'Puntos del programa',
 		rowLanguage: 'Idioma',
-		langDisplay: lang => LANG_DISPLAY_NAMES[lang].es,
+		langDisplay: lang => displayName(lang, 'es'),
 		typeLabels: {
 			'CO': 'Asamblea regional',
 			'CA-copgm': 'Asamblea de circuito (con el superintendente de circuito)',

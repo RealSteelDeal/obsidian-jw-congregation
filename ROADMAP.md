@@ -38,6 +38,15 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   six parser anchors plus roughly ten note labels (Day, Time, Scriptures, Speaker, "Next:",
   the overview/review/cover-image names) — and the anchors still need a real programme file.
 
+  **The groundwork for that path is in place.** `LANG_DISPLAY_NAMES` rows are now partial
+  with an English fallback (`displayName()`), so a new language brings its own row instead of
+  first having to be written into all seven existing ones — which would have meant inventing
+  each language's name in Korean. `L` carries the recipe for a partly translated language,
+  including which six keys must not be left on the English fallback. Nothing is wired up:
+  `'ko'` is deliberately not in `SupportedLang` and `129` is deliberately not in
+  `MEPS_LANGUAGE_INDEX`, so a Korean file still behaves exactly as before (the convention
+  parser falls back to German — which is what the reporter is seeing).
+
   Meeting Workbook import would additionally need the three Korean section headings and the
   Congregation Bible Study title, which likewise double as detection anchors (see
   "Meeting-Workbook support for languages other than German" below).

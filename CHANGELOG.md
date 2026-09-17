@@ -31,10 +31,12 @@ citation stays a single range however it is spelled ("5:3-5,6" → 5:3-6). A
 citation that contradicts itself is left unlinked rather than guessed at — a
 descending list ("4:15,12") or one that overlaps itself ("4:12-14,13").
 
-**Worth verifying after installing:** for a gapped citation the link's
-`bible=` parameter carries a comma-separated verse list (`…012,…015`). That
-shape has not been confirmed against a real JW Library install — see the
-warning in `AGENTS.md` and on `ScriptureNormalizer.bibleParam()`.
+A citation with a gap becomes one link per stretch of verses —
+"[1. Tim. 4:12](…), [14-16](…)" — because JW Library has no reference syntax
+that covers a gap: a link listing verses separated by a comma makes the app
+open and close again immediately. Each link on its own uses a form JW Library
+is known to handle, so every part of the citation really does navigate. Your
+own spelling of the book is kept ("1. Tim.", not "1. Timotheus").
 
 ## 1.18.2
 

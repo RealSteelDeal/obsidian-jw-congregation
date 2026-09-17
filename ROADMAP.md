@@ -66,7 +66,11 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   `softprops/action-gh-release` moved from `v2` to `v3`, whose only change is the action's
   own runtime (Node 20 → 24); the four inputs the workflow passes are unchanged. GitHub was
   already forcing `v2` onto Node 24 and annotating every release run — borrowed time that
-  would have ended with a broken release. Verified at the next release run.
+  would have ended with a broken release. **Verified end to end on 17.09.2026** in a
+  throwaway repository rather than by waiting for the next real release: the same
+  `extract-changelog.mjs`, the same four inputs, a tag push. The release was created with
+  the right name, all three artefacts attached, the notes taken from the correct changelog
+  section (and the section below it correctly left out), and no deprecation annotation.
 - **Test coverage is reported in CI**, on one Node version, printed in the job log. No
   threshold is set: picking one is a policy decision, and nothing here can fail a build over
   it. Also available locally as `npm run test:coverage`.

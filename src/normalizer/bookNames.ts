@@ -123,21 +123,58 @@ function getLookupMap(lang: SupportedLang): Map<string, number> {
 const MIN_ABBREVIATION_LENGTH = 2;
 
 /**
+ * Abbreviations the prefix rule below cannot reach. Every entry was READ off a
+ * real publication, never assumed: a scripture link's visible text paired with
+ * the book number in its own `jwpub://b/NWTR/` href, harvested by
+ * `scripts/dump-book-abbreviations.mjs` from the user's own programme and
+ * meeting-workbook files. Three kinds turn up, all of them unreachable by
+ * truncation:
+ *
+ *   - **skips letters** rather than truncating — "Apg." (Apostelgeschichte),
+ *     "Offb." (Offenbarung), "Klg" (Klagelieder), "Jas." (James);
+ *   - **spells the name differently** from this file — "Zeph." against the
+ *     "Zefanja" written here;
+ *   - **truncates ambiguously**, so the prefix rule refuses it — "Phil."
+ *     prefixes both Philipper and Philemon, and publications nonetheless use
+ *     it for Philipper. Reported as a real annoyance on 21.09.2026: the book
+ *     had to be written out in full.
+ *
+ * Keys are normalised the same way lookups are (see normalizeBookKey), so
+ * dots and capitalisation in the written form do not matter — which is why
+ * "Apg" and "Apg." are one entry, not two.
+ *
+ * Deliberately not exhaustive. It holds what real files prove and nothing
+ * else: Philemon's own "Phlm." is missing because none of the files checked
+ * cites Philemon at all, and inventing it is exactly what this table exists
+ * to avoid. Typing "Philem." still resolves by prefix.
+ */
+const BOOK_ABBREVIATIONS: Partial<Record<SupportedLang, Record<string, number>>> = {
+	de: { klg: 25, zeph: 36, apg: 44, phil: 50, offb: 66 },
+	en: { jas: 59 },
+	it: { salmo: 19 },
+	ru: { псалом: 19 },
+};
+
+/**
  * Reverse lookup: a book name typed as plain text (any casing/punctuation,
  * e.g. "psalm", "1. Mose", "1 mose") → canonical book number — used to
  * recognize a scripture reference typed as plain text (see
  * ScriptureTextParser). Limited to `SupportedLang` (the settings/popup
  * language), matching the scope of that feature.
  *
- * Falls back to prefix matching when there's no exact match — this alone
- * covers most real-world citation abbreviations, since they're almost always
- * a literal truncation of the full name ("Matth." → "Matthäus", "Ps" →
- * "Psalm", "1 Mo" → "1. Mose"), without needing a separate abbreviation
- * table that isn't present in any local file to verify against (unlike
- * "Jn" for "John", which skips letters rather than truncating — not
- * resolvable this way). A prefix is only accepted when it resolves to
- * exactly ONE book; an ambiguous one (e.g. "Jo", which prefixes "Johannes",
- * "Joel" and "Jona") is rejected rather than guessed at.
+ * Resolved in three steps, most certain first: the exact name, then the
+ * abbreviations real publications actually print (BOOK_ABBREVIATIONS), then
+ * prefix matching.
+ *
+ * Prefix matching alone covers most real citation abbreviations, since they
+ * are usually a literal truncation of the full name ("Matth." → "Matthäus",
+ * "Ps" → "Psalm", "1 Mo" → "1. Mose"). A prefix is only accepted when it
+ * resolves to exactly ONE book; an ambiguous one (e.g. "Jo", which prefixes
+ * "Johannes", "Joel" and "Jona") is rejected rather than guessed at. What it
+ * cannot do is reach an abbreviation that skips letters ("Apg."), spells the
+ * name differently ("Zeph.") or is ambiguous even though publications use it
+ * unambiguously ("Phil." for Philipper) — hence the table, which is consulted
+ * first and is itself read from real files rather than written from memory.
  */
 export function lookupBookNumber(rawName: string, lang: SupportedLang): number | undefined {
 	const map = getLookupMap(lang);
@@ -145,6 +182,10 @@ export function lookupBookNumber(rawName: string, lang: SupportedLang): number |
 
 	const exact = map.get(key);
 	if (exact !== undefined) return exact;
+
+	const abbreviation = BOOK_ABBREVIATIONS[lang]?.[key];
+	if (abbreviation !== undefined) return abbreviation;
+
 	if (key.length < MIN_ABBREVIATION_LENGTH) return undefined;
 
 	let match: number | undefined;

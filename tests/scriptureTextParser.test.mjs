@@ -168,6 +168,14 @@ test('rejects a range running back into an earlier chapter', () => {
 	assert.equal(findScriptureReferenceAtEnd('Hebräer 6:1-5:13', 'de'), null);
 });
 
+test('recognizes "Phil. 4:6,7", the abbreviation publications actually print', () => {
+	// Reported from real note-taking: this was refused because "phil" prefixes
+	// Philemon as well, so the book had to be typed out in full.
+	const match = findScriptureReferenceAtEnd('Phil. 4:6,7', 'de');
+	assert.ok(match);
+	assert.deepEqual(match.scripture, { book: 50, chapter: 4, verseStart: 6, verseEnd: 7 });
+});
+
 test('rejects a citation that overlaps itself rather than merging it silently', () => {
 	assert.equal(findScriptureReferenceAtEnd('1. Tim. 4:12-14,13', 'de'), null);
 	assert.equal(findScriptureReferenceAtEnd('1. Tim. 4:12,15-14', 'de'), null);

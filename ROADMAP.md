@@ -50,24 +50,12 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   Meeting Workbook import would additionally need the three Korean section headings and the
   Congregation Bible Study title, which likewise double as detection anchors (see
   "Meeting-Workbook support for languages other than German" below).
-- **Two book abbreviations cannot be typed at all**, found in real note-taking on
-  21.09.2026: `Phil. 4:6,7` is not recognised, so the book has to be written out in full.
-  The cause is verified rather than guessed. `lookupBookNumber()` resolves an abbreviation by
-  unique-prefix match, and "phil" prefixes both **Philipper** (50) and **Philemon** (57), so
-  it is refused instead of guessed at — correct by that rule, and useless to the user.
-  Philemon's own official abbreviation `Phlm.` fails for the opposite reason: it skips
-  letters rather than truncating, so no prefix rule can reach it. Everything else tested
-  resolves (`Kol.`, `Spr.`, `Jes.`, `Röm.`, `Matth.`, `1. Kö.`).
-
-  Fixing it needs an abbreviation table, and the open question was always where to get one
-  that is not invented. **The Bible file is not the source** — checked against the German
-  `nwtsty` on 21.09.2026: nothing in the whole schema holds book abbreviations (the `Symbol`
-  columns are publication symbols). **A convention programme is**: every scripture citation
-  in one renders the official abbreviation as the anchor's own text while its
-  `jwpub://b/NWTR/` href carries the book number, so a real file yields verified
-  abbreviation → book pairs. Coverage is limited to the books a given file happens to cite,
-  which is the reason to *extend* the prefix rule rather than replace it — a known
-  abbreviation wins, everything else keeps resolving by unique prefix as today.
+- **`Phlm.` for Philemon still cannot be typed.** The abbreviation table added below is
+  built only from abbreviations real publications were seen to print, and none of the
+  eleven German files checked cites Philemon even once — so there is nothing to read, and
+  inventing the entry is precisely what that table exists to prevent. `Philem.` resolves by
+  prefix in the meantime. This needs one publication that actually cites Philemon; the
+  harvester (`scripts/dump-book-abbreviations.mjs`) will pick it up on the next run.
 
 ## Later (deliberately deferred)
 
@@ -109,6 +97,20 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   manual audit to find gaps.
 
 ## Recently shipped
+
+- **The abbreviations real publications print are now understood when typed.** `Phil. 4:6,7`
+  used to be refused outright — "phil" prefixes Philipper *and* Philemon, so the
+  unique-prefix rule could not settle it and the book had to be written out. Alongside it,
+  five more that no prefix rule can ever reach: `Apg.`, `Offb.`, `Klg`, `Zeph.` (spelled
+  differently from the "Zefanja" written here), plus `Jas.` in English and the singular
+  `Salmo` / `Псалом` in Italian and Russian.
+
+  None of them was typed from memory. Each was read off a real file by
+  `scripts/dump-book-abbreviations.mjs`, which pairs a citation's visible text with the
+  book number in its own `jwpub://b/NWTR/` href — and the Bible file, the obvious first
+  guess, turned out to carry no abbreviations at all. The table extends the prefix rule
+  instead of replacing it, since it only ever covers the books a given publication happens
+  to cite.
 
 - **A reference can be extended after it was written**, for the case it came from: a
   speaker announces "let's read 1 Timothy 4 from verse 12" and does not say where he will

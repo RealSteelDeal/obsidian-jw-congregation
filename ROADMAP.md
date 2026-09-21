@@ -96,10 +96,6 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 - **Calendar / Periodic Notes integration**: link convention days into
   Obsidian's Daily/Periodic Notes, or export an `.ics` file for external
   calendars.
-- **Test-coverage reporting in CI**: Node 20+'s built-in
-  `--experimental-test-coverage` flag needs no new dependency and would make
-  the test-suite's actual coverage surface visible instead of requiring a
-  manual audit to find gaps.
 
 ## Recently shipped
 

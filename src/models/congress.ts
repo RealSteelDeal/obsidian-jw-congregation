@@ -78,7 +78,6 @@ export interface CoverImage {
 export interface Day {
 	name: string;        // "Freitag" | "Samstag" | "Sonntag"
 	weekday: string;
-	date?: string;       // ISO-8601 if available
 	theme?: string;      // day's motto quote, e.g. „Geben macht glücklicher als Empfangen“
 	themeScripture?: Scripture;
 	sessions: Session[];

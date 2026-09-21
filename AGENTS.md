@@ -774,6 +774,18 @@ eindeutig verwenden (`Phil.` für Philipper, gemeldet am 21.09.2026).
 - **Mehrdeutige Funde werden verworfen, nicht per Mehrheit entschieden.** Zeigt dieselbe
   Beschriftung auf verschiedene Bücher, war es keine Buchbeschriftung — ein falscher
   Eintrag würde Bibelstellen still falsch verlinken.
+- **Die Tabelle muss nicht auf 66 Einträge wachsen** (Frage vom 21.09.2026). Gemessen: Mit
+  den acht Einträgen löst **65 von 66 Büchern** bei höchstens **vier** Zeichen auf, die
+  meisten bei zwei bis drei (`Of` → Offenbarung, `Jes`, `Jer`, `Hos`, `1. Kö`). Einziger
+  Ausreißer ist **Philemon mit fünf** (`Phile`) — die direkte Folge davon, dass `Phil` jetzt
+  Philipper gehört. Die Präfixregel trägt also die Hauptlast; die Tabelle ist nur für die
+  Fälle da, die sie prinzipiell nicht erreichen kann. Eine „vollständige" Liste anzulegen
+  hieße, 58 Einträge zu erfinden, die nichts verbessern.
+- **Vier Stellen in der Bibeldatei wurden erfolglos geprüft** (21.09.2026), damit niemand
+  sie erneut absucht: das Tabellenschema (keine Abkürzungsspalte), `Hyperlink` (nur Ziel,
+  kein Linktext), das Dokument „Abkürzungen" (Doc 436 — allgemeine Kürzel wie „Anh.",
+  „bzw.", „Fn.", keine Bibelbücher) und „Bibel-Navigation" (Doc 1 — alle 66 Bücher, aber in
+  Großschreibung und mit Kapitelzahlen als Linktext).
 
 ⚠️ **`--compare=<lang>` immer zuerst gegen eine bereits unterstützte Sprache laufen lassen.**
 Es hält die Titel der Datei gegen `bookNames.ts` und zeigt damit, ob die Spalte, die man

@@ -50,12 +50,17 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   Meeting Workbook import would additionally need the three Korean section headings and the
   Congregation Bible Study title, which likewise double as detection anchors (see
   "Meeting-Workbook support for languages other than German" below).
-- **`Phlm.` for Philemon still cannot be typed.** The abbreviation table added below is
-  built only from abbreviations real publications were seen to print, and none of the
-  eleven German files checked cites Philemon even once — so there is nothing to read, and
-  inventing the entry is precisely what that table exists to prevent. `Philem.` resolves by
-  prefix in the meantime. This needs one publication that actually cites Philemon; the
-  harvester (`scripts/dump-book-abbreviations.mjs`) will pick it up on the next run.
+- **`Phlm.` for Philemon still cannot be typed** — the one gap left, and a small one.
+  The abbreviation table below is built only from what real publications were seen to
+  print, and none of the eleven German files checked cites Philemon even once, so there is
+  nothing to read; inventing the entry is precisely what the table exists to prevent.
+
+  Measured consequence: with the table in place, **65 of the 66 books resolve at four
+  characters or fewer**, most at two or three. Philemon alone needs five (`Phile`), because
+  `Phil` now belongs to Philipper. So this is not a missing-list problem — completing the
+  table to 66 entries would mean inventing 58 that change nothing. It needs one publication
+  that actually cites Philemon, and `scripts/dump-book-abbreviations.mjs` will pick the
+  abbreviation up on its next run.
 
 ## Later (deliberately deferred)
 

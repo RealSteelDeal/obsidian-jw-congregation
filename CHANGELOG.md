@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.21.1
+
+### Fixes
+
+- **Three German book names were wrong and are corrected:** *Zephanja*
+  (written "Zefanja" until now), *Esther* ("Ester") and *Hohes Lied*
+  ("Hoheslied").
+
+  This surfaced through the new completion: typing "Zephan" offered nothing,
+  because the name it was matching against was not how the book is spelled.
+  The same mistake had been quietly affecting generated notes, which wrote
+  "Zefanja 1:1" where publications write "Zephanja 1:1".
+
+  Every name in all seven languages was then checked against that language's
+  own Bible file. The only mismatches anywhere were these three, and all
+  three were German — the one language whose names had been hand-translated
+  instead of read out of the files. A test now covers all 7 × 66 names.
+
+  **Existing notes keep the old spelling** until you run "Update convention
+  notes" on them, which corrects the affected lines like any other changed
+  field.
+
 ## 1.21.0
 
 Two ways to get a scripture reference into a note with less typing — the same

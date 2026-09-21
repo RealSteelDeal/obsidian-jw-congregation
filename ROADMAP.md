@@ -86,9 +86,44 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   `LegacyMigrationModal`) for older, marker-free notes. Offering the same
   per-note preview/confirmation for the regular path too would make the
   behavior consistent regardless of a note's age.
-- **Speaker directory**: a generated overview note (or Dataview query
-  template) collecting who spoke when across conventions, built on top of
-  the existing free-text Speaker field.
+- **Speaker directory — as wiki links, not as parsed text.** Who spoke when,
+  across conventions. Reported usage (21.09.2026) rules out the obvious
+  approach: the Speaker field is usually filled in, but for an ordinary
+  congregation talk the name often goes into the lines *after* the title
+  instead, and the spelling varies freely — "Br. Sieberer", "Hannes
+  Sieberer", "Sieberer Hannes".
+
+  So the name varies in **format and in position**, which is exactly what a
+  field parser cannot survive. A cleverer parser is the wrong answer: it
+  would re-guess identity on every run, silently merging two brothers or
+  splitting one, with no way for the user to notice.
+
+  The answer is an **authority file**, the way libraries have solved this for
+  a century — and Obsidian already provides the mechanism. The field holds
+  `[[Hannes Sieberer]]` rather than free text:
+  - typing `[[` offers the speakers that already exist, so a second spelling
+    never comes into being in the first place;
+  - old variants are absorbed by `aliases:` in that person's own note — one
+    decision by the user, recorded once, instead of a guess repeated forever;
+  - **position stops mattering**, because a wiki link resolves anywhere in
+    the note — which dissolves the second half of the problem outright;
+  - the person's backlinks *are* the directory: live, per talk, with no
+    generation step and no Dataview.
+
+  That leaves the plugin very little to build, which is the point:
+  1. a setting that writes the field as `[[]]` so completion opens at once;
+  2. a one-off migration over existing notes — free-text names are collected
+     and grouped by a key that ignores honorifics and name order, then
+     **proposed** for confirmation per group (the `LegacyMigrationModal`
+     pattern, already proven here). The heuristic runs once, under
+     supervision, and its result is recorded as a decision;
+  3. optionally an overview note on top, for those who want a table rather
+     than backlinks.
+
+  Cost to be honest about: `[[` is two characters more to type, the person's
+  note has to exist before it can hold aliases or show backlinks, and
+  frontmatter stays untouched — the Dataview route (a `speaker:` key) is no
+  longer needed, so the note structure does not change.
 - **Customizable note template** beyond the current per-field show/hide
   toggles — user-defined field order or additional structural elements.
 - **Periodic Notes integration**: link convention days into Obsidian's

@@ -19,10 +19,23 @@ interface BookEntry {
 	es: string;
 }
 
-// Index 0 = book 1 (Genesis) … index 65 = book 66 (Revelation). de/en are
+// Index 0 = book 1 (Genesis) … index 65 = book 66 (Revelation). de/en were
 // hand-translated; fr/it/pt/ru/es are read verbatim from each language's own
 // nwtsty jwpub Bible file (BibleBook.BookDocumentId → Document.Title) — the
 // project convention of reading real data over guessing/hand-translating.
+//
+// That difference showed: on 21.09.2026 every name was checked against its
+// own Bible file's titles, and the only mismatches anywhere were three of the
+// hand-translated GERMAN ones — "Zefanja" (the file writes Zephanja, and the
+// programmes abbreviate it "Zeph."), "Ester" (Esther) and "Hoheslied" (the
+// file's title reads "Das Hohe Lied"). The five languages read from their
+// files had none. Found because a user typed "Zephan" and the completion
+// stayed silent.
+//
+// Caveat for the third: the title columns hold FORMAL titles, not citation
+// forms ("Das erste Buch Mose", not "1. Mose"), so "Hohes Lied" is derived
+// from a title rather than seen in a citation — the weakest of the three, and
+// still unconfirmed against a real citation.
 const BOOK_NAMES: BookEntry[] = [
 	{ de: '1. Mose', en: 'Genesis', fr: 'Genèse', it: 'Genesi', pt: 'Génesis', ru: 'Бытие', es: 'Génesis' },
 	{ de: '2. Mose', en: 'Exodus', fr: 'Exode', it: 'Esodo', pt: 'Êxodo', ru: 'Исход', es: 'Éxodo' },
@@ -40,12 +53,12 @@ const BOOK_NAMES: BookEntry[] = [
 	{ de: '2. Chronika', en: '2 Chronicles', fr: '2 Chroniques', it: '2 Cronache', pt: '2 Crónicas', ru: '2 Летопись', es: '2 Crónicas' },
 	{ de: 'Esra', en: 'Ezra', fr: 'Esdras', it: 'Esdra', pt: 'Esdras', ru: 'Ездра', es: 'Esdras' },
 	{ de: 'Nehemia', en: 'Nehemiah', fr: 'Néhémie', it: 'Neemia', pt: 'Neemias', ru: 'Неемия', es: 'Nehemías' },
-	{ de: 'Ester', en: 'Esther', fr: 'Esther', it: 'Ester', pt: 'Ester', ru: 'Эсфирь', es: 'Ester' },
+	{ de: 'Esther', en: 'Esther', fr: 'Esther', it: 'Ester', pt: 'Ester', ru: 'Эсфирь', es: 'Ester' },
 	{ de: 'Hiob', en: 'Job', fr: 'Job', it: 'Giobbe', pt: 'Jó', ru: 'Иов', es: 'Job' },
 	{ de: 'Psalm', en: 'Psalm', fr: 'Psaumes', it: 'Salmi', pt: 'Salmos', ru: 'Псалмы', es: 'Salmos' },
 	{ de: 'Sprüche', en: 'Proverbs', fr: 'Proverbes', it: 'Proverbi', pt: 'Provérbios', ru: 'Притчи', es: 'Proverbios' },
 	{ de: 'Prediger', en: 'Ecclesiastes', fr: 'Ecclésiaste', it: 'Ecclesiaste', pt: 'Eclesiastes', ru: 'Экклезиаст', es: 'Eclesiastés' },
-	{ de: 'Hoheslied', en: 'Song of Solomon', fr: 'Chant de Salomon', it: 'Cantico dei Cantici', pt: 'Cântico de Salomão', ru: 'Песня Соломона', es: 'El Cantar de los Cantares' },
+	{ de: 'Hohes Lied', en: 'Song of Solomon', fr: 'Chant de Salomon', it: 'Cantico dei Cantici', pt: 'Cântico de Salomão', ru: 'Песня Соломона', es: 'El Cantar de los Cantares' },
 	{ de: 'Jesaja', en: 'Isaiah', fr: 'Isaïe', it: 'Isaia', pt: 'Isaías', ru: 'Исайя', es: 'Isaías' },
 	{ de: 'Jeremia', en: 'Jeremiah', fr: 'Jérémie', it: 'Geremia', pt: 'Jeremias', ru: 'Иеремия', es: 'Jeremías' },
 	{ de: 'Klagelieder', en: 'Lamentations', fr: 'Lamentations', it: 'Lamentazioni', pt: 'Lamentações', ru: 'Плач Иеремии', es: 'Lamentaciones' },
@@ -59,7 +72,7 @@ const BOOK_NAMES: BookEntry[] = [
 	{ de: 'Micha', en: 'Micah', fr: 'Michée', it: 'Michea', pt: 'Miqueias', ru: 'Михей', es: 'Miqueas' },
 	{ de: 'Nahum', en: 'Nahum', fr: 'Nahum', it: 'Naum', pt: 'Naum', ru: 'Наум', es: 'Nahúm' },
 	{ de: 'Habakuk', en: 'Habakkuk', fr: 'Habacuc', it: 'Abacuc', pt: 'Habacuque', ru: 'Аввакум', es: 'Habacuc' },
-	{ de: 'Zefanja', en: 'Zephaniah', fr: 'Sophonie', it: 'Sofonia', pt: 'Sofonias', ru: 'Софония', es: 'Sofonías' },
+	{ de: 'Zephanja', en: 'Zephaniah', fr: 'Sophonie', it: 'Sofonia', pt: 'Sofonias', ru: 'Софония', es: 'Sofonías' },
 	{ de: 'Haggai', en: 'Haggai', fr: 'Aggée', it: 'Aggeo', pt: 'Ageu', ru: 'Аггей', es: 'Ageo' },
 	{ de: 'Sacharja', en: 'Zechariah', fr: 'Zacharie', it: 'Zaccaria', pt: 'Zacarias', ru: 'Захария', es: 'Zacarías' },
 	{ de: 'Maleachi', en: 'Malachi', fr: 'Malachie', it: 'Malachia', pt: 'Malaquias', ru: 'Малахия', es: 'Malaquías' },
@@ -132,8 +145,6 @@ const MIN_ABBREVIATION_LENGTH = 2;
  *
  *   - **skips letters** rather than truncating — "Apg." (Apostelgeschichte),
  *     "Offb." (Offenbarung), "Klg" (Klagelieder), "Jas." (James);
- *   - **spells the name differently** from this file — "Zeph." against the
- *     "Zefanja" written here;
  *   - **truncates ambiguously**, so the prefix rule refuses it — "Phil."
  *     prefixes both Philipper and Philemon, and publications nonetheless use
  *     it for Philipper. Reported as a real annoyance on 21.09.2026: the book
@@ -149,7 +160,11 @@ const MIN_ABBREVIATION_LENGTH = 2;
  * to avoid. Typing "Philem." still resolves by prefix.
  */
 const BOOK_ABBREVIATIONS: Partial<Record<SupportedLang, Record<string, number>>> = {
-	de: { klg: 25, zeph: 36, apg: 44, phil: 50, offb: 66 },
+	// "zeph" was here until 21.09.2026, for a "Zeph." that did not fit the
+	// "Zefanja" this file used to write. The name itself turned out to be
+	// wrong (see BOOK_NAMES); with "Zephanja" the prefix rule reaches it and
+	// the entry became redundant.
+	de: { klg: 25, apg: 44, phil: 50, offb: 66 },
 	en: { jas: 59 },
 	it: { salmo: 19 },
 	ru: { псалом: 19 },

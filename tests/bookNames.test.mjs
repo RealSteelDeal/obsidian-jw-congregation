@@ -2,7 +2,20 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { jiti } from './_setup.mjs';
 
-const { lookupBookNumber, findBooksByPrefix } = await jiti.import('../src/normalizer/bookNames.ts');
+const { lookupBookNumber, findBooksByPrefix, getBookName } = await jiti.import('../src/normalizer/bookNames.ts');
+
+const LANGS = ['de', 'en', 'fr', 'it', 'pt', 'ru', 'es'];
+
+/** The first `count` letters/digits of a name, keeping its punctuation. */
+function truncate(name, count) {
+	let taken = 0, out = '';
+	for (const ch of name) {
+		out += ch;
+		if (/[\p{L}\p{N}]/u.test(ch)) taken++;
+		if (taken === count) break;
+	}
+	return out;
+}
 
 // Every abbreviation asserted here was read off a real publication (see
 // BOOK_ABBREVIATIONS and scripts/dump-book-abbreviations.mjs), not chosen.
@@ -22,9 +35,16 @@ test('resolves "Phil." to Philipper, the way publications use it', () => {
 	assert.equal(lookupBookNumber('Phil.', 'de'), 50);
 });
 
-test('resolves an abbreviation spelled differently from the name we write', () => {
-	// Publications print "Zeph."; this project writes the book as "Zefanja".
+test('the three corrected German names resolve, including as a typed prefix', () => {
+	// All three were wrong against the Bible file's own titles until
+	// 21.09.2026 — "Zefanja", "Ester", "Hoheslied". The Zephanja case was
+	// found by a user typing "Zephan" and getting no completion.
+	assert.equal(lookupBookNumber('Zephanja', 'de'), 36);
 	assert.equal(lookupBookNumber('Zeph.', 'de'), 36);
+	assert.equal(lookupBookNumber('Esther', 'de'), 17);
+	assert.equal(lookupBookNumber('Hohes Lied', 'de'), 22);
+	assert.deepEqual(findBooksByPrefix('Zephan', 'de').map(m => m.name), ['Zephanja']);
+	assert.deepEqual(findBooksByPrefix('Esth', 'de').map(m => m.name), ['Esther']);
 });
 
 test('abbreviations ignore capitalisation and punctuation', () => {
@@ -56,6 +76,25 @@ test('the table does not loosen the rule against guessing at an ambiguous prefix
 	// "Jo" still prefixes Johannes, Joel and Jona, and no publication settles
 	// it, so it stays refused.
 	assert.equal(lookupBookNumber('Jo', 'de'), undefined);
+});
+
+test('every book in every language completes from the start of its own name', () => {
+	// The guarantee the completion is supposed to give, asserted for all
+	// 7 × 66 rather than spot-checked: this is exactly what silently failed
+	// for Zephanja, where the stored name did not match how the book is
+	// actually spelled.
+	for (const lang of LANGS) {
+		for (let book = 1; book <= 66; book++) {
+			const name = getBookName(book, lang);
+			const significant = name.replace(/[^\p{L}\p{N}]/gu, '').length;
+			// A name of three characters or fewer is already complete once
+			// typed — there is nothing to offer, by design.
+			if (significant <= 3) continue;
+			const typed = truncate(name, 3);
+			const offered = findBooksByPrefix(typed, lang).some(m => m.book === book);
+			assert.ok(offered, `${lang}: "${typed}" offers nothing for "${name}"`);
+		}
+	}
 });
 
 test('findBooksByPrefix completes a partly typed book name', () => {

@@ -784,9 +784,14 @@ MEPS-Symbol für `wtlocale=` (die Medien-API von jw.org antwortet auf
 **sichtbaren Text** zusammen mit der Buchnummer aus deren eigenem `jwpub://b/NWTR/`-Href —
 die Paarung wird also abgelesen, nie gesetzt. Drei Sorten erreicht die Präfixregel
 prinzipiell nicht und nur diese stehen in der Tabelle: Abkürzungen, die Buchstaben
-überspringen (`Apg.`, `Offb.`, `Klg`, `Jas.`), eine abweichende Schreibung (`Zeph.` gegen
-das hier geschriebene „Zefanja") und eine mehrdeutige Kürzung, die Publikationen trotzdem
-eindeutig verwenden (`Phil.` für Philipper, gemeldet am 21.09.2026).
+überspringen (`Apg.`, `Offb.`, `Klg`, `Jas.`), und eine mehrdeutige Kürzung, die
+Publikationen trotzdem eindeutig verwenden (`Phil.` für Philipper, gemeldet am
+21.09.2026).
+
+⚠️ **Eine dritte Sorte gab es kurzzeitig — und sie war ein Symptom, kein Fall für die
+Tabelle.** `Zeph.` passte nicht zu „Zefanja", weil der **Name** falsch war; er heißt
+Zephanja. Wenn eine Abkürzung „anders geschrieben" wirkt, erst `BOOK_NAMES` gegen die
+Bibeldatei prüfen, bevor ein Tabelleneintrag das Symptom zudeckt.
 
 - **Die Bibeldatei ist nicht die Quelle.** Ihr gesamtes Schema wurde am 21.09.2026
   durchsucht: keine einzige Spalte trägt eine Buch-Abkürzung — die `Symbol`-Spalten sind

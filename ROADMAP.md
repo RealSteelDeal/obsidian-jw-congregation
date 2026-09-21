@@ -103,6 +103,21 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 
 ## Recently shipped
 
+- **Three German book names were wrong, and are corrected**: *Zephanja* (was "Zefanja"),
+  *Esther* (was "Ester") and *Hohes Lied* (was "Hoheslied"). Found when a user typed
+  "Zephan" and the new completion stayed silent — the name it was matching against simply
+  was not how the book is spelled.
+
+  Every name in all seven languages was then checked against its own Bible file's titles.
+  The only mismatches anywhere were these three, and all three were German — the one
+  language whose names had been hand-translated rather than read from the files. The five
+  read from files had none, which is the project's own convention proving itself. A test
+  now asserts that all 7 × 66 names complete from their first three characters, so this
+  class of error cannot return unnoticed.
+
+  The abbreviation entry `Zeph.` was removed with the fix: it had only existed to paper
+  over the wrong name, and the prefix rule reaches *Zephanja* on its own.
+
 - **Book names complete themselves while you type.** `Apo` offers
   `Apostelgeschichte`; the chapter and verse stay yours to type, and the existing
   link/quote suggestion takes over from there.
@@ -116,9 +131,8 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 - **The abbreviations real publications print are now understood when typed.** `Phil. 4:6,7`
   used to be refused outright — "phil" prefixes Philipper *and* Philemon, so the
   unique-prefix rule could not settle it and the book had to be written out. Alongside it,
-  five more that no prefix rule can ever reach: `Apg.`, `Offb.`, `Klg`, `Zeph.` (spelled
-  differently from the "Zefanja" written here), plus `Jas.` in English and the singular
-  `Salmo` / `Псалом` in Italian and Russian.
+  more that no prefix rule can ever reach: `Apg.`, `Offb.`, `Klg`, plus `Jas.` in English
+  and the singular `Salmo` / `Псалом` in Italian and Russian.
 
   None of them was typed from memory. Each was read off a real file by
   `scripts/dump-book-abbreviations.mjs`, which pairs a citation's visible text with the

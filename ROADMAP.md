@@ -110,11 +110,16 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 
 ## Recently shipped
 
-- **The verse popup can bring the note's reference up to the passage it is showing.**
-  "Verse after" and "whole chapter" widen the view and still leave the note alone; an
-  **Extend reference** button now appears once the passage really has been widened, and
-  opens a menu offering to either replace the reference or keep the original and add the
-  wider one beside it. The button is set apart by colour, since it is the only popup action that
+- **A reference can be extended after it was written**, for the case it came from: a
+  speaker announces "let's read 1 Timothy 4 from verse 12" and does not say where he will
+  stop. You write `1. Tim. 4:12`, he reads on to 14, and correcting the note afterwards
+  meant typing the reference again. Now the passage is widened in the popup while he reads
+  and applied to the note at the end.
+
+  Widening still never changes the note by itself — that is the point, since the range is
+  only known once the reading is over. An **Extend reference** button appears once the
+  passage really has been widened, and opens a menu offering to either replace the
+  reference or keep the original and add the wider one beside it. The button is set apart by colour, since it is the only popup action that
   rewrites text already in the note. It never appears for a cross-reference navigated to,
   only for a genuine widening of the same passage, and the reference it rewrites is located
   fresh from the editor and matched by its parsed scripture — so a line carrying several

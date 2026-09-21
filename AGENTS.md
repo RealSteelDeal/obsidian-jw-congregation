@@ -522,9 +522,20 @@ Testdateien (`nwt_X.jwpub`, `nwtsty_X.jwpub`) verifiziert.
 
 ### Notiz an den erweiterten Umfang angleichen (BibleVerseModal, scriptureLinkScan)
 
-„Vers davor / Vers danach / Ganzes Kapitel" erweitern **nur die Anzeige** und lassen die
-Notiz bewusst unberührt (siehe `renderContextControls`). Der Knopf **„Bibelstelle
-erweitern"** holt sie auf Wunsch nach — mit einem Menü aus „ersetzen" (der Regelfall, erste Sektion) und
+**Wozu das da ist** — der Fall, aus dem die Funktion entstanden ist (Nutzer, 21.09.2026):
+Ein Redner kündigt an „lesen wir 1. Timotheus 4 ab Vers 12" und sagt nicht, wie weit er
+liest. Man notiert `1. Tim. 4:12`, er liest weiter bis 14, und die Notiz stimmt hinterher
+nicht mehr — die Bibelstelle müsste komplett neu getippt werden. Stattdessen: beim Zuhören
+im Popup mitziehen und erst am Ende in die Notiz übernehmen.
+
+**Daraus folgt die zentrale Entwurfsentscheidung:** Das Erweitern ändert die Notiz
+absichtlich **nicht** von selbst. Man zieht mit, während gelesen wird, und legt sich erst
+fest, wenn der Umfang feststeht. Ein automatisches Mitschreiben würde genau diesen
+Arbeitsablauf zerstören — jeder Zwischenstand landete in der Notiz.
+
+„Vers davor / Vers danach / Ganzes Kapitel" erweitern also **nur die Anzeige** und lassen
+die Notiz unberührt (siehe `renderContextControls`). Der Knopf **„Bibelstelle erweitern"**
+holt sie auf Wunsch nach — mit einem Menü aus „ersetzen" (der Regelfall, erste Sektion) und
 „daneben einfügen" (behält die ursprüngliche Stelle, zweite Sektion; Obsidian zeichnet
 zwischen Sektionen eine Trennlinie). Nutzerentscheidung vom 21.09.2026: Knopf statt Frage
 beim Schließen, und die Wahl erst danach.

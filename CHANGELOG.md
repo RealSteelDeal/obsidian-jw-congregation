@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.20.1
+
+Polish for the reference-extending button from 1.20.0, plus the explanation
+that release should have carried in the first place.
+
+### What the button is actually for
+
+A speaker announces "let's read 1 Timothy 4 from verse 12" and does not say
+where he will stop. You write down `1. Tim. 4:12`, he reads on through 13 and
+14, and afterwards the note says something narrower than what was read —
+correcting it meant typing the whole reference again.
+
+Instead: click the reference you already wrote, widen the passage in the popup
+with "verse after" (or "whole chapter") while he reads, and press **Extend
+reference** when he is done.
+
+Widening the popup still never changes the note on its own, and that is
+deliberate: you follow along while the reading happens and only commit to a
+range once you know where it ended. Automatically writing along would put
+every intermediate state into the note.
+
+### Fixes
+
+- **The button is now coloured while simply sitting there**, not only under
+  the mouse pointer. Its normal state was losing to Obsidian's own button
+  styling, while the hover state won — so the colour that is supposed to mark
+  it out as the one action that rewrites your note only appeared once you were
+  already pointing at it.
+- **Renamed to "Extend reference"** (from "Update note"), in all seven
+  languages. The old name said neither what would be changed nor what it would
+  be changed to.
+
 ## 1.20.0
 
 ### New

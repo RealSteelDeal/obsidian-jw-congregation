@@ -91,9 +91,16 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   the existing free-text Speaker field.
 - **Customizable note template** beyond the current per-field show/hide
   toggles — user-defined field order or additional structural elements.
-- **Calendar / Periodic Notes integration**: link convention days into
-  Obsidian's Daily/Periodic Notes, or export an `.ics` file for external
-  calendars.
+- **Periodic Notes integration**: link convention days into Obsidian's
+  Daily/Periodic Notes. Depends on another plugin's conventions, so it needs
+  maintaining as that plugin changes.
+
+  An `.ics` export for external calendars used to be the other half of this
+  entry and was **dropped on 21.09.2026** as not worth its cost: programme
+  files carry no calendar dates at all (only weekday names and clock times —
+  `Day.date` exists in the model but no parser ever fills it), so every export
+  would have had to ask for the date it cannot know, to produce entries for an
+  event whose date the user already knows by heart.
 
 ## Recently shipped
 

@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.20.0
+
+### New
+
+- **The verse popup can bring your note's reference up to the passage it is
+  showing.** "Verse before", "verse after" and "whole chapter" widen what the
+  popup displays and still leave the note untouched; an **Update note** button
+  now appears once the passage really has been widened, and opens a menu
+  offering either to replace the reference or to keep the original and add the
+  wider one beside it. The button is set apart by colour — it is the only
+  action in the popup that rewrites text already in your note.
+
+  It never appears for a cross-reference you navigated to, only for a genuine
+  widening of the same passage. The reference it rewrites is looked up fresh
+  and matched by the verses it actually points at, so a line carrying several
+  references keeps the others intact — and your own spelling of the book is
+  left alone ("Phil. 4:" stays "Phil. 4:", it is not expanded to
+  "Philipper 4:").
+
+### Maintenance
+
+- Test coverage is now reported in CI. No threshold is set: the numbers are
+  there to be read, not to fail a build over.
+- The release workflow moved off an action still running on Node 20, which
+  GitHub had already been forcing onto Node 24 with a deprecation warning on
+  every release. Verified end to end in a throwaway repository before the
+  switch rather than by waiting for the next release to find out.
+- New `scripts/dump-book-names.mjs` reads the Bible book names out of an
+  `nwt`/`nwtsty` file — groundwork for adding a language. Its `--compare`
+  mode checks the method against a language already supported before its
+  result is trusted for a new one, which immediately caught a column that
+  holds the formal book title rather than the short citation form.
+
 ## 1.19.0
 
 ### Fixes (recognizing scripture references typed as plain text)

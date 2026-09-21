@@ -50,6 +50,36 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   Meeting Workbook import would additionally need the three Korean section headings and the
   Congregation Bible Study title, which likewise double as detection anchors (see
   "Meeting-Workbook support for languages other than German" below).
+- **Two book abbreviations cannot be typed at all**, found in real note-taking on
+  21.09.2026: `Phil. 4:6,7` is not recognised, so the book has to be written out in full.
+  The cause is verified rather than guessed. `lookupBookNumber()` resolves an abbreviation by
+  unique-prefix match, and "phil" prefixes both **Philipper** (50) and **Philemon** (57), so
+  it is refused instead of guessed at — correct by that rule, and useless to the user.
+  Philemon's own official abbreviation `Phlm.` fails for the opposite reason: it skips
+  letters rather than truncating, so no prefix rule can reach it. Everything else tested
+  resolves (`Kol.`, `Spr.`, `Jes.`, `Röm.`, `Matth.`, `1. Kö.`).
+
+  Fixing it needs an abbreviation table, and the open question was always where to get one
+  that is not invented. **The Bible file is not the source** — checked against the German
+  `nwtsty` on 21.09.2026: nothing in the whole schema holds book abbreviations (the `Symbol`
+  columns are publication symbols). **A convention programme is**: every scripture citation
+  in one renders the official abbreviation as the anchor's own text while its
+  `jwpub://b/NWTR/` href carries the book number, so a real file yields verified
+  abbreviation → book pairs. Coverage is limited to the books a given file happens to cite,
+  which is the reason to *extend* the prefix rule rather than replace it — a known
+  abbreviation wins, everything else keeps resolving by unique prefix as today.
+- **Offer to widen the note's reference after expanding a passage in the popup**, requested
+  from real use on 21.09.2026. "Vers danach" and "whole chapter" widen what the popup shows
+  and deliberately leave the note alone (see `renderContextControls`, which treats expansion
+  as refining the view rather than navigating). When the passage has been widened at least
+  once, closing the popup should offer to bring the note's own reference up to the range now
+  shown.
+
+  The parts are already there: the popup keeps the original scripture apart from the one on
+  display, `scriptureLinkScan` finds the line carrying it, and `toMarkdownLink` writes the
+  replacement. What needs deciding first is whether it asks on close or offers a button
+  (both were suggested), and whether the widened range replaces the reference or is offered
+  next to it.
 
 ## Later (deliberately deferred)
 

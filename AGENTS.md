@@ -523,8 +523,8 @@ Testdateien (`nwt_X.jwpub`, `nwtsty_X.jwpub`) verifiziert.
 ### Notiz an den erweiterten Umfang angleichen (BibleVerseModal, scriptureLinkScan)
 
 „Vers davor / Vers danach / Ganzes Kapitel" erweitern **nur die Anzeige** und lassen die
-Notiz bewusst unberührt (siehe `renderContextControls`). Der Knopf **„Notiz angleichen"**
-holt sie auf Wunsch nach — mit einem Menü aus „ersetzen" (der Regelfall, erste Sektion) und
+Notiz bewusst unberührt (siehe `renderContextControls`). Der Knopf **„Bibelstelle
+erweitern"** holt sie auf Wunsch nach — mit einem Menü aus „ersetzen" (der Regelfall, erste Sektion) und
 „daneben einfügen" (behält die ursprüngliche Stelle, zweite Sektion; Obsidian zeichnet
 zwischen Sektionen eine Trennlinie). Nutzerentscheidung vom 21.09.2026: Knopf statt Frage
 beim Schließen, und die Wahl erst danach.
@@ -547,6 +547,12 @@ beim Schließen, und die Wahl erst danach.
   Aktion des Popups, die bereits geschriebenen Text überschreibt. Bewusst **nicht** die
   Akzentfarbe — die gehört „In JW Library öffnen"; zwei Akzentknöpfe nebeneinander würden
   nichts darüber sagen, welcher die Notiz verändert.
+  ⚠️ **Die Klasse ist im Selektor verdoppelt**, und das muss so bleiben. Mit nur einer
+  Klasse verlor die Regel im Ruhezustand gegen Obsidians eigene Knopf-Gestaltung, während
+  die `:hover`-Regel gewann — weil `:hover` allein schon einen Spezifitätspunkt mitbringt.
+  Der Knopf war dadurch nur unter dem Mauszeiger orange (gemeldet am 21.09.2026). Die
+  Verdopplung hebt die Ruhe-Regel auf dasselbe Gewicht, ohne sich an einen von Obsidians
+  internen Klassennamen zu binden.
 
 ⚠️ Nicht automatisiert getestet ist — wie bei allen `ui/*.ts` — das Rendering selbst.
 Geprüft sind `widens()` und `findScriptureLinkSpan()` als reine Logik.

@@ -311,14 +311,22 @@ a.external-link[href*="jw.org/finder"]:not(#_)::after {
    accent colour: that belongs to "Open in JW Library", the popup's primary
    action, and two accent buttons side by side would say nothing about which
    one changes the note. Orange is Obsidian's own theme variable and follows
-   light/dark, so this stays legible without hardcoding a colour. */
-.jw-bible-align-button {
+   light/dark, so this stays legible without hardcoding a colour.
+
+   The class is doubled to raise specificity without naming any of Obsidian's
+   own classes. A single class lost to Obsidian's button styling at rest while
+   the hover rule won, because `:hover` adds a point of specificity by itself —
+   so the button only turned orange under the pointer (reported 21.09.2026).
+   Matching the hover rule's weight fixes that and stays independent of
+   whatever selector Obsidian uses internally. */
+.jw-bible-align-button.jw-bible-align-button {
 	background-color: var(--color-orange);
 	color: var(--text-on-accent);
 	font-weight: var(--font-semibold);
+	box-shadow: none;
 }
 
-.jw-bible-align-button:hover {
+.jw-bible-align-button.jw-bible-align-button:hover {
 	background-color: var(--color-orange);
 	filter: brightness(1.1);
 }

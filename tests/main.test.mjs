@@ -159,3 +159,102 @@ test('updateFile() leaves a marker-free (pre-1.9.0-style) note completely untouc
 	assert.ok(legacyNotice, 'expected a distinct "legacy corrections found" notice');
 	assert.match(legacyNotice.message, /^1 /); // exactly one candidate note
 });
+
+// ── Bulk update (updateFolders) ────────────────────────────────────────────
+// updateFile() itself is a one-job call into updateFolders(), so the tests
+// above already cover the single-folder notices; these cover only what the
+// bulk path adds on top: several conventions in one run, and what happens
+// when one of them cannot be updated.
+
+const { SourceRouter } = await jitiWithObsidianStub.import('../src/parser/SourceRouter.ts');
+
+async function parseCongress(rtf) {
+	const { congress } = await new SourceRouter(new Uint8Array(0)).route('Test.rtf', rtf);
+	return congress;
+}
+
+/** The item note of the congress folder directly under `parent` ('' = root). */
+function itemNoteUnder(notes, parent) {
+	const prefix = parent === '' ? '' : `${parent}/`;
+	return [...notes.keys()].find(p =>
+		p.startsWith(prefix)
+		&& (parent !== '' || !p.startsWith('Archiv/'))
+		&& !p.endsWith('Übersicht.md') && !p.endsWith('Wiederholung.md'));
+}
+
+test('updateFolders() reconciles several conventions in one run and sums them into a single result notice', async () => {
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('A.rtf', makeRtf('9 Uhr 40'), '');
+	await plugin.importFile('B.rtf', makeRtf('9 Uhr 40'), 'Archiv');
+
+	const itemA = itemNoteUnder(fake.notes, '');
+	const itemB = itemNoteUnder(fake.notes, 'Archiv');
+	assert.ok(itemA && itemB, 'expected one item note per imported convention');
+
+	const congress = await parseCongress(makeRtf('9 Uhr 50'));
+	Notice.instances.length = 0;
+	await plugin.updateFolders([
+		{ label: 'A.rtf', folder: dirname(itemA), congress },
+		{ label: 'B.rtf', folder: dirname(itemB), congress },
+	]);
+
+	assert.match(fake.notes.get(itemA), /\*\*Uhrzeit:\*\* 9:50/);
+	assert.match(fake.notes.get(itemB), /\*\*Uhrzeit:\*\* 9:50/);
+
+	const summaries = Notice.instances.filter(n => /Kongress\(e\) aktualisiert/.test(n.message));
+	assert.equal(summaries.length, 1, 'one summary for the whole run, not one per folder');
+	assert.match(summaries[0].message, /^2 Kongress\(e\)/);
+	assert.doesNotMatch(summaries[0].message, /Fehlgeschlagen/);
+});
+
+test('updateFolders() finishes the other conventions when one of them cannot be updated, and names the failure', async () => {
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('A.rtf', makeRtf('9 Uhr 40'), '');
+
+	const itemA = itemNoteUnder(fake.notes, '');
+	const congress = await parseCongress(makeRtf('9 Uhr 50'));
+	Notice.instances.length = 0;
+	// Second job points at a folder that was deleted (or renamed) since the
+	// files were picked — the first job must still be carried out in full.
+	await plugin.updateFolders([
+		{ label: 'A.rtf', folder: dirname(itemA), congress },
+		{ label: 'Weg.rtf', folder: 'Gibt/Es/Nicht', congress },
+	]);
+
+	assert.match(fake.notes.get(itemA), /\*\*Uhrzeit:\*\* 9:50/);
+	assert.ok(Notice.instances.some(n => /nicht gefunden/.test(n.message)));
+
+	const summary = Notice.instances.find(n => /Kongress\(e\) aktualisiert/.test(n.message));
+	assert.ok(summary);
+	assert.match(summary.message, /^1 Kongress\(e\)/); // only the one that worked is counted
+	assert.match(summary.message, /Fehlgeschlagen: Weg\.rtf/);
+});
+
+test('updateFolders() with a single job reports exactly the notices the single-folder update always did', async () => {
+	// updateFile() delegates here, so the bulk summary must NOT appear for a
+	// run of one — that wording would be new text in an unchanged workflow.
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+
+	const itemPath = findItemNotePath(fake.notes);
+	const congress = await parseCongress(makeRtf('9 Uhr 50'));
+	Notice.instances.length = 0;
+	await plugin.updateFolders([{ label: 'Test.rtf', folder: dirname(itemPath), congress }]);
+
+	assert.ok(Notice.instances.some(n => /^Aktualisierung abgeschlossen:/.test(n.message)));
+	assert.ok(!Notice.instances.some(n => /Kongress\(e\) aktualisiert/.test(n.message)));
+});
+
+test('updateFolders() does nothing at all when given no jobs', async () => {
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	Notice.instances.length = 0;
+
+	await plugin.updateFolders([]);
+
+	assert.equal(fake.notes.size, 0);
+	assert.equal(Notice.instances.length, 0);
+});

@@ -34,7 +34,7 @@ npm run lint      # ESLint
 
 ```
 src/
-  main.ts                    # Plugin-Lifecycle (onload/onunload, Commands, Settings, importFile()/updateFile())
+  main.ts                    # Plugin-Lifecycle (onload/onunload, Commands, Settings, importFile()/updateFile()/updateFolders())
   settings.ts                # JwPluginSettings, DEFAULT_SETTINGS, JwSettingTab
   i18n.ts                    # Strings/NoteStrings-Interfaces + L/NL für alle 7 Sprachen (siehe Abschnitt "Sprachen" unten)
   models/
@@ -48,7 +48,7 @@ src/
     jwpubCrypto.ts           # geteilte jwpub-Krypto: openJwpubDatabase(), readPublication(), deriveKey(), decryptBlob()
     jwpubLinks.ts            # geteilte jwpub-Konstanten: MEPS_LANGUAGE_INDEX, Bibel-/Lied-Href-Regexe, assertPlatformSupport()
     fileSignature.ts         # looksLikeJwpub()/hasPkZipSignature() — von SourceRouter.ts und MwbSourceRouter.ts geteilt
-    folderList.ts            # listAllFolders() — von allen vier Import/Update-Modalen geteilt
+    folderList.ts            # listAllFolders() — von allen vier Import/Update-Modalen geteilt; findFoldersByName() für die Datei-↔-Ordner-Zuordnung des Sammel-Updates
     bytes.ts                 # latin1Decode(), hexToBytes()
     parseErrors.ts           # ParseError/ParseErrorCode — strukturierte Fehler statt hartkodierter Strings (siehe unten)
     decompressionGuard.ts    # Größenlimits gegen Zip-Bomb-artige Dekompression (siehe unten)
@@ -70,10 +70,12 @@ src/
   ui/
     ImportModal.ts           # Dateiauswahl, Zielordner-Dropdown, Vorschau, Import-Bestätigung
     UpdateNotesModal.ts      # wie ImportModal, aber patcht einen bereits importierten Ordner (nur bestehende Ordner)
+    BulkUpdateNotesModal.ts  # mehrere Programmdateien auf einmal, je Datei ein Zielordner-Vorschlag (updateFolders())
     ImportMwbModal.ts        # wie ImportModal, aber für Leben-und-Dienst-Arbeitshefter (nur .jwpub, eigener mwbTargetFolder)
     UpdateMwbNotesModal.ts   # wie UpdateNotesModal, aber für Leben-und-Dienst-Arbeitshefter
     BibleVerseModal.ts       # Popup mit Vers-Text + "In JW Library öffnen"/"Als Zitat einfügen"/"Zitat entfernen"
     ScriptureEditorSuggest.ts # As-you-type-Vorschlag für eine getippte Bibelstelle (Verlinken/Zitat einfügen)
+    BookNameEditorSuggest.ts # vervollständigt einen Bibelbuchnamen während des Tippens
     LegacyMigrationModal.ts  # Vorschau/Bestätigung pro Notiz für legacyFieldPatch.ts-Korrekturvorschläge
 scripts/
   dump-structure.mjs         # Entwickler-Tool: Publication-Zeile + h1/h2/li-Struktur je Dokument ausgeben (nutzt util/jwpubCrypto)
@@ -753,7 +755,11 @@ der Obsidian-Host selbst ist gefakt. **Weiterhin NICHT getestet**: das tatsächl
 Verhalten der `ui/*.ts`-Modal-Klassen selbst (`onOpen()`, Button-Klicks, Live-Preview-
 Klick-Routing über `EditorView`) — der Stub deckt nur ab, was zum bloßen Modul-Laden nötig
 ist, nicht die UI-Logik dieser Klassen. Bei Änderungen an `importFile()`/`updateFile()` diese
-Testdatei erweitern statt eine neue Stub-Variante zu bauen.
+Testdatei erweitern statt eine neue Stub-Variante zu bauen. Das Sammel-Update ist dort
+ebenfalls abgedeckt (`updateFolders()` mit mehreren Jobs, ein fehlschlagender Job, ein
+einzelner Job): der UI-Teil — die Datei-↔-Ordner-Zuordnung in `BulkUpdateNotesModal` —
+bleibt wie alle Modale ungetestet, die Zuordnungsregel selbst liegt deshalb in
+`util/folderList.ts` (`findFoldersByName()`, `tests/folderList.test.mjs`).
 
 Manuell in Obsidian:
 

@@ -17,7 +17,13 @@ export class TFile {
 }
 
 export class TFolder {
-	constructor(path) { this.path = path; this.children = []; }
+	constructor(path) {
+		this.path = path;
+		this.children = [];
+		// Same derivation the real TFolder exposes — folderList's
+		// findFoldersByName() matches on it, so it has to be present here too.
+		this.name = path.split('/').filter(Boolean).pop() ?? '';
+	}
 }
 
 export function normalizePath(path) {

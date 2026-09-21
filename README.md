@@ -34,6 +34,7 @@ An Obsidian community plugin that imports official convention program files of J
   Instead, click the reference you already wrote, widen the passage in the popup with "verse after" (or "whole chapter") as he reads, and press **Extend reference** when he is done. A menu then offers to replace the reference or to keep the original and add the wider one beside it.
 
   Widening the popup deliberately never changes the note by itself — you follow along while reading and only commit to a range once you know where it ended. The button appears only when the passage really has been widened, never for a cross-reference you navigated to, and it leaves your own spelling of the book alone (`Phil. 4:` stays `Phil. 4:`). If the line holds several references, only the one you opened is rewritten.
+- **Update every imported convention in one run.** A parser fix applies to all of them, so "Update several conventions at once" takes all the program files together and pairs each with the folder its first import created — matched by folder name anywhere in the vault, always shown as a changeable proposal before anything is written. One convention failing never abandons the rest.
 - **Optional YAML frontmatter** (stable English keys, e.g. for Dataview queries) can be added to every generated note – off by default, notes stay frontmatter-free otherwise.
 - **Type a scripture reference anywhere, in any note** (e.g. `Psalm 12:1`, or an abbreviation like `Matth. 5:2`) and a suggestion pops up right after typing it, offering up to four actions. Abbreviations are understood both when they are simply a shortened name (`Matth.`, `Ps`, `1 Mo`) and when they are not — `Phil.`, `Apg.`, `Offb.`, `Klg` and `Zeph.` are recognised because they were read out of real publications rather than assumed.
 - **Book names complete themselves as you type them.** `Apo` offers `Apostelgeschichte`; accept it and type the chapter and verse, at which point the suggestion above takes over. It only fires on a capitalised word of three letters or more, so ordinary prose does not keep interrupting you — a lowercase `mich` stays the word "mich" and does not offer `Micha`. Can be switched off in the settings. Every citation form is understood: a single verse, a range (`5:3-16`), a range running into a later chapter (`Hebräer 5:13-6:1`), and any number of comma-separated parts – each of them a verse or a range, adjacent (`Röm. 2:14,15`) or cited across a gap (`1. Tim. 4:12,15-17`), in which case only the verses actually cited are linked and shown – a gapped citation becomes one link per stretch of verses, since JW Library has no reference syntax covering a gap – both fully offline, using the loaded Bible file: link it, link it and open JW Library immediately, insert the verse text as a quote (replacing the typed reference), or insert the quote while turning the reference into a link instead. Each of the four can be individually enabled/disabled and freely reordered in the settings.
@@ -82,6 +83,14 @@ Re-importing into an existing convention folder only refreshes purely derived fi
 If a plugin update fixes a bug in the generated notes themselves (e.g. a wrong weekday or a broken scripture link), you don't have to delete anything to pick it up. **Command palette → "Update convention notes"** (also reachable from the same settings-tab section as import) re-parses the same program file and patches an already-imported convention folder in place: every automatically generated field (day, time, scripture links, headings, the "Anschließend"/"Next" hint) is refreshed, while anything you typed yourself — speaker name, personal notes — is left completely untouched, even in the very same note.
 
 This works because every generated note carries invisible markers around each derived field (empty `<span>` elements hidden by this plugin's own stylesheet, never shown in Reading View or Live Preview). Only notes created by this plugin version or later have them — older notes fall back to being left alone, reported separately in the result notice.
+
+### Updating several conventions at once
+
+A parser fix applies to every convention you ever imported, not just the last one — so **"Update several conventions at once"** does the same reconciliation for all of them in a single run. Pick all the program files together, and each one is paired automatically with the folder its original import created, matched by name anywhere in the vault (so conventions kept in a subfolder are found too).
+
+The pairing is only ever a proposal. Every row keeps a full folder dropdown, "do not update" is always available, and a file the plugin cannot read at all says so instead of being silently dropped. Two files pointing at the same folder stop the run before anything is written, rather than letting the second quietly undo the first.
+
+Per note, nothing differs from the single-folder update above — the same marker merge, the same protection of what you typed. What the bulk run changes is the reporting: one progress notice over all files of all conventions, one summary at the end, and one review window for any marker-free notes found anywhere in the run. If one convention fails (its folder was renamed in the meantime, a write failed), the files it had already created are rolled back, the remaining conventions are still updated in full, and the summary names the file that failed.
 
 ### Correcting even older, marker-free notes
 
@@ -223,10 +232,12 @@ src/
   ui/
     ImportModal.ts           # import dialog with target-folder picker & preview
     UpdateNotesModal.ts      # re-parses a file and patches an already-imported folder
+    BulkUpdateNotesModal.ts  # same, for several conventions at once (file ↔ folder pairing)
     ImportMwbModal.ts        # same as ImportModal, for Meeting Workbook files
     UpdateMwbNotesModal.ts   # same as UpdateNotesModal, for Meeting Workbook files
     BibleVerseModal.ts       # verse popup ("Open in JW Library" / "insert as quote")
     ScriptureEditorSuggest.ts # as-you-type scripture reference → link/quote suggestion
+    BookNameEditorSuggest.ts # completes a Bible book name while it is being typed
     LegacyMigrationModal.ts  # review/apply field corrections for pre-1.9.0, marker-free notes
   util/
     jwpubCrypto.ts           # shared jwpub crypto

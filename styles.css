@@ -45,6 +45,12 @@
 	font-size: var(--font-ui-small);
 }
 
+/* A picked file the bulk update could not read at all — it carries no folder
+   dropdown, so the reason it gives has to stand out on its own. */
+.jw-bulk-row-failed .setting-item-description {
+	color: var(--text-error);
+}
+
 .jw-legacy-correction {
 	margin: 0.25em 0;
 	padding: 0.35em 0.5em;

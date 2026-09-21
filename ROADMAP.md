@@ -86,8 +86,6 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   `LegacyMigrationModal`) for older, marker-free notes. Offering the same
   per-note preview/confirmation for the regular path too would make the
   behavior consistent regardless of a note's age.
-- **Bulk update across multiple already-imported conventions** in one run,
-  instead of picking one folder at a time via "Update convention notes".
 - **Speaker directory**: a generated overview note (or Dataview query
   template) collecting who spoke when across conventions, built on top of
   the existing free-text Speaker field.
@@ -98,6 +96,19 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   calendars.
 
 ## Recently shipped
+
+- **Update several conventions at once.** A parser fix applies to every convention ever
+  imported, so the update no longer has to be repeated folder by folder: all the program
+  files are picked together and each is paired with the folder its first import created,
+  matched by folder **name** anywhere in the vault rather than only at the root.
+
+  Every pairing stays a proposal — a full dropdown per row, "do not update" always
+  available, an unreadable file saying why instead of vanishing, and two files aimed at one
+  folder stopping the run before anything is written. One convention failing rolls back only
+  its own new files and is named in the summary; the rest are still updated in full.
+
+  `updateFile()` became a one-job call into the new `updateFolders()`, so the merge itself
+  exists once and a single-folder run reports exactly the notices it always did.
 
 - **Three German book names were wrong, and are corrected**: *Zephanja* (was "Zefanja"),
   *Esther* (was "Ester") and *Hohes Lied* (was "Hoheslied"). Found when a user typed

@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.22.0
+
+### New
+
+- **Update several conventions at once.** A parser fix applies to every
+  convention ever imported, not just the most recent one — until now that
+  meant opening "Update convention notes" again for each folder, picking a
+  file and a folder every time.
+
+  The new command takes all the program files in one go and pairs each with
+  the folder its original import created, matched by the folder's **name**
+  anywhere in the vault rather than only at the root, so conventions kept in
+  a subfolder are found too.
+
+  Every pairing is a proposal, not a decision: each row keeps a full folder
+  dropdown, "do not update" is always available, and a file that cannot be
+  read says why instead of being silently dropped. Two files pointing at the
+  same folder stop the run before anything is written — otherwise the second
+  would quietly undo the first.
+
+  Per note nothing changes: the same marker merge as the single-folder
+  update, so anything typed by hand is untouched. What is new is the
+  reporting — one progress notice across all files of all conventions, one
+  summary at the end, and one review window for any marker-free notes found
+  anywhere in the run. A convention that fails (folder renamed in the
+  meantime, a write error) has its own newly created files rolled back, is
+  named in the summary, and does not stop the others from being updated.
+
+  Reachable from the command palette and from the same settings-tab section
+  as the existing import/update actions.
+
+### Internal
+
+- `updateFile()` is now a single-job call into the new `updateFolders()`, so
+  the merge logic exists once rather than twice. With one job the notices are
+  the ones the single-folder update always produced — a test asserts the bulk
+  summary specifically does *not* appear for a run of one.
+
 ## 1.21.1
 
 ### Fixes

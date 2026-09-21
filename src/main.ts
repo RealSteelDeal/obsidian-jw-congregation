@@ -2,7 +2,7 @@ import { Notice, Plugin, TFile, TFolder, normalizePath } from 'obsidian';
 import { EditorView } from '@codemirror/view';
 import { DEFAULT_SCRIPTURE_SUGGEST_ACTIONS, DEFAULT_SETTINGS, JwPluginSettings, JwSettingTab } from './settings';
 import { SourceRouter } from './parser/SourceRouter';
-import { NoteBuilder } from './builder/NoteBuilder';
+import { GeneratedAttachment, GeneratedNote, NoteBuilder } from './builder/NoteBuilder';
 import { ImportModal } from './ui/ImportModal';
 import { MwbSourceRouter } from './parser/MwbSourceRouter';
 import { MwbNoteBuilder } from './builder/MwbNoteBuilder';
@@ -12,11 +12,13 @@ import { BibleReader } from './bible/BibleReader';
 import { BibleVerseModal } from './ui/BibleVerseModal';
 import { ScriptureEditorSuggest } from './ui/ScriptureEditorSuggest';
 import { BookNameEditorSuggest } from './ui/BookNameEditorSuggest';
-import { Scripture } from './models/congress';
+import { Congress, Scripture } from './models/congress';
+import { CongressLang } from './normalizer/bookNames';
 import { L, NL } from './i18n';
 import { findFirstScriptureLinkInText, findScriptureLinkInText, parseScriptureFromHref, QUOTE_CALLOUT_START_RE } from './util/scriptureLinkScan';
 import { hasNoMarkers, mergeNoteContent } from './util/noteMerge';
 import { UpdateNotesModal } from './ui/UpdateNotesModal';
+import { BulkUpdateNotesModal } from './ui/BulkUpdateNotesModal';
 import { applyLegacyCorrections, findLegacyCorrections, LegacyFieldCorrection } from './util/legacyFieldPatch';
 import { LegacyMigrationCandidate, LegacyMigrationModal } from './ui/LegacyMigrationModal';
 import { ParseError } from './util/parseErrors';
@@ -25,6 +27,24 @@ import { ParseError } from './util/parseErrors';
 import sqlWasmBinary from 'sql.js/dist/sql-wasm.wasm';
 
 const BIBLE_FILE_NAME = 'bible-cache.jwpub';
+
+/** One convention to reconcile in an update run: an already-parsed programme
+ *  and the existing folder it belongs to. `label` is what the summary notice
+ *  names if this one convention fails — the file the user picked. */
+export interface CongressUpdateJob {
+	label: string;
+	folder: string;
+	congress: Congress;
+}
+
+/** Per-note outcome of one convention's update, summed across conventions for
+ *  the result notice — see updateFolders(). */
+interface UpdateCounts {
+	merged: number;
+	created: number;
+	unchanged: number;
+	needsReimport: number;
+}
 
 export default class JwCongregationPlugin extends Plugin {
 	settings!: JwPluginSettings;
@@ -66,6 +86,12 @@ export default class JwCongregationPlugin extends Plugin {
 			id: 'update-congress-notes',
 			name: this.tr.updateCommand,
 			callback: () => new UpdateNotesModal(this.app, this).open(),
+		});
+
+		this.addCommand({
+			id: 'bulk-update-congress-notes',
+			name: this.tr.bulkUpdateCommand,
+			callback: () => new BulkUpdateNotesModal(this.app, this).open(),
 		});
 
 		// A second, distinct icon (not 'book-open', which is reserved for the
@@ -555,6 +581,38 @@ export default class JwCongregationPlugin extends Plugin {
 		}
 
 		const router = new SourceRouter(this.sqlWasmBinary);
+		let result;
+		try {
+			result = await router.route(filename, data);
+		} catch (err) {
+			new Notice(this.tr.noticeImportFailed(this.describeError(err)));
+			return;
+		}
+
+		// A run of exactly one job: updateFolders() reports the very same
+		// notices this method reported on its own before the bulk path existed,
+		// so the merge logic lives in one place only.
+		await this.updateFolders([{ label: filename, folder: congressPath, congress: result.congress }]);
+	}
+
+	/**
+	 * The bulk counterpart to updateFile(): reconciles SEVERAL already-imported
+	 * congress folders in one run, each against its own re-parsed programme
+	 * file — see ui/BulkUpdateNotesModal.ts, which pairs the picked files with
+	 * existing folders by the folder name NoteBuilder would generate for them.
+	 *
+	 * Per note, this does exactly what a single-folder update does; what the
+	 * bulk path adds is (a) one progress notice counting every file of every
+	 * convention, (b) an aggregated result notice, and (c) the rule that one
+	 * failing convention never abandons the rest — its own newly created files
+	 * are rolled back and it is named in the summary, then the run carries on.
+	 * With a single job the notices are byte-for-byte the ones updateFile()
+	 * always produced.
+	 */
+	async updateFolders(jobs: CongressUpdateJob[]): Promise<void> {
+		if (jobs.length === 0) return;
+		const bulk = jobs.length > 1;
+
 		const builder = new NoteBuilder({
 			scriptureLinks: this.settings.scriptureLinks,
 			reviewNote: this.settings.reviewNote,
@@ -566,31 +624,94 @@ export default class JwCongregationPlugin extends Plugin {
 			frontmatter: this.settings.frontmatter,
 		});
 
-		let result;
-		try {
-			result = await router.route(filename, data);
-		} catch (err) {
-			new Notice(this.tr.noticeImportFailed(this.describeError(err)));
-			return;
+		// Rendered up front so the progress notice can count real files rather
+		// than conventions: building a note is pure string work, and nothing is
+		// written to the vault before the loop below starts.
+		const plans = jobs.map(job => ({ job, ...builder.buildNotes(job.congress) }));
+		const total = plans.reduce((sum, plan) => sum + plan.notes.length + plan.attachments.length, 0);
+		let done = 0;
+		const progress = total > 3 ? new Notice(this.tr.noticeImportProgress(0, total), 0) : null;
+		const onStep = () => {
+			done++;
+			progress?.setMessage(this.tr.noticeImportProgress(done, total));
+		};
+
+		// Notes with no markers at all (pre-1.9.0) that still have safely
+		// identifiable field-label corrections — see util/legacyFieldPatch.ts.
+		// Never written automatically; only offered via LegacyMigrationModal
+		// after this whole update run finishes, and only once the user
+		// confirms per note there. Collected across ALL conventions of the run,
+		// so a bulk update opens one review modal rather than one per folder.
+		const legacyCandidates: LegacyMigrationCandidate[] = [];
+		const totals: UpdateCounts = { merged: 0, created: 0, unchanged: 0, needsReimport: 0 };
+		const failed: string[] = [];
+		let updatedFolders = 0;
+
+		for (const plan of plans) {
+			const congressPath = normalizePath(plan.job.folder);
+			// Re-checked per job, not just when the modal built its list: a
+			// folder can be renamed or deleted between picking and running.
+			if (!(this.app.vault.getAbstractFileByPath(congressPath) instanceof TFolder)) {
+				failed.push(plan.job.label);
+				new Notice(this.tr.noticeUpdateFolderNotFound(congressPath));
+				continue;
+			}
+			try {
+				const counts = await this.applyCongressUpdate(
+					congressPath, plan.job.congress.lang, plan.notes, plan.attachments, legacyCandidates, onStep,
+				);
+				totals.merged += counts.merged;
+				totals.created += counts.created;
+				totals.unchanged += counts.unchanged;
+				totals.needsReimport += counts.needsReimport;
+				updatedFolders++;
+			} catch (err) {
+				failed.push(plan.job.label);
+				if (!bulk) {
+					progress?.hide();
+					new Notice(this.tr.noticeImportRolledBack(this.describeError(err)));
+					return;
+				}
+			}
 		}
 
-		const { notes, attachments } = builder.buildNotes(result.congress);
+		progress?.hide();
+		if (bulk) {
+			new Notice(this.tr.noticeBulkUpdateResult(
+				updatedFolders, totals.merged, totals.created, totals.needsReimport, totals.unchanged, failed,
+			), 15000);
+		} else if (failed.length === 0) {
+			new Notice(this.tr.noticeUpdateResult(totals.merged, totals.created, totals.needsReimport, totals.unchanged), 10000);
+		}
+		// Separate, opt-in notice — a normal update run without any legacy
+		// notes must look and behave exactly as it always has. Clicking is
+		// the only way anything from `legacyCandidates` ever gets written.
+		if (legacyCandidates.length > 0) {
+			const legacyNotice = new Notice(this.tr.noticeLegacyCorrectionsFound(legacyCandidates.length), 15000);
+			legacyNotice.noticeEl.addEventListener('click', () => {
+				new LegacyMigrationModal(this.app, this, legacyCandidates).open();
+			});
+		}
+	}
 
+	/** One convention's share of an update run: merges every generated note and
+	 *  attachment into `congressPath`, appends any legacy-note candidates it
+	 *  finds to `legacyCandidates`, and reports progress through `onStep`.
+	 *  On failure it trashes the files THIS convention created and rethrows,
+	 *  leaving the caller to decide whether the whole run stops. */
+	private async applyCongressUpdate(
+		congressPath: string,
+		lang: CongressLang,
+		notes: GeneratedNote[],
+		attachments: GeneratedAttachment[],
+		legacyCandidates: LegacyMigrationCandidate[],
+		onStep: () => void,
+	): Promise<UpdateCounts> {
 		let merged = 0;
 		let created = 0;
 		let unchanged = 0;
 		let needsReimport = 0;
 		const createdPaths: string[] = [];
-		// Notes with no markers at all (pre-1.9.0) that still have safely
-		// identifiable field-label corrections — see util/legacyFieldPatch.ts.
-		// Never written automatically; only offered via LegacyMigrationModal
-		// after this whole update run finishes, and only once the user
-		// confirms per note there.
-		const legacyCandidates: LegacyMigrationCandidate[] = [];
-
-		const total = notes.length + attachments.length;
-		let done = 0;
-		const progress = total > 3 ? new Notice(this.tr.noticeImportProgress(0, total), 0) : null;
 
 		try {
 			for (const note of notes) {
@@ -611,7 +732,7 @@ export default class JwCongregationPlugin extends Plugin {
 							// untouched, not get swept into a mechanism that has no
 							// idea markers were ever there (see hasNoMarkers() doc).
 							if (hasNoMarkers(existingContent)) {
-								const corrections = findLegacyCorrections(existingContent, note.content, NL[result.congress.lang]);
+								const corrections = findLegacyCorrections(existingContent, note.content, NL[lang]);
 								if (corrections.length > 0) legacyCandidates.push({ path: notePath, corrections });
 							}
 						} else if (mergedContent !== existingContent) {
@@ -629,8 +750,7 @@ export default class JwCongregationPlugin extends Plugin {
 					createdPaths.push(notePath);
 					created++;
 				}
-				done++;
-				progress?.setMessage(this.tr.noticeImportProgress(done, total));
+				onStep();
 			}
 
 			for (const attachment of attachments) {
@@ -650,28 +770,16 @@ export default class JwCongregationPlugin extends Plugin {
 					createdPaths.push(attachPath);
 					created++;
 				}
-				done++;
-				progress?.setMessage(this.tr.noticeImportProgress(done, total));
+				onStep();
 			}
 
-			progress?.hide();
-			new Notice(this.tr.noticeUpdateResult(merged, created, needsReimport, unchanged), 10000);
-			// Separate, opt-in notice — a normal update run without any legacy
-			// notes must look and behave exactly as it always has. Clicking is
-			// the only way anything from `legacyCandidates` ever gets written.
-			if (legacyCandidates.length > 0) {
-				const legacyNotice = new Notice(this.tr.noticeLegacyCorrectionsFound(legacyCandidates.length), 15000);
-				legacyNotice.noticeEl.addEventListener('click', () => {
-					new LegacyMigrationModal(this.app, this, legacyCandidates).open();
-				});
-			}
+			return { merged, created, unchanged, needsReimport };
 		} catch (err) {
-			progress?.hide();
 			for (const path of createdPaths.reverse()) {
 				const file = this.app.vault.getAbstractFileByPath(path);
 				if (file) await this.app.fileManager.trashFile(file);
 			}
-			new Notice(this.tr.noticeImportRolledBack(this.describeError(err)));
+			throw err;
 		}
 	}
 

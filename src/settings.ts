@@ -4,6 +4,7 @@ import { SupportedLang } from './normalizer/bookNames';
 import { L, Strings } from './i18n';
 import { ImportModal } from './ui/ImportModal';
 import { UpdateNotesModal } from './ui/UpdateNotesModal';
+import { BulkUpdateNotesModal } from './ui/BulkUpdateNotesModal';
 import { ImportMwbModal } from './ui/ImportMwbModal';
 import { UpdateMwbNotesModal } from './ui/UpdateMwbNotesModal';
 
@@ -143,6 +144,11 @@ export class JwSettingTab extends PluginSettingTab {
 						name: t.updateCommand,
 						desc: t.updateExplanation,
 						render: setting => this.renderOpenModalButton(setting, () => new UpdateNotesModal(this.app, this.plugin).open()),
+					},
+					{
+						name: t.bulkUpdateCommand,
+						desc: t.bulkUpdateExplanation,
+						render: setting => this.renderOpenModalButton(setting, () => new BulkUpdateNotesModal(this.app, this.plugin).open()),
 					},
 				],
 			},
@@ -400,6 +406,10 @@ export class JwSettingTab extends PluginSettingTab {
 		this.renderOpenModalButton(
 			new Setting(containerEl).setName(t.updateCommand).setDesc(t.updateExplanation),
 			() => new UpdateNotesModal(this.app, this.plugin).open(),
+		);
+		this.renderOpenModalButton(
+			new Setting(containerEl).setName(t.bulkUpdateCommand).setDesc(t.bulkUpdateExplanation),
+			() => new BulkUpdateNotesModal(this.app, this.plugin).open(),
 		);
 
 		new Setting(containerEl).setName(t.headImportMwb ?? '').setHeading();

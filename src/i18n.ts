@@ -217,6 +217,22 @@ export interface Strings extends NoteStrings {
 	noticeUpdateFolderNotFound: (path: string) => string;
 	noticeUpdateResult: (merged: number, created: number, needsReimport: number, unchanged: number) => string;
 
+	// ── Bulk update-notes modal (settings.lang) ─────────────────────────────
+	bulkUpdateCommand: string;
+	bulkUpdateTitle: string;
+	bulkUpdateExplanation: string;
+	bulkUpdatePickFiles: string;
+	bulkUpdatePickFilesDesc: string;
+	btnPickFiles: string;
+	bulkUpdateColFile: string;
+	bulkUpdateColFolder: string;
+	bulkUpdateSkip: string;
+	bulkUpdateNoMatch: string;
+	bulkUpdateFileFailed: (err: string) => string;
+	noticeBulkUpdateNothingSelected: string;
+	noticeBulkUpdateDuplicateFolder: (path: string) => string;
+	noticeBulkUpdateResult: (folders: number, merged: number, created: number, needsReimport: number, unchanged: number, failed: string[]) => string;
+
 	// ── Legacy note migration modal (settings.lang) ─────────────────────────
 	legacyModalTitle: string;
 	legacyModalDesc: string;
@@ -476,6 +492,28 @@ export const L: Record<SupportedLang, Strings> = {
 			return `Aktualisierung abgeschlossen: ${parts.join(', ')}.`;
 		},
 
+		bulkUpdateCommand: 'Mehrere Kongresse auf einmal aktualisieren',
+		bulkUpdateTitle: 'Mehrere Kongresse auf einmal aktualisieren',
+		bulkUpdateExplanation: 'Wählt mehrere Programmdateien auf einmal aus und gleicht jede mit dem Kongress-Ordner ab, der beim ursprünglichen Import daraus entstanden ist – dieselbe Abgleich-Logik wie bei „Kongress-Notizen aktualisieren", nur für alle Kongresse in einem Durchgang. Bereits geschriebener Text bleibt unangetastet. Der Zielordner wird anhand des Namens vorgeschlagen, den der Import vergeben hätte; jede Zuordnung lässt sich vorher noch ändern.',
+		bulkUpdatePickFiles: 'Programmdateien',
+		bulkUpdatePickFilesDesc: 'Mehrfachauswahl möglich – eine Datei je Kongress (.jwpub, .zip oder .rtf).',
+		btnPickFiles: 'Dateien auswählen',
+		bulkUpdateColFile: 'Datei',
+		bulkUpdateColFolder: 'Zielordner',
+		bulkUpdateSkip: '— nicht aktualisieren —',
+		bulkUpdateNoMatch: 'Kein passender Ordner gefunden – bitte selbst auswählen.',
+		bulkUpdateFileFailed: err => `Datei konnte nicht gelesen werden: ${err}`,
+		noticeBulkUpdateNothingSelected: 'Für keine Datei wurde ein Zielordner ausgewählt.',
+		noticeBulkUpdateDuplicateFolder: path => `Der Ordner „${path}" ist mehrfach zugeordnet – bitte je Ordner nur eine Datei.`,
+		noticeBulkUpdateResult: (folders, merged, created, needsReimport, unchanged, failed) => {
+			const parts = [`${merged} Notizen aktualisiert`];
+			if (created > 0) parts.push(`${created} neu angelegt`);
+			if (unchanged > 0) parts.push(`${unchanged} bereits aktuell`);
+			if (needsReimport > 0) parts.push(`${needsReimport} benötigen einen vollständigen Reimport (älteres Format)`);
+			const summary = `${folders} Kongress(e) aktualisiert: ${parts.join(', ')}.`;
+			return failed.length > 0 ? `${summary}\nFehlgeschlagen: ${failed.join(', ')}.` : summary;
+		},
+
 		legacyModalTitle: 'Mögliche Korrekturen für alte Notizen',
 		legacyModalDesc: 'Diese Notizen wurden mit einer Plugin-Version vor 1.9.0 erstellt und haben keine unsichtbaren Marker – deshalb werden hier nur Zeilen vorgeschlagen, die eindeutig einem bekannten Feld zugeordnet werden können. Nur Notizen mit aktiviertem Schalter werden beim Klick auf „Übernehmen" geändert; alles andere in jeder Notiz bleibt unangetastet.',
 		noticeLegacyCorrectionsFound: count => `${count} alte Notiz(en) mit möglichen Korrekturen gefunden. (Klicken zum Prüfen)`,
@@ -698,6 +736,28 @@ export const L: Record<SupportedLang, Strings> = {
 			return `Update complete: ${parts.join(', ')}.`;
 		},
 
+		bulkUpdateCommand: 'Update several conventions at once',
+		bulkUpdateTitle: 'Update several conventions at once',
+		bulkUpdateExplanation: 'Pick several program files at once and reconcile each one against the convention folder its original import created — the same merge as "Update convention notes", for every convention in a single run. Anything you typed yourself is left untouched. The target folder is proposed from the name the import would have given it; every pairing can still be changed before the run starts.',
+		bulkUpdatePickFiles: 'Program files',
+		bulkUpdatePickFilesDesc: 'Several files can be picked at once — one per convention (.jwpub, .zip or .rtf).',
+		btnPickFiles: 'Pick files',
+		bulkUpdateColFile: 'File',
+		bulkUpdateColFolder: 'Target folder',
+		bulkUpdateSkip: '— do not update —',
+		bulkUpdateNoMatch: 'No matching folder found — please pick one yourself.',
+		bulkUpdateFileFailed: err => `File could not be read: ${err}`,
+		noticeBulkUpdateNothingSelected: 'No target folder was picked for any file.',
+		noticeBulkUpdateDuplicateFolder: path => `Folder "${path}" is assigned more than once — only one file per folder.`,
+		noticeBulkUpdateResult: (folders, merged, created, needsReimport, unchanged, failed) => {
+			const parts = [`${merged} notes updated`];
+			if (created > 0) parts.push(`${created} newly created`);
+			if (unchanged > 0) parts.push(`${unchanged} already up to date`);
+			if (needsReimport > 0) parts.push(`${needsReimport} need a full re-import (older format)`);
+			const summary = `${folders} convention(s) updated: ${parts.join(', ')}.`;
+			return failed.length > 0 ? `${summary}\nFailed: ${failed.join(', ')}.` : summary;
+		},
+
 		legacyModalTitle: 'Possible corrections for old notes',
 		legacyModalDesc: 'These notes were created with a plugin version before 1.9.0 and have no invisible markers — so only lines that can be unambiguously matched to a known field are proposed here. Only notes with the toggle enabled are changed when clicking "Apply"; everything else in every note is left untouched.',
 		noticeLegacyCorrectionsFound: count => `${count} old note(s) with possible corrections found. (Click to review)`,
@@ -886,6 +946,28 @@ export const L: Record<SupportedLang, Strings> = {
 			if (unchanged > 0) parts.push(`${unchanged} déjà à jour`);
 			if (needsReimport > 0) parts.push(`${needsReimport} nécessitent une réimportation complète (ancien format)`);
 			return `Mise à jour terminée : ${parts.join(', ')}.`;
+		},
+
+		bulkUpdateCommand: 'Mettre à jour plusieurs assemblées à la fois',
+		bulkUpdateTitle: 'Mettre à jour plusieurs assemblées à la fois',
+		bulkUpdateExplanation: 'Choisissez plusieurs fichiers de programme à la fois : chacun est comparé au dossier d’assemblée créé par son importation d’origine — la même fusion que « Mettre à jour les notes de l’assemblée », pour toutes les assemblées en une seule fois. Tout ce que vous avez saisi vous-même reste intact. Le dossier cible est proposé d’après le nom que l’importation lui aurait donné ; chaque association peut encore être modifiée avant le lancement.',
+		bulkUpdatePickFiles: 'Fichiers de programme',
+		bulkUpdatePickFilesDesc: 'Plusieurs fichiers peuvent être choisis à la fois — un par assemblée (.jwpub, .zip ou .rtf).',
+		btnPickFiles: 'Choisir des fichiers',
+		bulkUpdateColFile: 'Fichier',
+		bulkUpdateColFolder: 'Dossier cible',
+		bulkUpdateSkip: '— ne pas mettre à jour —',
+		bulkUpdateNoMatch: 'Aucun dossier correspondant trouvé — veuillez en choisir un.',
+		bulkUpdateFileFailed: err => `Le fichier n’a pas pu être lu : ${err}`,
+		noticeBulkUpdateNothingSelected: 'Aucun dossier cible n’a été choisi pour un fichier.',
+		noticeBulkUpdateDuplicateFolder: path => `Le dossier « ${path} » est associé plusieurs fois — un seul fichier par dossier.`,
+		noticeBulkUpdateResult: (folders, merged, created, needsReimport, unchanged, failed) => {
+			const parts = [`${merged} notes mises à jour`];
+			if (created > 0) parts.push(`${created} nouvellement créées`);
+			if (unchanged > 0) parts.push(`${unchanged} déjà à jour`);
+			if (needsReimport > 0) parts.push(`${needsReimport} nécessitent une réimportation complète (ancien format)`);
+			const summary = `${folders} assemblée(s) mise(s) à jour : ${parts.join(', ')}.`;
+			return failed.length > 0 ? `${summary}\nÉchec : ${failed.join(', ')}.` : summary;
 		},
 
 		legacyModalTitle: 'Corrections possibles pour les anciennes notes',
@@ -1078,6 +1160,28 @@ export const L: Record<SupportedLang, Strings> = {
 			return `Aggiornamento completato: ${parts.join(', ')}.`;
 		},
 
+		bulkUpdateCommand: 'Aggiorna più congressi in una volta',
+		bulkUpdateTitle: 'Aggiorna più congressi in una volta',
+		bulkUpdateExplanation: 'Seleziona più file di programma insieme: ciascuno viene confrontato con la cartella del congresso creata dalla sua importazione originale — la stessa unione di «Aggiorna le note del congresso», per tutti i congressi in un unico passaggio. Tutto ciò che hai scritto tu resta intatto. La cartella di destinazione viene proposta in base al nome che le avrebbe dato l’importazione; ogni abbinamento può ancora essere modificato prima dell’avvio.',
+		bulkUpdatePickFiles: 'File di programma',
+		bulkUpdatePickFilesDesc: 'È possibile selezionare più file insieme — uno per congresso (.jwpub, .zip o .rtf).',
+		btnPickFiles: 'Seleziona file',
+		bulkUpdateColFile: 'File',
+		bulkUpdateColFolder: 'Cartella di destinazione',
+		bulkUpdateSkip: '— non aggiornare —',
+		bulkUpdateNoMatch: 'Nessuna cartella corrispondente trovata — selezionane una.',
+		bulkUpdateFileFailed: err => `Impossibile leggere il file: ${err}`,
+		noticeBulkUpdateNothingSelected: 'Non è stata selezionata nessuna cartella di destinazione per alcun file.',
+		noticeBulkUpdateDuplicateFolder: path => `La cartella «${path}» è assegnata più volte — un solo file per cartella.`,
+		noticeBulkUpdateResult: (folders, merged, created, needsReimport, unchanged, failed) => {
+			const parts = [`${merged} note aggiornate`];
+			if (created > 0) parts.push(`${created} create`);
+			if (unchanged > 0) parts.push(`${unchanged} già aggiornate`);
+			if (needsReimport > 0) parts.push(`${needsReimport} richiedono una reimportazione completa (formato più vecchio)`);
+			const summary = `${folders} congresso/i aggiornato/i: ${parts.join(', ')}.`;
+			return failed.length > 0 ? `${summary}\nNon riuscito: ${failed.join(', ')}.` : summary;
+		},
+
 		legacyModalTitle: 'Possibili correzioni per le note vecchie',
 		legacyModalDesc: 'Queste note sono state create con una versione del plugin precedente alla 1.9.0 e non contengono marcatori invisibili — vengono quindi proposte solo le righe che possono essere associate senza ambiguità a un campo noto. Vengono modificate solo le note con l’interruttore attivo, cliccando su "Applica"; tutto il resto di ogni nota resta invariato.',
 		noticeLegacyCorrectionsFound: count => `Trovate ${count} nota/e vecchia/e con possibili correzioni. (Clicca per controllare)`,
@@ -1266,6 +1370,28 @@ export const L: Record<SupportedLang, Strings> = {
 			if (unchanged > 0) parts.push(`${unchanged} já atualizadas`);
 			if (needsReimport > 0) parts.push(`${needsReimport} exigem uma reimportação completa (formato mais antigo)`);
 			return `Atualização concluída: ${parts.join(', ')}.`;
+		},
+
+		bulkUpdateCommand: 'Atualizar vários congressos de uma vez',
+		bulkUpdateTitle: 'Atualizar vários congressos de uma vez',
+		bulkUpdateExplanation: 'Selecione vários arquivos de programa de uma vez: cada um é comparado com a pasta do congresso criada pela sua importação original — a mesma mesclagem de “Atualizar as notas do congresso”, para todos os congressos numa única execução. Tudo o que você mesmo escreveu permanece intacto. A pasta de destino é sugerida pelo nome que a importação lhe teria dado; cada associação ainda pode ser alterada antes de iniciar.',
+		bulkUpdatePickFiles: 'Arquivos de programa',
+		bulkUpdatePickFilesDesc: 'Vários arquivos podem ser selecionados de uma vez — um por congresso (.jwpub, .zip ou .rtf).',
+		btnPickFiles: 'Selecionar arquivos',
+		bulkUpdateColFile: 'Arquivo',
+		bulkUpdateColFolder: 'Pasta de destino',
+		bulkUpdateSkip: '— não atualizar —',
+		bulkUpdateNoMatch: 'Nenhuma pasta correspondente encontrada — selecione uma.',
+		bulkUpdateFileFailed: err => `Não foi possível ler o arquivo: ${err}`,
+		noticeBulkUpdateNothingSelected: 'Nenhuma pasta de destino foi selecionada para nenhum arquivo.',
+		noticeBulkUpdateDuplicateFolder: path => `A pasta “${path}” está associada mais de uma vez — apenas um arquivo por pasta.`,
+		noticeBulkUpdateResult: (folders, merged, created, needsReimport, unchanged, failed) => {
+			const parts = [`${merged} notas atualizadas`];
+			if (created > 0) parts.push(`${created} criadas`);
+			if (unchanged > 0) parts.push(`${unchanged} já atualizadas`);
+			if (needsReimport > 0) parts.push(`${needsReimport} exigem uma reimportação completa (formato mais antigo)`);
+			const summary = `${folders} congresso(s) atualizado(s): ${parts.join(', ')}.`;
+			return failed.length > 0 ? `${summary}\nFalhou: ${failed.join(', ')}.` : summary;
 		},
 
 		legacyModalTitle: 'Possíveis correções para notas antigas',
@@ -1458,6 +1584,28 @@ export const L: Record<SupportedLang, Strings> = {
 			return `Обновление завершено: ${parts.join(', ')}.`;
 		},
 
+		bulkUpdateCommand: 'Обновить несколько конгрессов сразу',
+		bulkUpdateTitle: 'Обновление нескольких конгрессов сразу',
+		bulkUpdateExplanation: 'Выберите сразу несколько файлов программы: каждый будет сверен с папкой конгресса, созданной при его первоначальном импорте, — то же слияние, что и в «Обновить заметки конгресса», но для всех конгрессов за один проход. Всё, что вы вписали сами, остаётся нетронутым. Целевая папка предлагается по имени, которое дал бы ей импорт; любое сопоставление ещё можно изменить до запуска.',
+		bulkUpdatePickFiles: 'Файлы программы',
+		bulkUpdatePickFilesDesc: 'Можно выбрать сразу несколько файлов — по одному на конгресс (.jwpub, .zip или .rtf).',
+		btnPickFiles: 'Выбрать файлы',
+		bulkUpdateColFile: 'Файл',
+		bulkUpdateColFolder: 'Целевая папка',
+		bulkUpdateSkip: '— не обновлять —',
+		bulkUpdateNoMatch: 'Подходящая папка не найдена — выберите её сами.',
+		bulkUpdateFileFailed: err => `Не удалось прочитать файл: ${err}`,
+		noticeBulkUpdateNothingSelected: 'Ни для одного файла не выбрана целевая папка.',
+		noticeBulkUpdateDuplicateFolder: path => `Папка «${path}» назначена несколько раз — по одному файлу на папку.`,
+		noticeBulkUpdateResult: (folders, merged, created, needsReimport, unchanged, failed) => {
+			const parts = [`обновлено заметок: ${merged}`];
+			if (created > 0) parts.push(`создано заново: ${created}`);
+			if (unchanged > 0) parts.push(`уже актуально: ${unchanged}`);
+			if (needsReimport > 0) parts.push(`требуют полного повторного импорта (устаревший формат): ${needsReimport}`);
+			const summary = `Обновлено конгрессов: ${folders}. ${parts.join(', ')}.`;
+			return failed.length > 0 ? `${summary}\nНе удалось: ${failed.join(', ')}.` : summary;
+		},
+
 		legacyModalTitle: 'Возможные исправления для старых заметок',
 		legacyModalDesc: 'Эти заметки были созданы в версии плагина до 1.9.0 и не содержат невидимых маркеров — поэтому здесь предлагаются только строки, которые можно однозначно сопоставить с известным полем. При нажатии «Применить» изменяются только заметки с включённым переключателем; всё остальное в каждой заметке остаётся без изменений.',
 		noticeLegacyCorrectionsFound: count => `Найдено старых заметок с возможными исправлениями: ${count}. (Нажмите, чтобы проверить)`,
@@ -1646,6 +1794,28 @@ export const L: Record<SupportedLang, Strings> = {
 			if (unchanged > 0) parts.push(`${unchanged} sin cambios`);
 			if (needsReimport > 0) parts.push(`${needsReimport} requieren una reimportación completa (formato antiguo)`);
 			return `Actualización completa: ${parts.join(', ')}.`;
+		},
+
+		bulkUpdateCommand: 'Actualizar varios congresos a la vez',
+		bulkUpdateTitle: 'Actualizar varios congresos a la vez',
+		bulkUpdateExplanation: 'Seleccione varios archivos de programa a la vez: cada uno se concilia con la carpeta del congreso creada por su importación original, la misma fusión que «Actualizar notas del congreso», para todos los congresos en una sola pasada. Todo lo que usted haya escrito permanece intacto. La carpeta de destino se propone según el nombre que le habría dado la importación; cada asignación todavía puede cambiarse antes de empezar.',
+		bulkUpdatePickFiles: 'Archivos de programa',
+		bulkUpdatePickFilesDesc: 'Se pueden seleccionar varios archivos a la vez: uno por congreso (.jwpub, .zip o .rtf).',
+		btnPickFiles: 'Seleccionar archivos',
+		bulkUpdateColFile: 'Archivo',
+		bulkUpdateColFolder: 'Carpeta de destino',
+		bulkUpdateSkip: '— no actualizar —',
+		bulkUpdateNoMatch: 'No se encontró ninguna carpeta coincidente: selecciónela usted.',
+		bulkUpdateFileFailed: err => `No se pudo leer el archivo: ${err}`,
+		noticeBulkUpdateNothingSelected: 'No se seleccionó ninguna carpeta de destino para ningún archivo.',
+		noticeBulkUpdateDuplicateFolder: path => `La carpeta "${path}" está asignada más de una vez: solo un archivo por carpeta.`,
+		noticeBulkUpdateResult: (folders, merged, created, needsReimport, unchanged, failed) => {
+			const parts = [`${merged} notas actualizadas`];
+			if (created > 0) parts.push(`${created} nuevas`);
+			if (unchanged > 0) parts.push(`${unchanged} sin cambios`);
+			if (needsReimport > 0) parts.push(`${needsReimport} requieren una reimportación completa (formato antiguo)`);
+			const summary = `${folders} congreso(s) actualizado(s): ${parts.join(', ')}.`;
+			return failed.length > 0 ? `${summary}\nFallaron: ${failed.join(', ')}.` : summary;
 		},
 
 		legacyModalTitle: 'Posibles correcciones para notas antiguas',

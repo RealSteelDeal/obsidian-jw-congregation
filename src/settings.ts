@@ -150,6 +150,11 @@ export class JwSettingTab extends PluginSettingTab {
 						desc: t.bulkUpdateExplanation,
 						render: setting => this.renderOpenModalButton(setting, () => new BulkUpdateNotesModal(this.app, this.plugin).open()),
 					},
+					{
+						name: t.previewUpdateCommand,
+						desc: t.previewUpdateExplanation,
+						render: setting => this.renderOpenModalButton(setting, () => new BulkUpdateNotesModal(this.app, this.plugin, 'preview').open()),
+					},
 				],
 			},
 			{
@@ -410,6 +415,10 @@ export class JwSettingTab extends PluginSettingTab {
 		this.renderOpenModalButton(
 			new Setting(containerEl).setName(t.bulkUpdateCommand).setDesc(t.bulkUpdateExplanation),
 			() => new BulkUpdateNotesModal(this.app, this.plugin).open(),
+		);
+		this.renderOpenModalButton(
+			new Setting(containerEl).setName(t.previewUpdateCommand).setDesc(t.previewUpdateExplanation),
+			() => new BulkUpdateNotesModal(this.app, this.plugin, 'preview').open(),
 		);
 
 		new Setting(containerEl).setName(t.headImportMwb ?? '').setHeading();

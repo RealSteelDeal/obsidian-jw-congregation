@@ -258,3 +258,100 @@ test('updateFolders() does nothing at all when given no jobs', async () => {
 	assert.equal(fake.notes.size, 0);
 	assert.equal(Notice.instances.length, 0);
 });
+
+// ── Update preview (previewFolders) ───────────────────────────────────────
+
+test('previewFolders() reports the change it would make and writes absolutely nothing', async () => {
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+
+	const itemPath = findItemNotePath(fake.notes);
+	const before = new Map(fake.notes);
+	const congress = await parseCongress(makeRtf('9 Uhr 50'));
+	Notice.instances.length = 0;
+
+	const previews = await plugin.previewFolders([{ label: 'Test.rtf', folder: dirname(itemPath), congress }]);
+
+	// Nothing written, nothing trashed, not even a notice.
+	assert.deepEqual([...fake.notes.entries()], [...before.entries()]);
+	assert.equal(fake.trashed.length, 0);
+	assert.equal(Notice.instances.length, 0);
+
+	assert.equal(previews.length, 1);
+	const planned = previews[0].plan.notes.find(n => n.path === itemPath);
+	assert.equal(planned.kind, 'merge');
+	assert.equal(planned.changes.length, 1);
+	assert.match(planned.changes[0].before, /9:40/);
+	assert.match(planned.changes[0].after, /9:50/);
+});
+
+test('previewFolders() reports no changes for a folder that is already up to date', async () => {
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+
+	const itemPath = findItemNotePath(fake.notes);
+	const congress = await parseCongress(makeRtf('9 Uhr 40')); // same programme
+	const previews = await plugin.previewFolders([{ label: 'Test.rtf', folder: dirname(itemPath), congress }]);
+
+	const item = previews[0].plan.notes.find(n => n.path === itemPath);
+	assert.equal(item.kind, 'unchanged');
+	// The overview is regenerate-flagged: it is rewritten either way, but with
+	// identical content there is nothing to show the user.
+	const overview = previews[0].plan.notes.find(n => n.path.endsWith('Übersicht.md'));
+	assert.equal(overview.kind, 'regenerate');
+	assert.equal(overview.changed, false);
+});
+
+test('previewFolders() marks a marker-free note as needing a re-import instead of planning a merge', async () => {
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+
+	const itemPath = findItemNotePath(fake.notes);
+	const legacy = fake.notes.get(itemPath).replace(/^<span class="jw-marker" data-jw-(?:start|end)="[^"]+"><\/span>\n?/gm, '');
+	fake.notes.set(itemPath, legacy);
+
+	const congress = await parseCongress(makeRtf('9 Uhr 50'));
+	const previews = await plugin.previewFolders([{ label: 'Test.rtf', folder: dirname(itemPath), congress }]);
+
+	const planned = previews[0].plan.notes.find(n => n.path === itemPath);
+	assert.equal(planned.kind, 'needs-reimport');
+	assert.ok(planned.legacy.length > 0, 'the legacy heuristic still finds its candidates');
+	assert.equal(fake.notes.get(itemPath), legacy); // still untouched
+});
+
+test('previewFolders() reports a missing folder per convention instead of throwing', async () => {
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	const congress = await parseCongress(makeRtf('9 Uhr 50'));
+
+	const previews = await plugin.previewFolders([{ label: 'Weg.rtf', folder: 'Gibt/Es/Nicht', congress }]);
+
+	assert.equal(previews[0].plan, null);
+	assert.match(previews[0].error, /nicht gefunden/);
+});
+
+test('the preview and the update that follows it agree on what changes', async () => {
+	// The property the whole feature rests on: what was shown is what happens.
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+
+	const itemPath = findItemNotePath(fake.notes);
+	const congress = await parseCongress(makeRtf('9 Uhr 50'));
+	const jobs = [{ label: 'Test.rtf', folder: dirname(itemPath), congress }];
+
+	const previews = await plugin.previewFolders(jobs);
+	const promised = new Map(
+		previews[0].plan.notes.filter(n => n.kind === 'merge').map(n => [n.path, n.content]),
+	);
+	assert.ok(promised.size > 0);
+
+	await plugin.updateFolders(jobs);
+
+	for (const [path, content] of promised) {
+		assert.equal(fake.notes.get(path), content, path);
+	}
+});

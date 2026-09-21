@@ -16,7 +16,7 @@ import { Congress, Scripture } from './models/congress';
 import { CongressLang } from './normalizer/bookNames';
 import { L, NL } from './i18n';
 import { findFirstScriptureLinkInText, findScriptureLinkInText, parseScriptureFromHref, QUOTE_CALLOUT_START_RE } from './util/scriptureLinkScan';
-import { hasNoMarkers, mergeNoteContent } from './util/noteMerge';
+import { diffNoteContent, hasNoMarkers, mergeNoteContent, NoteChange } from './util/noteMerge';
 import { UpdateNotesModal } from './ui/UpdateNotesModal';
 import { BulkUpdateNotesModal } from './ui/BulkUpdateNotesModal';
 import { applyLegacyCorrections, findLegacyCorrections, LegacyFieldCorrection } from './util/legacyFieldPatch';
@@ -44,6 +44,38 @@ interface UpdateCounts {
 	created: number;
 	unchanged: number;
 	needsReimport: number;
+}
+
+/** What an update has decided to do with one note, before anything is written.
+ *  `regenerate.changed` and `merge.changes` exist purely so the preview can
+ *  tell a real change from a write that alters nothing the reader sees. */
+export type PlannedNote =
+	| { kind: 'create'; path: string; content: string }
+	| { kind: 'regenerate'; path: string; content: string; changed: boolean }
+	| { kind: 'merge'; path: string; content: string; changes: NoteChange[] }
+	| { kind: 'needs-reimport'; path: string; legacy: LegacyFieldCorrection[] }
+	| { kind: 'unchanged'; path: string };
+
+export type PlannedAttachment =
+	| { kind: 'create'; path: string; data: Uint8Array }
+	| { kind: 'regenerate'; path: string; data: Uint8Array }
+	| { kind: 'unchanged'; path: string };
+
+/** One convention's decided update: read-only, produced by planCongressUpdate()
+ *  and consumed either by the preview or by executeCongressPlan(). */
+export interface CongressPlan {
+	notes: PlannedNote[];
+	attachments: PlannedAttachment[];
+}
+
+/** A plan together with the convention it belongs to — what previewFolders()
+ *  hands the preview modal. `error` is set when the folder is gone or the plan
+ *  could not be built, in which case `plan` is null. */
+export interface CongressPreview {
+	label: string;
+	folder: string;
+	plan: CongressPlan | null;
+	error?: string;
 }
 
 export default class JwCongregationPlugin extends Plugin {
@@ -92,6 +124,15 @@ export default class JwCongregationPlugin extends Plugin {
 			id: 'bulk-update-congress-notes',
 			name: this.tr.bulkUpdateCommand,
 			callback: () => new BulkUpdateNotesModal(this.app, this).open(),
+		});
+
+		// Its own command rather than a step inside the two above: whoever is
+		// used to "update and be done" keeps exactly that, and whoever wants
+		// to look first reaches for this one.
+		this.addCommand({
+			id: 'preview-congress-update',
+			name: this.tr.previewUpdateCommand,
+			callback: () => new BulkUpdateNotesModal(this.app, this, 'preview').open(),
 		});
 
 		// A second, distinct icon (not 'book-open', which is reserved for the
@@ -657,9 +698,10 @@ export default class JwCongregationPlugin extends Plugin {
 				continue;
 			}
 			try {
-				const counts = await this.applyCongressUpdate(
-					congressPath, plan.job.congress.lang, plan.notes, plan.attachments, legacyCandidates, onStep,
+				const congressPlan = await this.planCongressUpdate(
+					congressPath, plan.job.congress.lang, plan.notes, plan.attachments,
 				);
+				const counts = await this.executeCongressPlan(congressPlan, legacyCandidates, onStep);
 				totals.merged += counts.merged;
 				totals.created += counts.created;
 				totals.unchanged += counts.unchanged;
@@ -694,16 +736,133 @@ export default class JwCongregationPlugin extends Plugin {
 		}
 	}
 
-	/** One convention's share of an update run: merges every generated note and
-	 *  attachment into `congressPath`, appends any legacy-note candidates it
-	 *  finds to `legacyCandidates`, and reports progress through `onStep`.
-	 *  On failure it trashes the files THIS convention created and rethrows,
-	 *  leaving the caller to decide whether the whole run stops. */
-	private async applyCongressUpdate(
+	/**
+	 * The read-only half of updateFolders(): works out what the very same run
+	 * would change, and writes nothing at all. Used by the preview command —
+	 * the user sees the plan first and only then decides whether to run it.
+	 *
+	 * Applying afterwards deliberately goes through updateFolders() again
+	 * rather than writing this plan out: a note may have been edited between
+	 * looking and deciding, and re-planning against the file as it is then is
+	 * the only way the write stays correct.
+	 */
+	async previewFolders(jobs: CongressUpdateJob[]): Promise<CongressPreview[]> {
+		const builder = new NoteBuilder({
+			scriptureLinks: this.settings.scriptureLinks,
+			reviewNote: this.settings.reviewNote,
+			showTagField: this.settings.showTagField,
+			showTimeField: this.settings.showTimeField,
+			showScriptureField: this.settings.showScriptureField,
+			showSpeakerField: this.settings.showSpeakerField,
+			extraFields: this.settings.extraFields,
+			frontmatter: this.settings.frontmatter,
+		});
+
+		const previews: CongressPreview[] = [];
+		for (const job of jobs) {
+			const congressPath = normalizePath(job.folder);
+			if (!(this.app.vault.getAbstractFileByPath(congressPath) instanceof TFolder)) {
+				previews.push({
+					label: job.label, folder: congressPath, plan: null,
+					error: this.tr.noticeUpdateFolderNotFound(congressPath),
+				});
+				continue;
+			}
+			try {
+				const { notes, attachments } = builder.buildNotes(job.congress);
+				const plan = await this.planCongressUpdate(congressPath, job.congress.lang, notes, attachments);
+				previews.push({ label: job.label, folder: congressPath, plan });
+			} catch (err) {
+				previews.push({ label: job.label, folder: congressPath, plan: null, error: this.describeError(err) });
+			}
+		}
+		return previews;
+	}
+
+	/**
+	 * Works out what an update would do to `congressPath`, WITHOUT writing
+	 * anything: one decided outcome per generated note and attachment.
+	 *
+	 * Every branch of the update lives here and nowhere else — the preview
+	 * renders this plan and executeCongressPlan() carries out this same plan,
+	 * so a preview cannot drift from what actually happens. A preview computed
+	 * by its own second set of rules would eventually lie, and a preview that
+	 * lies is worse than none at all.
+	 */
+	private async planCongressUpdate(
 		congressPath: string,
 		lang: CongressLang,
 		notes: GeneratedNote[],
 		attachments: GeneratedAttachment[],
+	): Promise<CongressPlan> {
+		const plannedNotes: PlannedNote[] = [];
+		const plannedAttachments: PlannedAttachment[] = [];
+
+		for (const note of notes) {
+			const path = await this.resolvePath(congressPath, note.dayFolder, note.filename);
+			const existing = this.app.vault.getAbstractFileByPath(path);
+			if (!(existing instanceof TFile)) {
+				// Nothing to preserve for a note that doesn't exist yet
+				// (e.g. the programme fix added a new item) — create it
+				// fresh, same as a plain import would.
+				plannedNotes.push({ kind: 'create', path, content: note.content });
+				continue;
+			}
+			if (note.regenerate) {
+				const before = await this.app.vault.read(existing);
+				plannedNotes.push({ kind: 'regenerate', path, content: note.content, changed: before !== note.content });
+				continue;
+			}
+			const existingContent = await this.app.vault.read(existing);
+			const mergedContent = mergeNoteContent(existingContent, note.content);
+			if (mergedContent === null) {
+				// Only ever fall back to the text heuristic for notes with
+				// NO markers whatsoever — a note whose markers exist but
+				// are corrupted/mismatched must stay in needs-reimport
+				// untouched, not get swept into a mechanism that has no
+				// idea markers were ever there (see hasNoMarkers() doc).
+				const corrections = hasNoMarkers(existingContent)
+					? findLegacyCorrections(existingContent, note.content, NL[lang])
+					: [];
+				plannedNotes.push({ kind: 'needs-reimport', path, legacy: corrections });
+			} else if (mergedContent !== existingContent) {
+				// `changes` can legitimately be empty here: a note written by
+				// 1.9.0–1.18.0 has its %%jw:…%% markers silently upgraded to
+				// span markers, which changes the file without changing a
+				// single character the reader ever sees.
+				plannedNotes.push({
+					kind: 'merge',
+					path,
+					content: mergedContent,
+					changes: diffNoteContent(existingContent, note.content) ?? [],
+				});
+			} else {
+				plannedNotes.push({ kind: 'unchanged', path });
+			}
+		}
+
+		for (const attachment of attachments) {
+			const path = await this.resolvePath(congressPath, attachment.dayFolder, attachment.filename);
+			const existing = this.app.vault.getAbstractFileByPath(path);
+			if (!(existing instanceof TFile)) {
+				plannedAttachments.push({ kind: 'create', path, data: attachment.data });
+			} else if (attachment.regenerate) {
+				plannedAttachments.push({ kind: 'regenerate', path, data: attachment.data });
+			} else {
+				plannedAttachments.push({ kind: 'unchanged', path });
+			}
+		}
+
+		return { notes: plannedNotes, attachments: plannedAttachments };
+	}
+
+	/** Carries out a plan from planCongressUpdate(): the only place that writes
+	 *  during an update. Appends any legacy-note candidates it passes to
+	 *  `legacyCandidates` and reports progress through `onStep`. On failure it
+	 *  trashes the files THIS convention created and rethrows, leaving the
+	 *  caller to decide whether the whole run stops. */
+	private async executeCongressPlan(
+		plan: CongressPlan,
 		legacyCandidates: LegacyMigrationCandidate[],
 		onStep: () => void,
 	): Promise<UpdateCounts> {
@@ -714,60 +873,47 @@ export default class JwCongregationPlugin extends Plugin {
 		const createdPaths: string[] = [];
 
 		try {
-			for (const note of notes) {
-				const notePath = await this.resolvePath(congressPath, note.dayFolder, note.filename);
-				const existing = this.app.vault.getAbstractFileByPath(notePath);
-				if (existing instanceof TFile) {
-					if (note.regenerate) {
-						await this.app.vault.modify(existing, note.content);
+			for (const note of plan.notes) {
+				switch (note.kind) {
+					case 'create':
+						await this.app.vault.create(note.path, note.content);
+						createdPaths.push(note.path);
+						created++;
+						break;
+					case 'regenerate':
+					case 'merge': {
+						const file = this.app.vault.getAbstractFileByPath(note.path);
+						if (file instanceof TFile) await this.app.vault.modify(file, note.content);
 						merged++;
-					} else {
-						const existingContent = await this.app.vault.read(existing);
-						const mergedContent = mergeNoteContent(existingContent, note.content);
-						if (mergedContent === null) {
-							needsReimport++;
-							// Only ever fall back to the text heuristic for notes with
-							// NO markers whatsoever — a note whose markers exist but
-							// are corrupted/mismatched must stay in needsReimport
-							// untouched, not get swept into a mechanism that has no
-							// idea markers were ever there (see hasNoMarkers() doc).
-							if (hasNoMarkers(existingContent)) {
-								const corrections = findLegacyCorrections(existingContent, note.content, NL[lang]);
-								if (corrections.length > 0) legacyCandidates.push({ path: notePath, corrections });
-							}
-						} else if (mergedContent !== existingContent) {
-							await this.app.vault.modify(existing, mergedContent);
-							merged++;
-						} else {
-							unchanged++;
-						}
+						break;
 					}
-				} else {
-					// Nothing to preserve for a note that doesn't exist yet
-					// (e.g. the programme fix added a new item) — create it
-					// fresh, same as a plain import would.
-					await this.app.vault.create(notePath, note.content);
-					createdPaths.push(notePath);
-					created++;
+					case 'needs-reimport':
+						needsReimport++;
+						// Never written automatically; only offered for review.
+						if (note.legacy.length > 0) legacyCandidates.push({ path: note.path, corrections: note.legacy });
+						break;
+					case 'unchanged':
+						unchanged++;
+						break;
 				}
 				onStep();
 			}
 
-			for (const attachment of attachments) {
-				const attachPath = await this.resolvePath(congressPath, attachment.dayFolder, attachment.filename);
-				const existing = this.app.vault.getAbstractFileByPath(attachPath);
+			for (const attachment of plan.attachments) {
+				if (attachment.kind === 'unchanged') {
+					unchanged++;
+					onStep();
+					continue;
+				}
 				const buf = attachment.data;
 				const arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
-				if (existing instanceof TFile) {
-					if (attachment.regenerate) {
-						await this.app.vault.modifyBinary(existing, arrayBuffer);
-						merged++;
-					} else {
-						unchanged++;
-					}
+				if (attachment.kind === 'regenerate') {
+					const file = this.app.vault.getAbstractFileByPath(attachment.path);
+					if (file instanceof TFile) await this.app.vault.modifyBinary(file, arrayBuffer);
+					merged++;
 				} else {
-					await this.app.vault.createBinary(attachPath, arrayBuffer);
-					createdPaths.push(attachPath);
+					await this.app.vault.createBinary(attachment.path, arrayBuffer);
+					createdPaths.push(attachment.path);
 					created++;
 				}
 				onStep();

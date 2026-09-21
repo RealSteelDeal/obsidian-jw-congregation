@@ -129,7 +129,23 @@ export function pushMarked(lines: string[], id: string, render: () => void): voi
 	lines.push(`<span class="jw-marker" data-jw-end="${id}"></span>`);
 }
 
-export function mergeNoteContent(existing: string, fresh: string): string | null {
+/** The two notes lined up for merging: frontmatter split off, bodies split
+ *  into lines, and their marker blocks confirmed to correspond one to one. */
+interface AlignedNotes {
+	frontmatterPrefix: string[];
+	existingFrontmatter: string[];
+	existingBody: string[];
+	freshBody: string[];
+	existingBlocks: MarkerBlock[];
+	freshBlocks: MarkerBlock[];
+}
+
+/** Every structural rule the merge insists on, in one place — so that
+ *  diffNoteContent() reports a change exactly when mergeNoteContent() would
+ *  make one, and refuses exactly when it would refuse. A preview computed by
+ *  its own rules could drift from what actually gets written, which is the
+ *  one thing a preview must never do. */
+function alignNotes(existing: string, fresh: string): AlignedNotes | null {
 	const existingLines = existing.split('\n');
 	const freshLines = fresh.split('\n');
 
@@ -139,7 +155,6 @@ export function mergeNoteContent(existing: string, fresh: string): string | null
 
 	const existingBodyStart = existingFm ? existingFm.frontmatterEndLine + 1 : 0;
 	const freshBodyStart = freshFm ? freshFm.frontmatterEndLine + 1 : 0;
-	const frontmatterPrefix = freshFm ? freshLines.slice(0, freshBodyStart) : [];
 
 	const existingBody = existingLines.slice(existingBodyStart);
 	const freshBody = freshLines.slice(freshBodyStart);
@@ -151,6 +166,62 @@ export function mergeNoteContent(existing: string, fresh: string): string | null
 	for (let i = 0; i < existingBlocks.length; i++) {
 		if (existingBlocks[i]!.id !== freshBlocks[i]!.id) return null;
 	}
+
+	return {
+		frontmatterPrefix: freshFm ? freshLines.slice(0, freshBodyStart) : [],
+		existingFrontmatter: existingFm ? existingLines.slice(0, existingBodyStart) : [],
+		existingBody,
+		freshBody,
+		existingBlocks,
+		freshBlocks,
+	};
+}
+
+/** One block of a note that an update would rewrite. */
+export interface NoteChange {
+	/** The marker id whose content changes, or null for the YAML frontmatter
+	 *  block — that one is machine-generated and replaced as a whole, so it
+	 *  has no marker of its own. */
+	id: string | null;
+	/** The block as it stands in the file and as the update would leave it,
+	 *  marker lines stripped — what a preview shows the user. */
+	before: string;
+	after: string;
+}
+
+/**
+ * What mergeNoteContent() would change about `existing`, block by block,
+ * without changing anything: the marker regions whose content differs, plus
+ * the frontmatter when that differs. An empty array means the merge would
+ * leave the file byte-for-byte as it is; `null` means the merge would refuse
+ * (see module doc) and the note would be left alone entirely.
+ */
+export function diffNoteContent(existing: string, fresh: string): NoteChange[] | null {
+	const aligned = alignNotes(existing, fresh);
+	if (!aligned) return null;
+
+	const changes: NoteChange[] = [];
+	const existingFm = aligned.existingFrontmatter.join('\n');
+	const freshFm = aligned.frontmatterPrefix.join('\n');
+	if (existingFm !== freshFm) changes.push({ id: null, before: existingFm, after: freshFm });
+
+	for (let i = 0; i < aligned.existingBlocks.length; i++) {
+		const eb = aligned.existingBlocks[i]!;
+		const fb = aligned.freshBlocks[i]!;
+		// The marker lines themselves are skipped: they are invisible in the
+		// note, and a legacy %%jw:…%% pair being upgraded to a span is not a
+		// change the user has any reason to be shown.
+		const before = aligned.existingBody.slice(eb.startLine + 1, eb.endLine).join('\n');
+		const after = aligned.freshBody.slice(fb.startLine + 1, fb.endLine).join('\n');
+		if (before !== after) changes.push({ id: eb.id, before, after });
+	}
+	return changes;
+}
+
+export function mergeNoteContent(existing: string, fresh: string): string | null {
+	const aligned = alignNotes(existing, fresh);
+	if (!aligned) return null;
+	const { frontmatterPrefix, existingBody, freshBody, existingBlocks, freshBlocks } = aligned;
 
 	const mergedBody = existingBody.slice();
 	// Splice from the end backwards so earlier (not-yet-processed) indices stay valid.

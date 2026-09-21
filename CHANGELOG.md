@@ -31,12 +31,45 @@
   Reachable from the command palette and from the same settings-tab section
   as the existing import/update actions.
 
+- **See what an update would change, before it changes it.** The new command
+  "Show changes before updating" works out exactly the run "Update convention
+  notes" would perform — and writes nothing. You see the affected notes listed
+  field by field, old value against new, and only a confirmation carries it
+  out.
+
+  This closes an asymmetry that had existed since 1.9.0. The *heuristic* path
+  (marker-free notes, where the plugin infers from field labels) asked for
+  confirmation; the *exact* path (the marker merge) simply wrote. That is
+  right by risk and backwards by insight: after a plugin update there was no
+  way to tell whether your own notes were affected at all without opening
+  them — and the bulk update above multiplies that by the number of
+  conventions.
+
+  It picks files exactly like the bulk update does, so it covers one
+  convention or twenty. Notes that would be created, and notes left untouched
+  because they predate the markers, are listed separately from the ones that
+  actually change. A note whose invisible markers are merely being upgraded
+  from the 1.9.0–1.18.0 format says so, rather than appearing as a change with
+  nothing under it.
+
 ### Internal
 
 - `updateFile()` is now a single-job call into the new `updateFolders()`, so
   the merge logic exists once rather than twice. With one job the notices are
   the ones the single-folder update always produced — a test asserts the bulk
   summary specifically does *not* appear for a run of one.
+
+- The update is split into a **plan** and an **execution**:
+  `planCongressUpdate()` decides every outcome and touches nothing,
+  `executeCongressPlan()` carries that same plan out. The preview renders the
+  plan rather than recomputing one of its own, so it cannot drift from the
+  write it precedes — a preview that lies would be worse than no preview.
+  Confirming re-plans from scratch, because a note may have been edited
+  between looking and deciding.
+
+- `diffNoteContent()` sits next to `mergeNoteContent()` in `noteMerge.ts` and
+  shares its structural checks, so it reports a change exactly when the merge
+  would make one and refuses exactly when the merge refuses.
 
 ## 1.21.1
 

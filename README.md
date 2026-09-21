@@ -34,6 +34,7 @@ An Obsidian community plugin that imports official convention program files of J
   Instead, click the reference you already wrote, widen the passage in the popup with "verse after" (or "whole chapter") as he reads, and press **Extend reference** when he is done. A menu then offers to replace the reference or to keep the original and add the wider one beside it.
 
   Widening the popup deliberately never changes the note by itself — you follow along while reading and only commit to a range once you know where it ended. The button appears only when the passage really has been widened, never for a cross-reference you navigated to, and it leaves your own spelling of the book alone (`Phil. 4:` stays `Phil. 4:`). If the line holds several references, only the one you opened is rewritten.
+- **See what an update would change, before it changes it.** "Show changes before updating" computes the very same run and writes nothing — every affected note listed field by field, old value against new, applied only on confirmation. Notes to be created and notes left untouched are listed separately.
 - **Update every imported convention in one run.** A parser fix applies to all of them, so "Update several conventions at once" takes all the program files together and pairs each with the folder its first import created — matched by folder name anywhere in the vault, always shown as a changeable proposal before anything is written. One convention failing never abandons the rest.
 - **Optional YAML frontmatter** (stable English keys, e.g. for Dataview queries) can be added to every generated note – off by default, notes stay frontmatter-free otherwise.
 - **Type a scripture reference anywhere, in any note** (e.g. `Psalm 12:1`, or an abbreviation like `Matth. 5:2`) and a suggestion pops up right after typing it, offering up to four actions. Abbreviations are understood both when they are simply a shortened name (`Matth.`, `Ps`, `1 Mo`) and when they are not — `Phil.`, `Apg.`, `Offb.`, `Klg` and `Zeph.` are recognised because they were read out of real publications rather than assumed.
@@ -97,6 +98,14 @@ Per note, nothing differs from the single-folder update above — the same marke
 Notes created before version 1.9.0 predate the marker mechanism entirely, so the merge above has nothing to anchor to. For those, "Update convention notes" falls back to a second, more conservative check: it looks for a small set of fields that are always written as one complete, uniquely labelled line — Day, Time, Scriptures, and the "Anschließend"/"Next" hint (never the Speaker field, which the plugin never fills in to begin with). A correction is proposed only when that label's line appears **exactly once** in both the existing note and the freshly parsed one and its value actually changed; if the label is missing, or appears more than once (e.g. a symposium note with a separate scripture line per part), that field is silently left alone rather than guessed at.
 
 Nothing from this is ever written automatically. When such notes are found, a second, distinct notice appears after the update finishes — clicking it opens a review window listing every proposed change (old value → new value) grouped by note, each with its own on/off switch. Only notes left switched on are patched, and only after clicking "Apply".
+
+### Seeing the changes first
+
+**"Show changes before updating"** is the same update, computed and shown instead of written. You pick the program files exactly as above — one convention or twenty — and get, per note, the blocks that would change: old value struck through, new value beside it. Notes that would be newly created, and notes left untouched because they predate the markers, are listed separately. Nothing is written until you confirm.
+
+Two things make it trustworthy rather than decorative. It is produced by the same plan the write itself carries out, not by a second calculation that could disagree with it — and confirming re-plans from scratch, because a note may have been edited between looking and deciding.
+
+The practical use: after a plugin update you can see whether your notes are affected at all before touching them, and seeing that your own typed text does *not* appear in the diff is what makes the merge's promise checkable rather than merely stated.
 
 ### Meeting Workbook ("Leben und Dienst") import
 
@@ -233,6 +242,7 @@ src/
     ImportModal.ts           # import dialog with target-folder picker & preview
     UpdateNotesModal.ts      # re-parses a file and patches an already-imported folder
     BulkUpdateNotesModal.ts  # same, for several conventions at once (file ↔ folder pairing)
+    UpdatePreviewModal.ts    # shows what an update would change, before it is written
     ImportMwbModal.ts        # same as ImportModal, for Meeting Workbook files
     UpdateMwbNotesModal.ts   # same as UpdateNotesModal, for Meeting Workbook files
     BibleVerseModal.ts       # verse popup ("Open in JW Library" / "insert as quote")
@@ -246,6 +256,7 @@ src/
     folderList.ts            # shared vault-folder listing for the import/update modals
     bytes.ts                 # hex/latin1 helpers
     noteMerge.ts             # marker-based merge for the "update notes" commands (both features)
+                             #   + diffNoteContent(), the same merge reported instead of applied
     legacyFieldPatch.ts      # label-anchored heuristic fallback for marker-free notes
     quoteBuilder.ts          # verse text → Obsidian quote callout
     scriptureLinkScan.ts     # finds jwlibrary:// links in note text

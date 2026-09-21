@@ -51,6 +51,12 @@
 	color: var(--text-error);
 }
 
+/* The note a preview's following change rows belong to. */
+.jw-preview-note-name {
+	margin: 0.75em 0 0.15em;
+	font-weight: var(--font-semibold);
+}
+
 .jw-legacy-correction {
 	margin: 0.25em 0;
 	padding: 0.35em 0.5em;

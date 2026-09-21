@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { jiti } from './_setup.mjs';
 
-const { mergeNoteContent, hasNoMarkers } = await jiti.import('../src/util/noteMerge.ts');
+const { mergeNoteContent, hasNoMarkers, diffNoteContent } = await jiti.import('../src/util/noteMerge.ts');
 
 // Current (1.18.1+) marker format — invisible via this plugin's own
 // `.jw-marker { display: none; }` CSS rule, unlike the pre-1.18.1 `%%jw:id%%`
@@ -152,4 +152,81 @@ test('mergeNoteContent never WRITES the legacy %%jw:id%% format, even when mergi
 	const merged = mergeNoteContent(existingLegacy, fresh);
 	assert.ok(merged);
 	assert.doesNotMatch(merged, /%%/);
+});
+
+// ── diffNoteContent: what the preview shows ────────────────────────────────
+// The rule these tests exist to pin down: the preview must report a change
+// exactly when the merge would make one, and refuse exactly when it refuses.
+// A preview computed by its own rules would eventually disagree with the
+// write it precedes, which is the one failure this feature cannot afford.
+
+test('diffNoteContent reports the changed block, with its content and without the marker lines', () => {
+	const existing = [start('time'), '**Uhrzeit:** 9:40', end('time'), '**Redner:** Bruder Schmidt'].join('\n');
+	const fresh = [start('time'), '**Uhrzeit:** 9:50', end('time'), '**Redner:**'].join('\n');
+
+	assert.deepEqual(diffNoteContent(existing, fresh), [
+		{ id: 'time', before: '**Uhrzeit:** 9:40', after: '**Uhrzeit:** 9:50' },
+	]);
+});
+
+test('diffNoteContent reports nothing for text the user typed outside every marker', () => {
+	// The merge leaves it alone, so the preview must not announce it — this is
+	// exactly what the user is looking at the preview to confirm.
+	const existing = [start('time'), '**Uhrzeit:** 9:40', end('time'), 'Meine eigene Notiz.'].join('\n');
+	const fresh = [start('time'), '**Uhrzeit:** 9:40', end('time'), ''].join('\n');
+
+	assert.deepEqual(diffNoteContent(existing, fresh), []);
+});
+
+test('diffNoteContent reports each changed block separately and skips the unchanged ones', () => {
+	const existing = [
+		start('header'), '**Tag:** Donnerstag', end('header'),
+		'Eigener Text.',
+		start('footer'), '**Anschließend:** Lied 12', end('footer'),
+	].join('\n');
+	const fresh = [
+		start('header'), '**Tag:** Freitag', end('header'),
+		'',
+		start('footer'), '**Anschließend:** Lied 12', end('footer'),
+	].join('\n');
+
+	assert.deepEqual(diffNoteContent(existing, fresh).map(c => c.id), ['header']);
+});
+
+test('diffNoteContent reports a changed frontmatter block under a null id', () => {
+	// Frontmatter is machine-generated and replaced as a whole, so it has no
+	// marker of its own — but it does get written, so it has to be shown.
+	const existing = ['---', 'time: "9:40"', '---', start('a'), 'x', end('a')].join('\n');
+	const fresh = ['---', 'time: "9:50"', '---', start('a'), 'x', end('a')].join('\n');
+
+	const changes = diffNoteContent(existing, fresh);
+	assert.equal(changes.length, 1);
+	assert.equal(changes[0].id, null);
+	assert.match(changes[0].after, /9:50/);
+});
+
+test('diffNoteContent returns null in exactly the cases mergeNoteContent refuses', () => {
+	const fresh = [start('a'), 'neu', end('a')].join('\n');
+	const refused = [
+		'Eine Notiz ganz ohne Marker.',                                   // pre-1.9.0
+		[start('a'), 'x', end('b')].join('\n'),                           // mismatched ids
+		[start('a'), 'x'].join('\n'),                                     // unclosed
+		['---', 'k: v', '---', start('a'), 'x', end('a')].join('\n'),     // frontmatter only on one side
+	];
+	for (const existing of refused) {
+		assert.equal(mergeNoteContent(existing, fresh), null, existing);
+		assert.equal(diffNoteContent(existing, fresh), null, existing);
+	}
+});
+
+test('diffNoteContent reports no change when only the marker format is upgraded', () => {
+	// A 1.9.0–1.18.0 note: the merge rewrites the file (%%jw:id%% becomes a
+	// span), but not one character the reader ever sees. Reporting that as a
+	// change would be noise; reporting the file as untouched would be a lie,
+	// which is why the caller distinguishes the two.
+	const existing = ['%%jw:time%%', '**Uhrzeit:** 9:40', '%%/jw:time%%'].join('\n');
+	const fresh = [start('time'), '**Uhrzeit:** 9:40', end('time')].join('\n');
+
+	assert.deepEqual(diffNoteContent(existing, fresh), []);
+	assert.notEqual(mergeNoteContent(existing, fresh), existing); // written all the same
 });

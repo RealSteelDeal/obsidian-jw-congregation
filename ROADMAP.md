@@ -80,12 +80,6 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   currently rejects any other detected file language outright, since the
   three section-heading labels and the Congregation-Bible-Study title double
   as parser detection anchors and only German real files have been verified.
-- **Preview/diff for the regular marker-based merge, not just the legacy
-  fallback**: "Update convention notes" currently applies a marker-merge
-  immediately for 1.9.0+ notes, and only shows a review window (see
-  `LegacyMigrationModal`) for older, marker-free notes. Offering the same
-  per-note preview/confirmation for the regular path too would make the
-  behavior consistent regardless of a note's age.
 - **Speaker directory — as wiki links, not as parsed text.** Who spoke when,
   across conventions. Reported usage (21.09.2026) rules out the obvious
   approach: the Speaker field is usually filled in, but for an ordinary
@@ -138,6 +132,26 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   event whose date the user already knows by heart.
 
 ## Recently shipped
+
+- **See what an update would change, before it changes it.** "Show changes
+  before updating" computes exactly the run "Update convention notes" would
+  perform and writes nothing — the changed blocks are listed field by field,
+  old value against new, and only a confirmation carries them out.
+
+  This closes an asymmetry that had been there since 1.9.0: the *heuristic*
+  path (marker-free notes, where the plugin guesses from field labels) asked
+  for confirmation, while the *exact* path (the marker merge) just wrote.
+  Right by risk, backwards by insight — after a plugin update there was no way
+  to tell whether your own notes were affected without opening them, and the
+  bulk update multiplies that by the number of conventions.
+
+  Built as a plan/execute split rather than a second implementation:
+  `planCongressUpdate()` decides every outcome and writes nothing,
+  `executeCongressPlan()` carries that same plan out. The preview therefore
+  cannot drift from the write it precedes — a preview that lies would be worse
+  than none. Confirming re-plans from scratch, since a note may have been
+  edited between looking and deciding, and a test asserts that what the
+  preview promised is what the following update actually wrote.
 
 - **Update several conventions at once.** A parser fix applies to every convention ever
   imported, so the update no longer has to be repeated folder by folder: all the program

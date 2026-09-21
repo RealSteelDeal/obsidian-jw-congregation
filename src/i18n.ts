@@ -233,6 +233,19 @@ export interface Strings extends NoteStrings {
 	noticeBulkUpdateDuplicateFolder: (path: string) => string;
 	noticeBulkUpdateResult: (folders: number, merged: number, created: number, needsReimport: number, unchanged: number, failed: string[]) => string;
 
+	// ── Update preview (settings.lang) ──────────────────────────────────────
+	previewUpdateCommand: string;
+	previewUpdateTitle: string;
+	previewUpdateExplanation: string;
+	btnShowChanges: string;
+	previewNoChanges: string;
+	previewSummary: (changed: number, created: number, unchanged: number, needsReimport: number) => string;
+	previewSectionChanged: string;
+	previewSectionCreated: string;
+	previewSectionNeedsReimport: string;
+	previewRegenerated: string;
+	previewMarkerOnly: string;
+
 	// ── Legacy note migration modal (settings.lang) ─────────────────────────
 	legacyModalTitle: string;
 	legacyModalDesc: string;
@@ -514,6 +527,24 @@ export const L: Record<SupportedLang, Strings> = {
 			return failed.length > 0 ? `${summary}\nFehlgeschlagen: ${failed.join(', ')}.` : summary;
 		},
 
+		previewUpdateCommand: 'Änderungen vor dem Aktualisieren anzeigen',
+		previewUpdateTitle: 'Änderungen vor dem Aktualisieren anzeigen',
+		previewUpdateExplanation: 'Berechnet dieselbe Aktualisierung wie „Kongress-Notizen aktualisieren", schreibt aber nichts – du siehst zuerst Feld für Feld, was sich ändern würde, und entscheidest danach. Nützlich nach einem Plugin-Update, um zu sehen, ob deine Notizen überhaupt betroffen sind, und wenn mehrere Kongresse auf einmal drankommen.',
+		btnShowChanges: 'Änderungen anzeigen',
+		previewNoChanges: 'Keine Änderungen – alle Notizen sind bereits auf dem aktuellen Stand.',
+		previewSummary: (changed, created, unchanged, needsReimport) => {
+			const parts = [`${changed} Notizen würden geändert`];
+			if (created > 0) parts.push(`${created} neu angelegt`);
+			if (unchanged > 0) parts.push(`${unchanged} bleiben unverändert`);
+			if (needsReimport > 0) parts.push(`${needsReimport} benötigen einen vollständigen Reimport (älteres Format)`);
+			return `${parts.join(', ')}.`;
+		},
+		previewSectionChanged: 'Wird geändert',
+		previewSectionCreated: 'Wird neu angelegt',
+		previewSectionNeedsReimport: 'Bleibt unangetastet (älteres Format)',
+		previewRegenerated: 'Wird vollständig neu erzeugt (rein automatisch erstellte Datei).',
+		previewMarkerOnly: 'Nur unsichtbare Marker werden aufgefrischt – am sichtbaren Text ändert sich nichts.',
+
 		legacyModalTitle: 'Mögliche Korrekturen für alte Notizen',
 		legacyModalDesc: 'Diese Notizen wurden mit einer Plugin-Version vor 1.9.0 erstellt und haben keine unsichtbaren Marker – deshalb werden hier nur Zeilen vorgeschlagen, die eindeutig einem bekannten Feld zugeordnet werden können. Nur Notizen mit aktiviertem Schalter werden beim Klick auf „Übernehmen" geändert; alles andere in jeder Notiz bleibt unangetastet.',
 		noticeLegacyCorrectionsFound: count => `${count} alte Notiz(en) mit möglichen Korrekturen gefunden. (Klicken zum Prüfen)`,
@@ -758,6 +789,24 @@ export const L: Record<SupportedLang, Strings> = {
 			return failed.length > 0 ? `${summary}\nFailed: ${failed.join(', ')}.` : summary;
 		},
 
+		previewUpdateCommand: 'Show changes before updating',
+		previewUpdateTitle: 'Show changes before updating',
+		previewUpdateExplanation: 'Works out exactly the same update as "Update convention notes", but writes nothing — you first see field by field what would change, and decide afterwards. Useful after a plugin update, to see whether your notes are affected at all, and when several conventions are due at once.',
+		btnShowChanges: 'Show changes',
+		previewNoChanges: 'No changes — every note is already up to date.',
+		previewSummary: (changed, created, unchanged, needsReimport) => {
+			const parts = [`${changed} notes would change`];
+			if (created > 0) parts.push(`${created} newly created`);
+			if (unchanged > 0) parts.push(`${unchanged} stay unchanged`);
+			if (needsReimport > 0) parts.push(`${needsReimport} need a full re-import (older format)`);
+			return `${parts.join(', ')}.`;
+		},
+		previewSectionChanged: 'Will change',
+		previewSectionCreated: 'Will be created',
+		previewSectionNeedsReimport: 'Left untouched (older format)',
+		previewRegenerated: 'Will be regenerated in full (a purely derived file).',
+		previewMarkerOnly: 'Only invisible markers are refreshed — nothing in the visible text changes.',
+
 		legacyModalTitle: 'Possible corrections for old notes',
 		legacyModalDesc: 'These notes were created with a plugin version before 1.9.0 and have no invisible markers — so only lines that can be unambiguously matched to a known field are proposed here. Only notes with the toggle enabled are changed when clicking "Apply"; everything else in every note is left untouched.',
 		noticeLegacyCorrectionsFound: count => `${count} old note(s) with possible corrections found. (Click to review)`,
@@ -969,6 +1018,24 @@ export const L: Record<SupportedLang, Strings> = {
 			const summary = `${folders} assemblée(s) mise(s) à jour : ${parts.join(', ')}.`;
 			return failed.length > 0 ? `${summary}\nÉchec : ${failed.join(', ')}.` : summary;
 		},
+
+		previewUpdateCommand: 'Afficher les modifications avant la mise à jour',
+		previewUpdateTitle: 'Afficher les modifications avant la mise à jour',
+		previewUpdateExplanation: 'Calcule exactement la même mise à jour que « Mettre à jour les notes de l’assemblée », mais n’écrit rien : vous voyez d’abord champ par champ ce qui changerait, puis vous décidez. Utile après une mise à jour du plugin, pour voir si vos notes sont concernées, et lorsque plusieurs assemblées sont à traiter en même temps.',
+		btnShowChanges: 'Afficher les modifications',
+		previewNoChanges: 'Aucune modification — toutes les notes sont déjà à jour.',
+		previewSummary: (changed, created, unchanged, needsReimport) => {
+			const parts = [`${changed} notes seraient modifiées`];
+			if (created > 0) parts.push(`${created} nouvellement créées`);
+			if (unchanged > 0) parts.push(`${unchanged} restent inchangées`);
+			if (needsReimport > 0) parts.push(`${needsReimport} nécessitent une réimportation complète (ancien format)`);
+			return `${parts.join(', ')}.`;
+		},
+		previewSectionChanged: 'Sera modifié',
+		previewSectionCreated: 'Sera créé',
+		previewSectionNeedsReimport: 'Laissé intact (ancien format)',
+		previewRegenerated: 'Sera entièrement régénéré (fichier purement dérivé).',
+		previewMarkerOnly: 'Seuls des marqueurs invisibles sont rafraîchis — le texte visible ne change pas.',
 
 		legacyModalTitle: 'Corrections possibles pour les anciennes notes',
 		legacyModalDesc: 'Ces notes ont été créées avec une version du plugin antérieure à la 1.9.0 et ne contiennent aucun marqueur invisible — seules les lignes pouvant être associées sans ambiguïté à un champ connu sont donc proposées ici. Seules les notes dont l’interrupteur est activé sont modifiées en cliquant sur « Appliquer » ; tout le reste de chaque note reste inchangé.',
@@ -1182,6 +1249,24 @@ export const L: Record<SupportedLang, Strings> = {
 			return failed.length > 0 ? `${summary}\nNon riuscito: ${failed.join(', ')}.` : summary;
 		},
 
+		previewUpdateCommand: 'Mostra le modifiche prima di aggiornare',
+		previewUpdateTitle: 'Mostra le modifiche prima di aggiornare',
+		previewUpdateExplanation: 'Calcola esattamente lo stesso aggiornamento di «Aggiorna le note del congresso», ma non scrive nulla: vedi prima campo per campo che cosa cambierebbe e decidi dopo. Utile dopo un aggiornamento del plugin, per capire se le tue note sono interessate, e quando ci sono più congressi da aggiornare insieme.',
+		btnShowChanges: 'Mostra le modifiche',
+		previewNoChanges: 'Nessuna modifica — tutte le note sono già aggiornate.',
+		previewSummary: (changed, created, unchanged, needsReimport) => {
+			const parts = [`${changed} note verrebbero modificate`];
+			if (created > 0) parts.push(`${created} create`);
+			if (unchanged > 0) parts.push(`${unchanged} restano invariate`);
+			if (needsReimport > 0) parts.push(`${needsReimport} richiedono una reimportazione completa (formato più vecchio)`);
+			return `${parts.join(', ')}.`;
+		},
+		previewSectionChanged: 'Verrà modificato',
+		previewSectionCreated: 'Verrà creato',
+		previewSectionNeedsReimport: 'Lasciato intatto (formato più vecchio)',
+		previewRegenerated: 'Verrà rigenerato per intero (file puramente derivato).',
+		previewMarkerOnly: 'Vengono aggiornati solo marcatori invisibili — il testo visibile non cambia.',
+
 		legacyModalTitle: 'Possibili correzioni per le note vecchie',
 		legacyModalDesc: 'Queste note sono state create con una versione del plugin precedente alla 1.9.0 e non contengono marcatori invisibili — vengono quindi proposte solo le righe che possono essere associate senza ambiguità a un campo noto. Vengono modificate solo le note con l’interruttore attivo, cliccando su "Applica"; tutto il resto di ogni nota resta invariato.',
 		noticeLegacyCorrectionsFound: count => `Trovate ${count} nota/e vecchia/e con possibili correzioni. (Clicca per controllare)`,
@@ -1393,6 +1478,24 @@ export const L: Record<SupportedLang, Strings> = {
 			const summary = `${folders} congresso(s) atualizado(s): ${parts.join(', ')}.`;
 			return failed.length > 0 ? `${summary}\nFalhou: ${failed.join(', ')}.` : summary;
 		},
+
+		previewUpdateCommand: 'Mostrar as alterações antes de atualizar',
+		previewUpdateTitle: 'Mostrar as alterações antes de atualizar',
+		previewUpdateExplanation: 'Calcula exatamente a mesma atualização que “Atualizar as notas do congresso”, mas não escreve nada: primeiro você vê campo a campo o que mudaria e só depois decide. Útil após uma atualização do plugin, para ver se as suas notas são afetadas, e quando há vários congressos a atualizar de uma vez.',
+		btnShowChanges: 'Mostrar as alterações',
+		previewNoChanges: 'Nenhuma alteração — todas as notas já estão atualizadas.',
+		previewSummary: (changed, created, unchanged, needsReimport) => {
+			const parts = [`${changed} notas seriam alteradas`];
+			if (created > 0) parts.push(`${created} criadas`);
+			if (unchanged > 0) parts.push(`${unchanged} permanecem inalteradas`);
+			if (needsReimport > 0) parts.push(`${needsReimport} exigem uma reimportação completa (formato mais antigo)`);
+			return `${parts.join(', ')}.`;
+		},
+		previewSectionChanged: 'Será alterado',
+		previewSectionCreated: 'Será criado',
+		previewSectionNeedsReimport: 'Permanece intacto (formato mais antigo)',
+		previewRegenerated: 'Será gerado novamente por completo (arquivo puramente derivado).',
+		previewMarkerOnly: 'Apenas marcadores invisíveis são atualizados — o texto visível não muda.',
 
 		legacyModalTitle: 'Possíveis correções para notas antigas',
 		legacyModalDesc: 'Estas notas foram criadas com uma versão do plugin anterior à 1.9.0 e não têm marcadores invisíveis — por isso, só são propostas aqui linhas que possam ser associadas sem ambiguidade a um campo conhecido. Apenas as notas com a chave ativada são alteradas ao clicar em "Aplicar"; todo o resto de cada nota permanece intocado.',
@@ -1606,6 +1709,24 @@ export const L: Record<SupportedLang, Strings> = {
 			return failed.length > 0 ? `${summary}\nНе удалось: ${failed.join(', ')}.` : summary;
 		},
 
+		previewUpdateCommand: 'Показать изменения перед обновлением',
+		previewUpdateTitle: 'Изменения перед обновлением',
+		previewUpdateExplanation: 'Вычисляет ровно то же обновление, что и «Обновить заметки конгресса», но ничего не записывает: сначала вы поле за полем видите, что изменилось бы, и только потом решаете. Полезно после обновления плагина — чтобы понять, затронуты ли ваши заметки вообще, — и когда сразу несколько конгрессов ждут обновления.',
+		btnShowChanges: 'Показать изменения',
+		previewNoChanges: 'Изменений нет — все заметки уже актуальны.',
+		previewSummary: (changed, created, unchanged, needsReimport) => {
+			const parts = [`будет изменено заметок: ${changed}`];
+			if (created > 0) parts.push(`создано: ${created}`);
+			if (unchanged > 0) parts.push(`останется без изменений: ${unchanged}`);
+			if (needsReimport > 0) parts.push(`требуют полного повторного импорта (устаревший формат): ${needsReimport}`);
+			return `${parts.join(', ')}.`;
+		},
+		previewSectionChanged: 'Будет изменено',
+		previewSectionCreated: 'Будет создано',
+		previewSectionNeedsReimport: 'Останется нетронутым (устаревший формат)',
+		previewRegenerated: 'Будет создан заново целиком (полностью производный файл).',
+		previewMarkerOnly: 'Обновляются только невидимые маркеры — видимый текст не меняется.',
+
 		legacyModalTitle: 'Возможные исправления для старых заметок',
 		legacyModalDesc: 'Эти заметки были созданы в версии плагина до 1.9.0 и не содержат невидимых маркеров — поэтому здесь предлагаются только строки, которые можно однозначно сопоставить с известным полем. При нажатии «Применить» изменяются только заметки с включённым переключателем; всё остальное в каждой заметке остаётся без изменений.',
 		noticeLegacyCorrectionsFound: count => `Найдено старых заметок с возможными исправлениями: ${count}. (Нажмите, чтобы проверить)`,
@@ -1817,6 +1938,24 @@ export const L: Record<SupportedLang, Strings> = {
 			const summary = `${folders} congreso(s) actualizado(s): ${parts.join(', ')}.`;
 			return failed.length > 0 ? `${summary}\nFallaron: ${failed.join(', ')}.` : summary;
 		},
+
+		previewUpdateCommand: 'Mostrar los cambios antes de actualizar',
+		previewUpdateTitle: 'Mostrar los cambios antes de actualizar',
+		previewUpdateExplanation: 'Calcula exactamente la misma actualización que «Actualizar notas del congreso», pero no escribe nada: primero ve campo por campo lo que cambiaría y después decide. Útil tras una actualización del plugin, para ver si sus notas están afectadas, y cuando hay varios congresos que actualizar a la vez.',
+		btnShowChanges: 'Mostrar los cambios',
+		previewNoChanges: 'Sin cambios: todas las notas ya están actualizadas.',
+		previewSummary: (changed, created, unchanged, needsReimport) => {
+			const parts = [`${changed} notas cambiarían`];
+			if (created > 0) parts.push(`${created} nuevas`);
+			if (unchanged > 0) parts.push(`${unchanged} quedan sin cambios`);
+			if (needsReimport > 0) parts.push(`${needsReimport} requieren una reimportación completa (formato antiguo)`);
+			return `${parts.join(', ')}.`;
+		},
+		previewSectionChanged: 'Se cambiará',
+		previewSectionCreated: 'Se creará',
+		previewSectionNeedsReimport: 'Queda intacto (formato antiguo)',
+		previewRegenerated: 'Se regenerará por completo (archivo puramente derivado).',
+		previewMarkerOnly: 'Solo se actualizan marcadores invisibles: el texto visible no cambia.',
 
 		legacyModalTitle: 'Posibles correcciones para notas antiguas',
 		legacyModalDesc: 'Estas notas se crearon con una versión del plugin anterior a la 1.9.0 y no tienen marcadores invisibles — por eso aquí solo se proponen líneas que se puedan asociar sin ambigüedad a un campo conocido. Solo se modifican las notas con el interruptor activado al hacer clic en "Aplicar"; el resto de cada nota permanece intacto.',

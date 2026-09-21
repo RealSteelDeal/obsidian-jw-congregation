@@ -34,7 +34,7 @@ npm run lint      # ESLint
 
 ```
 src/
-  main.ts                    # Plugin-Lifecycle (onload/onunload, Commands, Settings, importFile()/updateFile()/updateFolders())
+  main.ts                    # Plugin-Lifecycle (onload/onunload, Commands, Settings, importFile()/updateFile()/updateFolders()/previewFolders())
   settings.ts                # JwPluginSettings, DEFAULT_SETTINGS, JwSettingTab
   i18n.ts                    # Strings/NoteStrings-Interfaces + L/NL für alle 7 Sprachen (siehe Abschnitt "Sprachen" unten)
   models/
@@ -52,7 +52,7 @@ src/
     bytes.ts                 # latin1Decode(), hexToBytes()
     parseErrors.ts           # ParseError/ParseErrorCode — strukturierte Fehler statt hartkodierter Strings (siehe unten)
     decompressionGuard.ts    # Größenlimits gegen Zip-Bomb-artige Dekompression (siehe unten)
-    noteMerge.ts             # Marker-basiertes Merge für "…Notizen aktualisieren" (unsichtbare <span>-Marker, siehe eigener Abschnitt unten) — von Kongress- UND mwb-Feature genutzt
+    noteMerge.ts             # Marker-basiertes Merge für "…Notizen aktualisieren" (unsichtbare <span>-Marker, siehe eigener Abschnitt unten) — von Kongress- UND mwb-Feature genutzt; diffNoteContent() meldet dasselbe Merge, statt es auszuführen (Vorschau)
     legacyFieldPatch.ts      # Heuristischer Fallback für Notizen ohne Marker (vor v1.9.0) — siehe eigener Abschnitt unten
     quoteBuilder.ts          # Vers-Text → Obsidian-Zitat-Callout (`> [!quote] …`)
     scriptureLinkScan.ts     # findet jwlibrary://-Links/Zitat-Callouts im Notiztext (Klick-Feature, Einfüge-/Löschpunkt)
@@ -70,7 +70,8 @@ src/
   ui/
     ImportModal.ts           # Dateiauswahl, Zielordner-Dropdown, Vorschau, Import-Bestätigung
     UpdateNotesModal.ts      # wie ImportModal, aber patcht einen bereits importierten Ordner (nur bestehende Ordner)
-    BulkUpdateNotesModal.ts  # mehrere Programmdateien auf einmal, je Datei ein Zielordner-Vorschlag (updateFolders())
+    BulkUpdateNotesModal.ts  # mehrere Programmdateien auf einmal, je Datei ein Zielordner-Vorschlag (updateFolders()); mit mode='preview' derselbe Dialog für die Vorschau
+    UpdatePreviewModal.ts    # zeigt vor dem Schreiben, was eine Aktualisierung ändern würde (Plan aus planCongressUpdate())
     ImportMwbModal.ts        # wie ImportModal, aber für Leben-und-Dienst-Arbeitshefter (nur .jwpub, eigener mwbTargetFolder)
     UpdateMwbNotesModal.ts   # wie UpdateNotesModal, aber für Leben-und-Dienst-Arbeitshefter
     BibleVerseModal.ts       # Popup mit Vers-Text + "In JW Library öffnen"/"Als Zitat einfügen"/"Zitat entfernen"
@@ -760,6 +761,12 @@ ebenfalls abgedeckt (`updateFolders()` mit mehreren Jobs, ein fehlschlagender Jo
 einzelner Job): der UI-Teil — die Datei-↔-Ordner-Zuordnung in `BulkUpdateNotesModal` —
 bleibt wie alle Modale ungetestet, die Zuordnungsregel selbst liegt deshalb in
 `util/folderList.ts` (`findFoldersByName()`, `tests/folderList.test.mjs`).
+
+**Plan/Ausführung sind getrennt** (`planCongressUpdate()` entscheidet und schreibt nichts,
+`executeCongressPlan()` führt genau diesen Plan aus). Die Vorschau rendert den Plan, statt
+einen eigenen zu berechnen — eine Vorschau, die vom nachfolgenden Schreibvorgang abweicht,
+wäre schlimmer als gar keine. Wer eine Verzweigung der Aktualisierung ändert, ändert sie in
+`planCongressUpdate()`; `executeCongressPlan()` kennt nur noch die entschiedenen Fälle.
 
 Manuell in Obsidian:
 

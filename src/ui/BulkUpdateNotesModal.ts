@@ -7,6 +7,7 @@ import { NoteBuilder } from '../builder/NoteBuilder';
 import { Congress } from '../models/congress';
 import { findFoldersByName, listAllFolders } from '../util/folderList';
 import { ParseError } from '../util/parseErrors';
+import { UpdatePreviewModal } from './UpdatePreviewModal';
 
 /** One picked file and the folder it will be reconciled against. `congress` is
  *  null when the file could not be parsed at all — the row then only reports
@@ -37,7 +38,16 @@ export class BulkUpdateNotesModal extends Modal {
 	private readonly rows: BulkRow[] = [];
 	private listEl: HTMLElement | null = null;
 
-	constructor(app: App, private readonly plugin: JwCongregationPlugin) {
+	/** `mode` decides what the confirm button does with the pairings: write
+	 *  them ('apply'), or compute what writing them would change and show that
+	 *  first ('preview'). The picking and pairing above the button is
+	 *  deliberately identical either way — the preview is the same run, not a
+	 *  different one. */
+	constructor(
+		app: App,
+		private readonly plugin: JwCongregationPlugin,
+		private readonly mode: 'apply' | 'preview' = 'apply',
+	) {
 		super(app);
 	}
 
@@ -48,8 +58,12 @@ export class BulkUpdateNotesModal extends Modal {
 	onOpen() {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.createEl('h2', { text: this.t.bulkUpdateTitle });
-		contentEl.createEl('p', { text: this.t.bulkUpdateExplanation, cls: 'setting-item-description' });
+		const preview = this.mode === 'preview';
+		contentEl.createEl('h2', { text: preview ? this.t.previewUpdateTitle : this.t.bulkUpdateTitle });
+		contentEl.createEl('p', {
+			text: preview ? this.t.previewUpdateExplanation : this.t.bulkUpdateExplanation,
+			cls: 'setting-item-description',
+		});
 
 		new Setting(contentEl)
 			.setName(this.t.bulkUpdatePickFiles)
@@ -73,7 +87,7 @@ export class BulkUpdateNotesModal extends Modal {
 		new Setting(contentEl)
 			.addButton(btn =>
 				btn
-					.setButtonText(this.t.btnUpdate)
+					.setButtonText(preview ? this.t.btnShowChanges : this.t.btnUpdate)
 					.setCta()
 					.onClick(() => void this.run()),
 			)
@@ -157,6 +171,11 @@ export class BulkUpdateNotesModal extends Modal {
 		}
 
 		this.close();
+		if (this.mode === 'preview') {
+			const previews = await this.plugin.previewFolders(jobs);
+			new UpdatePreviewModal(this.app, this.plugin, jobs, previews).open();
+			return;
+		}
 		await this.plugin.updateFolders(jobs);
 	}
 

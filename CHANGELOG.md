@@ -1,5 +1,51 @@
 # Changelog
 
+## 1.21.0
+
+Two ways to get a scripture reference into a note with less typing — the same
+concern as 1.20.0, from the other end: there, correcting a reference after the
+fact; here, writing it in the first place.
+
+### New
+
+- **Book names complete themselves while you type.** `Apo` offers
+  `Apostelgeschichte`. Accept it, type the chapter and verse, and the existing
+  link/quote suggestion takes over from there — the completion deliberately
+  stops at the book name and inserts nothing else.
+
+  It only fires on a capitalised word of three letters or more, and that
+  restriction is the reason it is usable at all. Measured against a real
+  14-note vault: triggering on any three-letter word that begins a book name
+  would have fired 93 times, 46 of them on ordinary prose — `mich` alone 30
+  times, because it begins *Micha*. Requiring the capital that German gives
+  every noun brings that down to eight in nearly 12 000 words. Switchable off
+  under **Complete book names**; on by default.
+
+  Numbered books are reached through their ordinal: `1. Joh` offers
+  *1. Johannes*, while `Joh` offers only *Johannes*.
+
+- **The abbreviations publications actually print are now recognised.**
+  `Phil. 4:6,7` used to be refused outright, so Philippians had to be written
+  out in full: "Phil." begins both *Philipper* and *Philemon*, and the rule
+  that resolves shortened names refuses anything ambiguous rather than
+  guessing. Five more join it, none of which any shortening rule could ever
+  have reached: `Apg.`, `Offb.`, `Klg`, `Zeph.` (spelled differently from the
+  "Zefanja" this plugin writes), plus `Jas.` in English and the singular
+  `Salmo` / `Псалом` in Italian and Russian.
+
+  Not one of them was typed from memory. Each was read out of a real
+  publication — a citation's visible text paired with the book number in its
+  own link — because a wrong entry here would silently link the wrong
+  scripture. `Phlm.` for Philemon is therefore still missing: no publication
+  checked cites Philemon at all, so there was nothing to read. `Philem.`
+  works meanwhile, and with the rest in place 65 of the 66 books now resolve
+  from four characters or fewer.
+
+### Under the hood
+
+- New `scripts/dump-book-abbreviations.mjs`, the tool that harvested the
+  above and will find further abbreviations as new publications appear.
+
 ## 1.20.1
 
 Polish for the reference-extending button from 1.20.0, plus the explanation

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { jiti } from './_setup.mjs';
 
-const { lookupBookNumber } = await jiti.import('../src/normalizer/bookNames.ts');
+const { lookupBookNumber, findBooksByPrefix } = await jiti.import('../src/normalizer/bookNames.ts');
 
 // Every abbreviation asserted here was read off a real publication (see
 // BOOK_ABBREVIATIONS and scripts/dump-book-abbreviations.mjs), not chosen.
@@ -56,6 +56,43 @@ test('the table does not loosen the rule against guessing at an ambiguous prefix
 	// "Jo" still prefixes Johannes, Joel and Jona, and no publication settles
 	// it, so it stays refused.
 	assert.equal(lookupBookNumber('Jo', 'de'), undefined);
+});
+
+test('findBooksByPrefix completes a partly typed book name', () => {
+	assert.deepEqual(findBooksByPrefix('Apo', 'de'), [{ book: 44, name: 'Apostelgeschichte' }]);
+});
+
+test('findBooksByPrefix offers every match, in canonical order', () => {
+	// Several matches are a normal result here — unlike lookupBookNumber(),
+	// which refuses an ambiguous prefix, the point is to let the user pick.
+	assert.deepEqual(findBooksByPrefix('Phil', 'de').map(m => m.name), ['Philipper', 'Philemon']);
+	assert.deepEqual(findBooksByPrefix('Ko', 'de').map(m => m.name), ['Kolosser']);
+});
+
+test('a numbered book is reached through its ordinal, not the plain word', () => {
+	// "1. Johannes" normalises to "1johannes", so "Joh" does not reach it —
+	// the same property lookupBookNumber() has, kept deliberately rather than
+	// special-cased, so both resolve a typed name the same way.
+	assert.deepEqual(findBooksByPrefix('Joh', 'de').map(m => m.book), [43]);
+	assert.deepEqual(findBooksByPrefix('1. Joh', 'de').map(m => m.book), [62]);
+});
+
+test('findBooksByPrefix reaches a numbered book through its ordinal', () => {
+	for (const typed of ['1. Kor', '1 Kor', '1.Kor']) {
+		assert.deepEqual(findBooksByPrefix(typed, 'de').map(m => m.book), [46], typed);
+	}
+});
+
+test('findBooksByPrefix offers nothing once the name is complete', () => {
+	// Nothing left to complete; offering back the finished word would be the
+	// single biggest source of noise.
+	assert.deepEqual(findBooksByPrefix('Apostelgeschichte', 'de'), []);
+	assert.deepEqual(findBooksByPrefix('Psalm', 'de'), []);
+});
+
+test('findBooksByPrefix returns nothing for a word that is no book at all', () => {
+	assert.deepEqual(findBooksByPrefix('Wanderung', 'de'), []);
+	assert.deepEqual(findBooksByPrefix('', 'de'), []);
 });
 
 test('full names and unambiguous truncations keep working', () => {

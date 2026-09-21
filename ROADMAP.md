@@ -103,6 +103,16 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 
 ## Recently shipped
 
+- **Book names complete themselves while you type.** `Apo` offers
+  `Apostelgeschichte`; the chapter and verse stay yours to type, and the existing
+  link/quote suggestion takes over from there.
+
+  The trigger was chosen by measurement, not taste. Firing on any word of three or more
+  letters that begins a book name would have gone off 93 times across a real 14-note vault,
+  46 of them on ordinary prose — `mich` alone 30 times, since it begins *Micha*. Requiring
+  the capital letter German gives every noun anyway brings that down to eight in nearly
+  12 000 words. On by default, switchable off in the settings.
+
 - **The abbreviations real publications print are now understood when typed.** `Phil. 4:6,7`
   used to be refused outright — "phil" prefixes Philipper *and* Philemon, so the
   unique-prefix rule could not settle it and the book had to be written out. Alongside it,

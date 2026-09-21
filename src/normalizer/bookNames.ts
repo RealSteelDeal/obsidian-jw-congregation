@@ -196,3 +196,31 @@ export function lookupBookNumber(rawName: string, lang: SupportedLang): number |
 	}
 	return match;
 }
+
+/**
+ * Every book whose name starts with `rawPrefix`, in canonical order — the
+ * completions offered while a book name is being typed (see
+ * BookNameEditorSuggest). Unlike lookupBookNumber(), several matches are a
+ * normal result here rather than a reason to give up: the point is to let the
+ * user pick.
+ *
+ * Compared on the same normalised key as the lookup, so "1. kor", "1 Kor" and
+ * "1.Kor" all reach "1. Korinther".
+ *
+ * A prefix that is ALREADY a complete book name yields nothing: there is
+ * nothing left to complete, and offering back the word just finished would be
+ * pure noise — measured against real notes, that case alone accounted for 47
+ * of 55 triggers.
+ */
+export function findBooksByPrefix(rawPrefix: string, lang: SupportedLang): { book: number; name: string }[] {
+	const key = normalizeBookKey(rawPrefix);
+	if (!key) return [];
+	const map = getLookupMap(lang);
+	if (map.has(key)) return [];
+
+	const found: { book: number; name: string }[] = [];
+	for (const [fullKey, book] of map) {
+		if (fullKey.startsWith(key)) found.push({ book, name: getBookName(book, lang) });
+	}
+	return found.sort((a, b) => a.book - b.book);
+}

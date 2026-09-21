@@ -47,6 +47,11 @@ export interface JwPluginSettings {
 	 *  independent of whether a Bible file is loaded, so the popup can be
 	 *  switched off temporarily without removing the (potentially large) file. */
 	bibleFilePopupEnabled: boolean;
+	/** Whether typing the start of a book name offers to complete it ("Apo" →
+	 *  "Apostelgeschichte", see BookNameEditorSuggest). On by default; it only
+	 *  fires on a capitalised word of three or more letters, which measured at
+	 *  eight false triggers across a real 12 000-word vault. */
+	bookNameSuggest: boolean;
 	/** Meeting-workbook ("Leben und Dienst") import/update settings — kept
 	 *  fully independent of the congress-program settings above, since the
 	 *  two note types are conceptually different content that may well live
@@ -87,6 +92,7 @@ export const DEFAULT_SETTINGS: JwPluginSettings = {
 	frontmatter: false,
 	bibleFileLoaded: false,
 	bibleFilePopupEnabled: true,
+	bookNameSuggest: true,
 	mwbTargetFolder: '',
 	mwbScriptureLinks: true,
 	mwbShowDurationField: true,
@@ -245,6 +251,11 @@ export class JwSettingTab extends PluginSettingTab {
 						name: t.setBiblePopupEnabled,
 						desc: t.setBiblePopupEnabledDesc,
 						control: { type: 'toggle', key: 'bibleFilePopupEnabled' },
+					},
+					{
+						name: t.setBookNameSuggest,
+						desc: t.setBookNameSuggestDesc,
+						control: { type: 'toggle', key: 'bookNameSuggest' },
 					},
 					{
 						name: t.setBibleFile,
@@ -605,6 +616,18 @@ export class JwSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.bibleFilePopupEnabled)
 					.onChange(async value => {
 						this.plugin.settings.bibleFilePopupEnabled = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t.setBookNameSuggest)
+			.setDesc(t.setBookNameSuggestDesc)
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.bookNameSuggest)
+					.onChange(async value => {
+						this.plugin.settings.bookNameSuggest = value;
 						await this.plugin.saveSettings();
 					}),
 			);

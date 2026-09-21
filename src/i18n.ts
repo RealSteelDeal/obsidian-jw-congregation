@@ -154,6 +154,8 @@ export interface Strings extends NoteStrings {
 	setScriptureLinksDesc: string;
 	setBiblePopupEnabled: string;
 	setBiblePopupEnabledDesc: string;
+	setBookNameSuggest: string;
+	setBookNameSuggestDesc: string;
 	setReviewNote: string;
 	setReviewNoteDesc: string;
 	headNoteFields: string;
@@ -403,6 +405,8 @@ export const L: Record<SupportedLang, Strings> = {
 		setScriptureLinksDesc: 'Erzeugt klickbare JW-Library-Links auf jede Bibelstelle.',
 		setBiblePopupEnabled: 'Bibeltext-Popup aktivieren',
 		setBiblePopupEnabledDesc: 'Öffnet beim Klicken oder Tippen auf eine Bibelstelle den Vers-Text direkt in Obsidian, statt nur JW Library zu öffnen. Lässt sich unabhängig von der geladenen Bibel-Datei abschalten.',
+		setBookNameSuggest: 'Buchnamen vervollständigen',
+		setBookNameSuggestDesc: 'Schlägt beim Tippen den vollen Buchnamen vor („Apo" → „Apostelgeschichte"). Greift nur bei großgeschriebenen Wörtern ab drei Buchstaben, damit normaler Text nicht ständig Vorschläge auslöst. Kapitel und Vers tippst du danach selbst.',
 		setReviewNote: 'Wiederholungs-Notiz erstellen',
 		setReviewNoteDesc: 'Legt zusätzlich eine "Wiederholung"-Notiz mit den drei Standard-Reflexionsfragen an (bei Kreiskongressen mit Link zu den gedruckten Wiederholungsfragen, bei Regionalen Kongressen mit Hinweis auf das Video).',
 		headNoteFields: 'Notiz-Felder',
@@ -623,6 +627,8 @@ export const L: Record<SupportedLang, Strings> = {
 		setScriptureLinksDesc: 'Generates clickable JW Library links for every scripture.',
 		setBiblePopupEnabled: 'Enable Bible-verse popup',
 		setBiblePopupEnabledDesc: 'Opens the verse text directly in Obsidian when a scripture is clicked or tapped, instead of only opening JW Library. Can be switched off independently of the loaded Bible file.',
+		setBookNameSuggest: 'Complete book names',
+		setBookNameSuggestDesc: 'Suggests the full book name as you type ("Apo" → "Apostelgeschichte"). Only fires on capitalised words of three letters or more, so ordinary prose does not keep triggering it. You type the chapter and verse yourself afterwards.',
 		setReviewNote: 'Create review note',
 		setReviewNoteDesc: 'Additionally creates a "Review" note with the three standard reflection questions (circuit assemblies link to the printed review questions, regional conventions mention the highlights video).',
 		headNoteFields: 'Note fields',
@@ -811,6 +817,8 @@ export const L: Record<SupportedLang, Strings> = {
 		setScriptureLinksDesc: 'Génère des liens JW Library cliquables pour chaque texte biblique.',
 		setBiblePopupEnabled: 'Activer le popup de texte biblique',
 		setBiblePopupEnabledDesc: 'Ouvre le texte du verset directement dans Obsidian lorsqu’un texte biblique est cliqué ou touché, au lieu d’ouvrir seulement JW Library. Peut être désactivé indépendamment du fichier biblique chargé.',
+		setBookNameSuggest: 'Compléter les noms de livres',
+		setBookNameSuggestDesc: 'Propose le nom complet du livre pendant la saisie (« Apo » → « Actes »). Ne se déclenche que sur les mots commençant par une majuscule d’au moins trois lettres, pour que le texte ordinaire ne provoque pas de suggestions constantes. Le chapitre et le verset restent à saisir.',
 		setReviewNote: 'Créer une note de révision',
 		setReviewNoteDesc: 'Crée en plus une note « Révision » avec les trois questions de réflexion standard (pour les assemblées de circonscription avec un lien vers les questions de révision imprimées, pour les assemblées régionales avec une mention de la vidéo des moments forts).',
 		headNoteFields: 'Champs de la note',
@@ -999,6 +1007,8 @@ export const L: Record<SupportedLang, Strings> = {
 		setScriptureLinksDesc: 'Genera link cliccabili di JW Library per ogni testo biblico.',
 		setBiblePopupEnabled: 'Attiva il popup dei versetti biblici',
 		setBiblePopupEnabledDesc: 'Apre il testo del versetto direttamente in Obsidian quando si clicca o si tocca un testo biblico, invece di aprire solo JW Library. Può essere disattivato indipendentemente dal file della Bibbia caricato.',
+		setBookNameSuggest: 'Completa i nomi dei libri',
+		setBookNameSuggestDesc: 'Suggerisce il nome completo del libro mentre scrivi («Atti» da «Att»). Si attiva solo su parole che iniziano con la maiuscola e di almeno tre lettere, così il testo normale non genera suggerimenti in continuazione. Capitolo e versetto li scrivi tu.',
 		setReviewNote: 'Crea nota di ripasso',
 		setReviewNoteDesc: 'Crea inoltre una nota "Ripasso" con le tre domande di riflessione standard (per le assemblee di circoscrizione con link alle domande di ripasso stampate, per i congressi regionali con menzione del video con i momenti salienti).',
 		headNoteFields: 'Campi della nota',
@@ -1187,6 +1197,8 @@ export const L: Record<SupportedLang, Strings> = {
 		setScriptureLinksDesc: 'Gera links clicáveis do JW Library para cada texto bíblico.',
 		setBiblePopupEnabled: 'Ativar popup de versículos bíblicos',
 		setBiblePopupEnabledDesc: 'Abre o texto do versículo diretamente no Obsidian ao clicar ou tocar em um texto bíblico, em vez de abrir apenas o JW Library. Pode ser desativado independentemente do arquivo da Bíblia carregado.',
+		setBookNameSuggest: 'Completar nomes de livros',
+		setBookNameSuggestDesc: 'Sugere o nome completo do livro enquanto você digita («Ato» → «Atos»). Só é acionado em palavras com inicial maiúscula e pelo menos três letras, para que o texto comum não gere sugestões o tempo todo. O capítulo e o versículo você digita depois.',
 		setReviewNote: 'Criar nota de revisão',
 		setReviewNoteDesc: 'Cria adicionalmente uma nota "Revisão" com as três perguntas de reflexão padrão (para assembleias de circuito com link para as perguntas de revisão impressas; para congressos regionais com menção ao vídeo com os destaques).',
 		headNoteFields: 'Campos da nota',
@@ -1375,6 +1387,8 @@ export const L: Record<SupportedLang, Strings> = {
 		setScriptureLinksDesc: 'Создаёт кликабельные ссылки JW Library для каждого библейского текста.',
 		setBiblePopupEnabled: 'Включить всплывающее окно с библейским текстом',
 		setBiblePopupEnabledDesc: 'Открывает текст стиха прямо в Obsidian при нажатии на библейский текст, вместо того чтобы просто открывать JW Library. Можно отключить независимо от того, загружен ли файл Библии.',
+		setBookNameSuggest: 'Дополнять названия книг',
+		setBookNameSuggestDesc: 'Предлагает полное название книги при вводе («Деян» → «Деяния»). Срабатывает только на словах с заглавной буквы длиной не менее трёх букв, чтобы обычный текст не вызывал подсказки постоянно. Главу и стих вы дописываете сами.',
 		setReviewNote: 'Создавать заметку «Повторение»',
 		setReviewNoteDesc: 'Дополнительно создаёт заметку «Повторение» с тремя стандартными вопросами для размышления (для районных конгрессов добавляется ссылка на напечатанные вопросы для повторения, для конгрессов — упоминание видео с отрывками программы).',
 		headNoteFields: 'Поля заметок',
@@ -1563,6 +1577,8 @@ export const L: Record<SupportedLang, Strings> = {
 		setScriptureLinksDesc: 'Genera enlaces a JW Library en los que se puede hacer clic para cada texto bíblico.',
 		setBiblePopupEnabled: 'Activar la ventana emergente de versículos bíblicos',
 		setBiblePopupEnabledDesc: 'Abre el texto del versículo directamente en Obsidian al hacer clic o tocar un texto bíblico, en lugar de abrir solo JW Library. Se puede desactivar independientemente del archivo de la Biblia cargado.',
+		setBookNameSuggest: 'Completar nombres de libros',
+		setBookNameSuggestDesc: 'Sugiere el nombre completo del libro mientras escribes («Hech» → «Hechos»). Solo se activa con palabras en mayúscula inicial de tres letras o más, para que el texto normal no genere sugerencias continuamente. El capítulo y el versículo los escribes tú.',
 		setReviewNote: 'Crear nota de repaso',
 		setReviewNoteDesc: 'Crea además una nota "Repaso" con las tres preguntas de reflexión estándar (en las asambleas de circuito se enlaza a las preguntas de repaso impresas; en los congresos regionales se menciona el video con los aspectos más destacados).',
 		headNoteFields: 'Campos de la nota',

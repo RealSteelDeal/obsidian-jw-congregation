@@ -520,6 +520,33 @@ Testdateien (`nwt_X.jwpub`, `nwtsty_X.jwpub`) verifiziert.
   dieselbe AES-128-CBC+zlib-Entschlüsselung nutzt, ohne sie zu duplizieren — jedes jwpub-Format
   (Kongressprogramm, Bibel, …) nutzt exakt dasselbe Schema.
 
+### Buchnamen-Vervollständigung (BookNameEditorSuggest)
+
+„Apo" schlägt „Apostelgeschichte" vor. Eingefügt wird der **volle Name plus Leerzeichen**,
+Kapitel und Vers tippt der Nutzer selbst — danach greift `ScriptureEditorSuggest` mit
+Verlinken/Zitieren (Nutzerentscheidung vom 21.09.2026: kein Doppelpunkt, die zwei Schritte
+bleiben getrennt). Abschaltbar über `settings.bookNameSuggest`, **Vorgabe an**.
+
+⚠️ **Die Großschreibungs-Bedingung ist der Kern, keine Feinheit.** Gemessen an den 14
+echten Notizen des Nutzers (11.975 Wörter) am 21.09.2026:
+
+| Auslöseregel | Auslösungen | davon auf Prosa |
+|---|---|---|
+| ab 3 Zeichen | 93 | **46** — `mich` 30×, `offen` 4× |
+| ab 3 + Großbuchstabe | 55 | **8** — nur `Mal`, `Juda` |
+
+`mich` ist Präfix von *Micha*, `offen` von *Offenbarung*. Ohne die Großschreibung wäre die
+Funktion beim Mitschreiben unbrauchbar. **Nicht auf Kleinschreibung lockern, ohne erneut zu
+messen.** Die zweite große Lärmquelle entfällt dadurch, dass `findBooksByPrefix()` nichts
+liefert, wenn das Wort bereits ein vollständiger Buchname ist — das allein waren 47 der 55
+Auslösungen.
+
+Zwei Suggester statt einem: `ScriptureEditorSuggest` feuert ausschließlich bei einer
+**vollständigen** Stelle, sein ganzer Vertrag (`findScriptureReferenceAtEnd`) lautet „die
+Bibelstelle endet hier". Eine Teilwort-Bedingung dort hineinzufalten würde zwei
+unabhängige Auslöser in einem `onTrigger` verheddern. Kollidieren können sie nicht: eine
+fertige Stelle endet auf Ziffern, nicht auf ein bloßes Wort.
+
 ### Notiz an den erweiterten Umfang angleichen (BibleVerseModal, scriptureLinkScan)
 
 **Wozu das da ist** — der Fall, aus dem die Funktion entstanden ist (Nutzer, 21.09.2026):

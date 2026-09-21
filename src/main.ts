@@ -11,6 +11,7 @@ import { UpdateMwbNotesModal } from './ui/UpdateMwbNotesModal';
 import { BibleReader } from './bible/BibleReader';
 import { BibleVerseModal } from './ui/BibleVerseModal';
 import { ScriptureEditorSuggest } from './ui/ScriptureEditorSuggest';
+import { BookNameEditorSuggest } from './ui/BookNameEditorSuggest';
 import { Scripture } from './models/congress';
 import { L, NL } from './i18n';
 import { findFirstScriptureLinkInText, findScriptureLinkInText, parseScriptureFromHref, QUOTE_CALLOUT_START_RE } from './util/scriptureLinkScan';
@@ -87,6 +88,12 @@ export default class JwCongregationPlugin extends Plugin {
 		});
 
 		this.addSettingTab(new JwSettingTab(this.app, this));
+		// Two suggesters, not one: this one completes a book name mid-word,
+		// ScriptureEditorSuggest fires once a whole reference has been typed.
+		// Registered first so the shorter-lived trigger gets its turn before
+		// the reference one — they cannot both match the same text anyway,
+		// since a completed reference ends in digits, not a bare word.
+		this.registerEditorSuggest(new BookNameEditorSuggest(this));
 		this.registerEditorSuggest(new ScriptureEditorSuggest(this));
 
 		// WINDOW-level, CAPTURE-phase listeners handle both Reading View (real

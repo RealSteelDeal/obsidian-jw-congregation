@@ -246,6 +246,21 @@ export interface Strings extends NoteStrings {
 	previewRegenerated: string;
 	previewMarkerOnly: string;
 
+	// ── Speaker names → wiki links (settings.lang) ──────────────────────────
+	setSpeakerLink: string;
+	setSpeakerLinkDesc: string;
+	speakerLinkCommand: string;
+	speakerLinkTitle: string;
+	speakerLinkDesc: string;
+	speakerLinkTarget: string;
+	speakerLinkTargetDesc: string;
+	speakerLinkConvert: string;
+	speakerLinkAmbiguous: string;
+	speakerLinkFound: (variants: string, count: number) => string;
+	noticeSpeakerLinkNothingFound: string;
+	noticeSpeakerLinkNothingSelected: string;
+	noticeSpeakerLinksApplied: (converted: number, skipped: number) => string;
+
 	// ── Legacy note migration modal (settings.lang) ─────────────────────────
 	legacyModalTitle: string;
 	legacyModalDesc: string;
@@ -545,6 +560,24 @@ export const L: Record<SupportedLang, Strings> = {
 		previewRegenerated: 'Wird vollständig neu erzeugt (rein automatisch erstellte Datei).',
 		previewMarkerOnly: 'Nur unsichtbare Marker werden aufgefrischt – am sichtbaren Text ändert sich nichts.',
 
+		setSpeakerLink: 'Redner als Link vorbereiten',
+		setSpeakerLinkDesc: 'Schreibt das Redner-Feld neuer Notizen als leeren Wiki-Link (**Redner:** [[]]). Ein Klick zwischen die Klammern öffnet Obsidians eigene Vervollständigung, sodass derselbe Bruder jedes Mal gleich geschrieben wird – und seine Notiz zeigt dann über die Rückverweise alle seine Vorträge. Standardmäßig aus; bestehende Notizen bleiben unverändert, denn das Redner-Feld gehört dir und wird von keiner Aktualisierung angefasst.',
+		speakerLinkCommand: 'Rednernamen in Links umwandeln',
+		speakerLinkTitle: 'Rednernamen in Links umwandeln',
+		speakerLinkDesc: 'Sucht im ganzen Vault nach von Hand eingetragenen Rednernamen und schlägt vor, welche Schreibweisen dieselbe Person meinen. Vorgeschlagen, nicht entschieden: Name und Zuordnung sind je Person änderbar, geschrieben wird erst beim Übernehmen. Die ursprüngliche Schreibweise bleibt sichtbar erhalten – es ändert sich nur, worauf Obsidian darunter verweist. Namen, die woanders als im Redner-Feld stehen, werden bewusst nicht angerührt; die findet Obsidian selbst unter „Nicht verlinkte Erwähnungen", sobald es die Notiz der Person gibt.',
+		speakerLinkTarget: 'Verlinken auf',
+		speakerLinkTargetDesc: 'Die Schreibweise, unter der diese Person geführt wird. Änderbar – das ist die eine Entscheidung, die dir gehört.',
+		speakerLinkConvert: 'Umwandeln',
+		speakerLinkAmbiguous: 'Diese Abkürzung passt zu mehreren Personen – deshalb wurde sie keiner zugeordnet und ist zunächst abgeschaltet.',
+		speakerLinkFound: (variants, count) => `Gefundene Schreibweisen: ${variants} (${count}× im Vault)`,
+		noticeSpeakerLinkNothingFound: 'Keine von Hand eingetragenen Rednernamen gefunden.',
+		noticeSpeakerLinkNothingSelected: 'Keine Gruppe zum Umwandeln ausgewählt.',
+		noticeSpeakerLinksApplied: (converted, skipped) => {
+			const parts = [`${converted} Rednernamen verlinkt`];
+			if (skipped > 0) parts.push(`${skipped} übersprungen (Notiz zwischenzeitlich geändert)`);
+			return `${parts.join(', ')}.`;
+		},
+
 		legacyModalTitle: 'Mögliche Korrekturen für alte Notizen',
 		legacyModalDesc: 'Diese Notizen wurden mit einer Plugin-Version vor 1.9.0 erstellt und haben keine unsichtbaren Marker – deshalb werden hier nur Zeilen vorgeschlagen, die eindeutig einem bekannten Feld zugeordnet werden können. Nur Notizen mit aktiviertem Schalter werden beim Klick auf „Übernehmen" geändert; alles andere in jeder Notiz bleibt unangetastet.',
 		noticeLegacyCorrectionsFound: count => `${count} alte Notiz(en) mit möglichen Korrekturen gefunden. (Klicken zum Prüfen)`,
@@ -807,6 +840,24 @@ export const L: Record<SupportedLang, Strings> = {
 		previewRegenerated: 'Will be regenerated in full (a purely derived file).',
 		previewMarkerOnly: 'Only invisible markers are refreshed — nothing in the visible text changes.',
 
+		setSpeakerLink: 'Prepare the Speaker field as a link',
+		setSpeakerLinkDesc: 'Writes the Speaker field of new notes as an empty wiki link (**Speaker:** [[]]). Clicking between the brackets opens Obsidian’s own completion, so the same brother is spelled the same way every time — and his note then lists all his talks under its backlinks. Off by default; existing notes are left as they are, since the Speaker field is yours and no update ever touches it.',
+		speakerLinkCommand: 'Turn speaker names into links',
+		speakerLinkTitle: 'Turn speaker names into links',
+		speakerLinkDesc: 'Searches the whole vault for hand-typed speaker names and proposes which spellings mean the same person. Proposed, not decided: the name and the grouping can be changed per person, and nothing is written until you apply. The original wording stays visible — only what Obsidian resolves underneath changes. Names written somewhere other than the Speaker field are deliberately left alone; Obsidian finds those itself under "unlinked mentions" once the person’s note exists.',
+		speakerLinkTarget: 'Link to',
+		speakerLinkTargetDesc: 'The spelling this person is filed under. Editable — this is the one decision that should be yours.',
+		speakerLinkConvert: 'Convert',
+		speakerLinkAmbiguous: 'This shortening fits more than one person, so it was not assigned to any of them and starts switched off.',
+		speakerLinkFound: (variants, count) => `Spellings found: ${variants} (${count} in the vault)`,
+		noticeSpeakerLinkNothingFound: 'No hand-typed speaker names found.',
+		noticeSpeakerLinkNothingSelected: 'No group selected for conversion.',
+		noticeSpeakerLinksApplied: (converted, skipped) => {
+			const parts = [`${converted} speaker names linked`];
+			if (skipped > 0) parts.push(`${skipped} skipped (note changed in the meantime)`);
+			return `${parts.join(', ')}.`;
+		},
+
 		legacyModalTitle: 'Possible corrections for old notes',
 		legacyModalDesc: 'These notes were created with a plugin version before 1.9.0 and have no invisible markers — so only lines that can be unambiguously matched to a known field are proposed here. Only notes with the toggle enabled are changed when clicking "Apply"; everything else in every note is left untouched.',
 		noticeLegacyCorrectionsFound: count => `${count} old note(s) with possible corrections found. (Click to review)`,
@@ -1036,6 +1087,24 @@ export const L: Record<SupportedLang, Strings> = {
 		previewSectionNeedsReimport: 'Laissé intact (ancien format)',
 		previewRegenerated: 'Sera entièrement régénéré (fichier purement dérivé).',
 		previewMarkerOnly: 'Seuls des marqueurs invisibles sont rafraîchis — le texte visible ne change pas.',
+
+		setSpeakerLink: 'Préparer le champ Orateur comme lien',
+		setSpeakerLinkDesc: 'Écrit le champ Orateur des nouvelles notes sous forme de lien wiki vide (**Orateur:** [[]]). Un clic entre les crochets ouvre la complétion d’Obsidian, si bien que le même frère s’écrit toujours de la même façon — et sa note liste ensuite tous ses discours via ses liens entrants. Désactivé par défaut ; les notes existantes restent inchangées, le champ Orateur vous appartient et aucune mise à jour n’y touche.',
+		speakerLinkCommand: 'Convertir les noms d’orateurs en liens',
+		speakerLinkTitle: 'Convertir les noms d’orateurs en liens',
+		speakerLinkDesc: 'Recherche dans tout le coffre les noms d’orateurs saisis à la main et propose quelles graphies désignent la même personne. Proposé, non décidé : le nom et le regroupement sont modifiables pour chaque personne, et rien n’est écrit avant validation. La graphie d’origine reste visible — seul ce qu’Obsidian résout en dessous change. Les noms écrits ailleurs que dans le champ Orateur ne sont volontairement pas touchés ; Obsidian les trouve lui-même sous « mentions non liées » dès que la note de la personne existe.',
+		speakerLinkTarget: 'Lier vers',
+		speakerLinkTargetDesc: 'La graphie sous laquelle cette personne est classée. Modifiable — c’est la seule décision qui doit vous revenir.',
+		speakerLinkConvert: 'Convertir',
+		speakerLinkAmbiguous: 'Cette abréviation correspond à plusieurs personnes : elle n’a donc été attribuée à aucune et reste désactivée.',
+		speakerLinkFound: (variants, count) => `Graphies trouvées : ${variants} (${count} fois dans le coffre)`,
+		noticeSpeakerLinkNothingFound: 'Aucun nom d’orateur saisi à la main n’a été trouvé.',
+		noticeSpeakerLinkNothingSelected: 'Aucun groupe sélectionné pour la conversion.',
+		noticeSpeakerLinksApplied: (converted, skipped) => {
+			const parts = [`${converted} noms d’orateurs liés`];
+			if (skipped > 0) parts.push(`${skipped} ignorés (note modifiée entre-temps)`);
+			return `${parts.join(', ')}.`;
+		},
 
 		legacyModalTitle: 'Corrections possibles pour les anciennes notes',
 		legacyModalDesc: 'Ces notes ont été créées avec une version du plugin antérieure à la 1.9.0 et ne contiennent aucun marqueur invisible — seules les lignes pouvant être associées sans ambiguïté à un champ connu sont donc proposées ici. Seules les notes dont l’interrupteur est activé sont modifiées en cliquant sur « Appliquer » ; tout le reste de chaque note reste inchangé.',
@@ -1267,6 +1336,24 @@ export const L: Record<SupportedLang, Strings> = {
 		previewRegenerated: 'Verrà rigenerato per intero (file puramente derivato).',
 		previewMarkerOnly: 'Vengono aggiornati solo marcatori invisibili — il testo visibile non cambia.',
 
+		setSpeakerLink: 'Prepara il campo Oratore come collegamento',
+		setSpeakerLinkDesc: 'Scrive il campo Oratore delle nuove note come collegamento wiki vuoto (**Oratore:** [[]]). Un clic tra le parentesi apre il completamento di Obsidian, così lo stesso fratello viene scritto sempre allo stesso modo — e la sua nota elenca poi tutti i suoi discorsi tra i collegamenti in entrata. Disattivato per impostazione predefinita; le note esistenti restano invariate, il campo Oratore è tuo e nessun aggiornamento lo tocca.',
+		speakerLinkCommand: 'Converti i nomi degli oratori in collegamenti',
+		speakerLinkTitle: 'Converti i nomi degli oratori in collegamenti',
+		speakerLinkDesc: 'Cerca in tutto il vault i nomi di oratori scritti a mano e propone quali grafie indicano la stessa persona. Proposto, non deciso: nome e raggruppamento sono modificabili per ogni persona e non viene scritto nulla finché non confermi. La grafia originale resta visibile — cambia solo ciò che Obsidian risolve sotto. I nomi scritti altrove rispetto al campo Oratore non vengono volutamente toccati; li trova Obsidian stesso tra le «menzioni non collegate» non appena esiste la nota della persona.',
+		speakerLinkTarget: 'Collega a',
+		speakerLinkTargetDesc: 'La grafia sotto cui questa persona viene registrata. Modificabile — è l’unica decisione che deve essere tua.',
+		speakerLinkConvert: 'Converti',
+		speakerLinkAmbiguous: 'Questa abbreviazione corrisponde a più persone: non è stata assegnata a nessuna e resta disattivata.',
+		speakerLinkFound: (variants, count) => `Grafie trovate: ${variants} (${count} volte nel vault)`,
+		noticeSpeakerLinkNothingFound: 'Nessun nome di oratore scritto a mano trovato.',
+		noticeSpeakerLinkNothingSelected: 'Nessun gruppo selezionato per la conversione.',
+		noticeSpeakerLinksApplied: (converted, skipped) => {
+			const parts = [`${converted} nomi di oratori collegati`];
+			if (skipped > 0) parts.push(`${skipped} saltati (nota modificata nel frattempo)`);
+			return `${parts.join(', ')}.`;
+		},
+
 		legacyModalTitle: 'Possibili correzioni per le note vecchie',
 		legacyModalDesc: 'Queste note sono state create con una versione del plugin precedente alla 1.9.0 e non contengono marcatori invisibili — vengono quindi proposte solo le righe che possono essere associate senza ambiguità a un campo noto. Vengono modificate solo le note con l’interruttore attivo, cliccando su "Applica"; tutto il resto di ogni nota resta invariato.',
 		noticeLegacyCorrectionsFound: count => `Trovate ${count} nota/e vecchia/e con possibili correzioni. (Clicca per controllare)`,
@@ -1496,6 +1583,24 @@ export const L: Record<SupportedLang, Strings> = {
 		previewSectionNeedsReimport: 'Permanece intacto (formato mais antigo)',
 		previewRegenerated: 'Será gerado novamente por completo (arquivo puramente derivado).',
 		previewMarkerOnly: 'Apenas marcadores invisíveis são atualizados — o texto visível não muda.',
+
+		setSpeakerLink: 'Preparar o campo Orador como link',
+		setSpeakerLinkDesc: 'Escreve o campo Orador das novas notas como um link wiki vazio (**Orador:** [[]]). Um clique entre os colchetes abre o preenchimento do próprio Obsidian, de modo que o mesmo irmão seja escrito sempre da mesma forma — e a nota dele passa a listar todos os seus discursos nos links de retorno. Desativado por padrão; as notas existentes permanecem como estão, pois o campo Orador é seu e nenhuma atualização mexe nele.',
+		speakerLinkCommand: 'Converter nomes de oradores em links',
+		speakerLinkTitle: 'Converter nomes de oradores em links',
+		speakerLinkDesc: 'Procura em todo o cofre nomes de oradores digitados à mão e propõe quais grafias se referem à mesma pessoa. Proposto, não decidido: o nome e o agrupamento podem ser alterados por pessoa e nada é escrito até você aplicar. A grafia original permanece visível — muda apenas o que o Obsidian resolve por baixo. Nomes escritos fora do campo Orador não são tocados de propósito; o próprio Obsidian os encontra em “menções não vinculadas” assim que a nota da pessoa existir.',
+		speakerLinkTarget: 'Vincular a',
+		speakerLinkTargetDesc: 'A grafia sob a qual esta pessoa fica registrada. Editável — esta é a única decisão que deve ser sua.',
+		speakerLinkConvert: 'Converter',
+		speakerLinkAmbiguous: 'Esta abreviação corresponde a mais de uma pessoa, por isso não foi atribuída a nenhuma e começa desativada.',
+		speakerLinkFound: (variants, count) => `Grafias encontradas: ${variants} (${count}× no cofre)`,
+		noticeSpeakerLinkNothingFound: 'Nenhum nome de orador digitado à mão foi encontrado.',
+		noticeSpeakerLinkNothingSelected: 'Nenhum grupo selecionado para conversão.',
+		noticeSpeakerLinksApplied: (converted, skipped) => {
+			const parts = [`${converted} nomes de oradores vinculados`];
+			if (skipped > 0) parts.push(`${skipped} ignorados (nota alterada nesse meio-tempo)`);
+			return `${parts.join(', ')}.`;
+		},
 
 		legacyModalTitle: 'Possíveis correções para notas antigas',
 		legacyModalDesc: 'Estas notas foram criadas com uma versão do plugin anterior à 1.9.0 e não têm marcadores invisíveis — por isso, só são propostas aqui linhas que possam ser associadas sem ambiguidade a um campo conhecido. Apenas as notas com a chave ativada são alteradas ao clicar em "Aplicar"; todo o resto de cada nota permanece intocado.',
@@ -1727,6 +1832,24 @@ export const L: Record<SupportedLang, Strings> = {
 		previewRegenerated: 'Будет создан заново целиком (полностью производный файл).',
 		previewMarkerOnly: 'Обновляются только невидимые маркеры — видимый текст не меняется.',
 
+		setSpeakerLink: 'Готовить поле «Докладчик» как ссылку',
+		setSpeakerLinkDesc: 'В новых заметках поле «Докладчик» записывается как пустая вики-ссылка (**Докладчик:** [[]]). Клик между скобками открывает собственное автодополнение Obsidian, так что один и тот же брат всегда пишется одинаково, а его заметка показывает все его речи в обратных ссылках. По умолчанию выключено; существующие заметки не меняются — это поле ваше, и ни одно обновление его не трогает.',
+		speakerLinkCommand: 'Превратить имена докладчиков в ссылки',
+		speakerLinkTitle: 'Превращение имён докладчиков в ссылки',
+		speakerLinkDesc: 'Ищет по всему хранилищу имена докладчиков, вписанные вручную, и предлагает, какие написания относятся к одному человеку. Это предложение, а не решение: имя и группировку можно изменить, и ничего не записывается до подтверждения. Исходное написание остаётся видимым — меняется лишь то, куда ведёт ссылка. Имена вне поля «Докладчик» намеренно не затрагиваются: их найдёт сам Obsidian в «несвязанных упоминаниях», как только появится заметка этого человека.',
+		speakerLinkTarget: 'Ссылаться на',
+		speakerLinkTargetDesc: 'Написание, под которым записан этот человек. Изменяемо — это единственное решение, которое должно быть вашим.',
+		speakerLinkConvert: 'Преобразовать',
+		speakerLinkAmbiguous: 'Это сокращение подходит нескольким людям, поэтому оно ни к кому не отнесено и изначально отключено.',
+		speakerLinkFound: (variants, count) => `Найденные написания: ${variants} (${count} в хранилище)`,
+		noticeSpeakerLinkNothingFound: 'Имён докладчиков, вписанных вручную, не найдено.',
+		noticeSpeakerLinkNothingSelected: 'Ни одна группа для преобразования не выбрана.',
+		noticeSpeakerLinksApplied: (converted, skipped) => {
+			const parts = [`связано имён: ${converted}`];
+			if (skipped > 0) parts.push(`пропущено: ${skipped} (заметка изменилась)`);
+			return `${parts.join(', ')}.`;
+		},
+
 		legacyModalTitle: 'Возможные исправления для старых заметок',
 		legacyModalDesc: 'Эти заметки были созданы в версии плагина до 1.9.0 и не содержат невидимых маркеров — поэтому здесь предлагаются только строки, которые можно однозначно сопоставить с известным полем. При нажатии «Применить» изменяются только заметки с включённым переключателем; всё остальное в каждой заметке остаётся без изменений.',
 		noticeLegacyCorrectionsFound: count => `Найдено старых заметок с возможными исправлениями: ${count}. (Нажмите, чтобы проверить)`,
@@ -1956,6 +2079,24 @@ export const L: Record<SupportedLang, Strings> = {
 		previewSectionNeedsReimport: 'Queda intacto (formato antiguo)',
 		previewRegenerated: 'Se regenerará por completo (archivo puramente derivado).',
 		previewMarkerOnly: 'Solo se actualizan marcadores invisibles: el texto visible no cambia.',
+
+		setSpeakerLink: 'Preparar el campo Orador como enlace',
+		setSpeakerLinkDesc: 'Escribe el campo Orador de las notas nuevas como un enlace wiki vacío (**Orador:** [[]]). Al hacer clic entre los corchetes se abre el autocompletado propio de Obsidian, de modo que el mismo hermano se escribe siempre igual, y su nota lista después todos sus discursos en los enlaces entrantes. Desactivado de forma predeterminada; las notas existentes no se modifican, porque el campo Orador es suyo y ninguna actualización lo toca.',
+		speakerLinkCommand: 'Convertir los nombres de oradores en enlaces',
+		speakerLinkTitle: 'Convertir los nombres de oradores en enlaces',
+		speakerLinkDesc: 'Busca en todo el vault los nombres de oradores escritos a mano y propone qué grafías se refieren a la misma persona. Propuesto, no decidido: el nombre y la agrupación se pueden cambiar por persona y no se escribe nada hasta que aplique. La grafía original permanece visible: solo cambia lo que Obsidian resuelve por debajo. Los nombres escritos fuera del campo Orador no se tocan a propósito; el propio Obsidian los encuentra en «menciones no enlazadas» en cuanto exista la nota de la persona.',
+		speakerLinkTarget: 'Enlazar a',
+		speakerLinkTargetDesc: 'La grafía bajo la que se registra a esta persona. Editable: esta es la única decisión que debe ser suya.',
+		speakerLinkConvert: 'Convertir',
+		speakerLinkAmbiguous: 'Esta abreviatura encaja con más de una persona, por eso no se asignó a ninguna y empieza desactivada.',
+		speakerLinkFound: (variants, count) => `Grafías encontradas: ${variants} (${count} veces en el vault)`,
+		noticeSpeakerLinkNothingFound: 'No se encontró ningún nombre de orador escrito a mano.',
+		noticeSpeakerLinkNothingSelected: 'No se seleccionó ningún grupo para convertir.',
+		noticeSpeakerLinksApplied: (converted, skipped) => {
+			const parts = [`${converted} nombres de oradores enlazados`];
+			if (skipped > 0) parts.push(`${skipped} omitidos (la nota cambió mientras tanto)`);
+			return `${parts.join(', ')}.`;
+		},
 
 		legacyModalTitle: 'Posibles correcciones para notas antiguas',
 		legacyModalDesc: 'Estas notas se crearon con una versión del plugin anterior a la 1.9.0 y no tienen marcadores invisibles — por eso aquí solo se proponen líneas que se puedan asociar sin ambigüedad a un campo conocido. Solo se modifican las notas con el interruptor activado al hacer clic en "Aplicar"; el resto de cada nota permanece intacto.',

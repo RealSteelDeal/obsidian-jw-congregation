@@ -119,7 +119,7 @@ export class UpdateNotesModal extends Modal {
 			// manual pick in the common case without hiding the dropdown.
 			const builder = new NoteBuilder({
 				scriptureLinks: true, reviewNote: true, showTagField: true, showTimeField: true,
-				showScriptureField: true, showSpeakerField: true, extraFields: '', frontmatter: false,
+				showScriptureField: true, showSpeakerField: true, speakerLink: false, extraFields: '', frontmatter: false,
 			});
 			const matchName = builder.congressFolderName(result.congress);
 			if (folderDropdown && Array.from(folderDropdown.options).some(o => o.value === matchName)) {

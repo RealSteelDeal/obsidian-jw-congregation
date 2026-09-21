@@ -56,6 +56,7 @@ src/
     legacyFieldPatch.ts      # Heuristischer Fallback für Notizen ohne Marker (vor v1.9.0) — siehe eigener Abschnitt unten
     quoteBuilder.ts          # Vers-Text → Obsidian-Zitat-Callout (`> [!quote] …`)
     scriptureLinkScan.ts     # findet jwlibrary://-Links/Zitat-Callouts im Notiztext (Klick-Feature, Einfüge-/Löschpunkt)
+    speakerNames.ts          # gruppiert Schreibweisen eines Rednernamens — reiner Vorschlag, nie eine Entscheidung (siehe eigener Doc-Kommentar)
   parser/
     JwpubParser.ts           # .jwpub → Congress (primär, nutzt util/jwpubCrypto.ts + DOMParser)
     RtfParser.ts             # RTF-ZIP → Congress (Fallback)
@@ -78,6 +79,7 @@ src/
     ScriptureEditorSuggest.ts # As-you-type-Vorschlag für eine getippte Bibelstelle (Verlinken/Zitat einfügen)
     BookNameEditorSuggest.ts # vervollständigt einen Bibelbuchnamen während des Tippens
     LegacyMigrationModal.ts  # Vorschau/Bestätigung pro Notiz für legacyFieldPatch.ts-Korrekturvorschläge
+    SpeakerLinkModal.ts      # Vorschau/Bestätigung pro Person für die einmalige Rednernamen→Wiki-Link-Migration
 scripts/
   dump-structure.mjs         # Entwickler-Tool: Publication-Zeile + h1/h2/li-Struktur je Dokument ausgeben (nutzt util/jwpubCrypto)
   test-parse.mjs             # Entwickler-Test: importiert den echten JwpubParser per jiti und parst übergebene .jwpub-Dateien

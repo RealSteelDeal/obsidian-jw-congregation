@@ -34,6 +34,7 @@ An Obsidian community plugin that imports official convention program files of J
   Instead, click the reference you already wrote, widen the passage in the popup with "verse after" (or "whole chapter") as he reads, and press **Extend reference** when he is done. A menu then offers to replace the reference or to keep the original and add the wider one beside it.
 
   Widening the popup deliberately never changes the note by itself — you follow along while reading and only commit to a range once you know where it ended. The button appears only when the passage really has been widened, never for a cross-reference you navigated to, and it leaves your own spelling of the book alone (`Phil. 4:` stays `Phil. 4:`). If the line holds several references, only the one you opened is rewritten.
+- **Speaker names as wiki links, so the directory is Obsidian's own.** "Turn speaker names into links" scans the vault, proposes which spellings mean the same brother ("Br. Sieberer" / "Hannes Sieberer" / "Sieberer Hannes") and — once you confirm each group — writes `[[Hannes Sieberer|Br. Sieberer]]`, keeping your wording visible. His note then lists every talk in its backlinks, live and without any generation step. An optional setting writes new notes with `**Speaker:** [[]]` so completion opens as you type and a second spelling never arises.
 - **See what an update would change, before it changes it.** "Show changes before updating" computes the very same run and writes nothing — every affected note listed field by field, old value against new, applied only on confirmation. Notes to be created and notes left untouched are listed separately.
 - **Update every imported convention in one run.** A parser fix applies to all of them, so "Update several conventions at once" takes all the program files together and pairs each with the folder its first import created — matched by folder name anywhere in the vault, always shown as a changeable proposal before anything is written. One convention failing never abandons the rest.
 - **Optional YAML frontmatter** (stable English keys, e.g. for Dataview queries) can be added to every generated note – off by default, notes stay frontmatter-free otherwise.
@@ -106,6 +107,18 @@ Nothing from this is ever written automatically. When such notes are found, a se
 Two things make it trustworthy rather than decorative. It is produced by the same plan the write itself carries out, not by a second calculation that could disagree with it — and confirming re-plans from scratch, because a note may have been edited between looking and deciding.
 
 The practical use: after a plugin update you can see whether your notes are affected at all before touching them, and seeing that your own typed text does *not* appear in the diff is what makes the merge's promise checkable rather than merely stated.
+
+### Speaker names, and the directory that follows from them
+
+The plugin never fills the Speaker field in — it writes the label and the name is yours. So the same brother ends up spelled three ways across a year of notes, and for an ordinary congregation talk the name often sits in the lines *after* the title rather than in the field at all.
+
+A parser cannot survive that: it would re-decide on every run which spellings mean the same person, and one day merge two brothers or split one without saying so. **"Turn speaker names into links"** takes the other route — identity is decided once, by you, and recorded.
+
+It scans the vault, groups the spellings it finds and shows each group for confirmation. The name the group is filed under is editable; a shortening that fits more than one person is never assigned to either, but kept separate, flagged, and switched off until you say otherwise. What is written keeps your own wording visible — `[[Hannes Sieberer|Br. Sieberer]]` — so the migration changes nothing the reader sees, only what Obsidian resolves underneath. A line edited between reviewing and applying is skipped rather than overwritten.
+
+From then on the directory is Obsidian's, not the plugin's: open a speaker's note and its backlinks are every talk he gave, live. Names written outside the Speaker field are deliberately untouched — Obsidian's own "unlinked mentions" finds those once the note exists.
+
+The **"Prepare the Speaker field as a link"** setting (off by default) closes the loop for new notes: they get `**Speaker:** [[]]`, and clicking between the brackets opens completion, so the second spelling never comes into being. Existing notes are never retrofitted — the Speaker line sits outside every merge marker precisely because it belongs to you.
 
 ### Meeting Workbook ("Leben und Dienst") import
 
@@ -249,6 +262,7 @@ src/
     ScriptureEditorSuggest.ts # as-you-type scripture reference → link/quote suggestion
     BookNameEditorSuggest.ts # completes a Bible book name while it is being typed
     LegacyMigrationModal.ts  # review/apply field corrections for pre-1.9.0, marker-free notes
+    SpeakerLinkModal.ts      # review/apply the one-off speaker-name → wiki-link migration
   util/
     jwpubCrypto.ts           # shared jwpub crypto
     jwpubLinks.ts            # shared jwpub constants (MEPS language table, scripture/song href patterns)
@@ -260,6 +274,7 @@ src/
     legacyFieldPatch.ts      # label-anchored heuristic fallback for marker-free notes
     quoteBuilder.ts          # verse text → Obsidian quote callout
     scriptureLinkScan.ts     # finds jwlibrary:// links in note text
+    speakerNames.ts          # groups spellings of a speaker's name (proposal only, never a decision)
 ```
 
 ## Roadmap

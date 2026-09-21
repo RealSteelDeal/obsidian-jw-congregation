@@ -80,44 +80,6 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   currently rejects any other detected file language outright, since the
   three section-heading labels and the Congregation-Bible-Study title double
   as parser detection anchors and only German real files have been verified.
-- **Speaker directory — as wiki links, not as parsed text.** Who spoke when,
-  across conventions. Reported usage (21.09.2026) rules out the obvious
-  approach: the Speaker field is usually filled in, but for an ordinary
-  congregation talk the name often goes into the lines *after* the title
-  instead, and the spelling varies freely — "Br. Sieberer", "Hannes
-  Sieberer", "Sieberer Hannes".
-
-  So the name varies in **format and in position**, which is exactly what a
-  field parser cannot survive. A cleverer parser is the wrong answer: it
-  would re-guess identity on every run, silently merging two brothers or
-  splitting one, with no way for the user to notice.
-
-  The answer is an **authority file**, the way libraries have solved this for
-  a century — and Obsidian already provides the mechanism. The field holds
-  `[[Hannes Sieberer]]` rather than free text:
-  - typing `[[` offers the speakers that already exist, so a second spelling
-    never comes into being in the first place;
-  - old variants are absorbed by `aliases:` in that person's own note — one
-    decision by the user, recorded once, instead of a guess repeated forever;
-  - **position stops mattering**, because a wiki link resolves anywhere in
-    the note — which dissolves the second half of the problem outright;
-  - the person's backlinks *are* the directory: live, per talk, with no
-    generation step and no Dataview.
-
-  That leaves the plugin very little to build, which is the point:
-  1. a setting that writes the field as `[[]]` so completion opens at once;
-  2. a one-off migration over existing notes — free-text names are collected
-     and grouped by a key that ignores honorifics and name order, then
-     **proposed** for confirmation per group (the `LegacyMigrationModal`
-     pattern, already proven here). The heuristic runs once, under
-     supervision, and its result is recorded as a decision;
-  3. optionally an overview note on top, for those who want a table rather
-     than backlinks.
-
-  Cost to be honest about: `[[` is two characters more to type, the person's
-  note has to exist before it can hold aliases or show backlinks, and
-  frontmatter stays untouched — the Dataview route (a `speaker:` key) is no
-  longer needed, so the note structure does not change.
 - **Customizable note template** beyond the current per-field show/hide
   toggles — user-defined field order or additional structural elements.
 - **Periodic Notes integration**: link convention days into Obsidian's
@@ -132,6 +94,24 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   event whose date the user already knows by heart.
 
 ## Recently shipped
+
+- **Speaker names as wiki links — the directory is then Obsidian's own.** Reported usage
+  ruled the obvious approach out: the Speaker field is usually filled in, but for an ordinary
+  congregation talk the name often sits in the lines *after* the title, and the spelling
+  varies freely. Format and position both varying is what no field parser survives.
+
+  So identity is decided once, by the user, and recorded as a link. "Turn speaker names into
+  links" groups the spellings found and proposes each group; the name it is filed under is
+  editable, and a shortening that fits two people is kept apart, flagged and switched off
+  rather than assigned. What is written keeps the original wording visible
+  (`[[Hannes Sieberer|Br. Sieberer]]`), so the migration changes nothing the reader sees —
+  only what Obsidian resolves underneath. A line edited between review and apply is skipped.
+
+  After that there is nothing left for the plugin to do: backlinks are the directory, and
+  Obsidian's own unlinked mentions cover the names written outside the field — the half a
+  parser would have had to guess at. A setting writes new notes with `**Speaker:** [[]]` so
+  the second spelling never arises. Deliberately NOT built: a generated overview note, which
+  would be a stale copy of what backlinks already show live.
 
 - **See what an update would change, before it changes it.** "Show changes
   before updating" computes exactly the run "Update convention notes" would

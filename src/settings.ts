@@ -53,6 +53,14 @@ export interface JwPluginSettings {
 	 *  fires on a capitalised word of three or more letters, which measured at
 	 *  eight false triggers across a real 12 000-word vault. */
 	bookNameSuggest: boolean;
+	/** Write the Speaker field as an empty wiki link (`**Redner:** [[]]`) in
+	 *  newly generated notes, so clicking between the brackets opens Obsidian's
+	 *  own completion and the same brother ends up spelled the same way every
+	 *  time. OFF by default: it changes the note template for everyone,
+	 *  including those who never fill the field in, and an unused `[[]]` is
+	 *  visible clutter. Existing notes are never retrofitted — the Speaker line
+	 *  sits outside every merge marker, because it belongs to the user. */
+	speakerLink: boolean;
 	/** Meeting-workbook ("Leben und Dienst") import/update settings — kept
 	 *  fully independent of the congress-program settings above, since the
 	 *  two note types are conceptually different content that may well live
@@ -94,6 +102,7 @@ export const DEFAULT_SETTINGS: JwPluginSettings = {
 	bibleFileLoaded: false,
 	bibleFilePopupEnabled: true,
 	bookNameSuggest: true,
+	speakerLink: false,
 	mwbTargetFolder: '',
 	mwbScriptureLinks: true,
 	mwbShowDurationField: true,
@@ -234,6 +243,7 @@ export class JwSettingTab extends PluginSettingTab {
 					{ name: t.setShowTime, control: { type: 'toggle', key: 'showTimeField' } },
 					{ name: t.setShowScriptures, control: { type: 'toggle', key: 'showScriptureField' } },
 					{ name: t.setShowSpeaker, control: { type: 'toggle', key: 'showSpeakerField' } },
+					{ name: t.setSpeakerLink, desc: t.setSpeakerLinkDesc, control: { type: 'toggle', key: 'speakerLink' } },
 					{
 						name: t.setExtraFields,
 						desc: t.setExtraFieldsDesc,
@@ -584,6 +594,18 @@ export class JwSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.showSpeakerField)
 					.onChange(async value => {
 						this.plugin.settings.showSpeakerField = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t.setSpeakerLink)
+			.setDesc(t.setSpeakerLinkDesc)
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.speakerLink)
+					.onChange(async value => {
+						this.plugin.settings.speakerLink = value;
 						await this.plugin.saveSettings();
 					}),
 			);

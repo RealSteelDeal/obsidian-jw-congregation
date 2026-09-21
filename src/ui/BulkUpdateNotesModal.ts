@@ -108,7 +108,7 @@ export class BulkUpdateNotesModal extends Modal {
 		// programme itself (year/theme/type), not on any of these options.
 		const builder = new NoteBuilder({
 			scriptureLinks: true, reviewNote: true, showTagField: true, showTimeField: true,
-			showScriptureField: true, showSpeakerField: true, extraFields: '', frontmatter: false,
+			showScriptureField: true, showSpeakerField: true, speakerLink: false, extraFields: '', frontmatter: false,
 		});
 
 		for (const file of files) {

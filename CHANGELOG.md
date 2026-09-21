@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.23.0
+
+### New
+
+- **Speaker names become wiki links — the directory is then Obsidian's own.**
+  Who spoke when, across conventions, without the plugin parsing names on
+  every run.
+
+  Reported usage ruled out the obvious approach. The Speaker field is usually
+  filled in, but for an ordinary congregation talk the name often goes into
+  the lines *after* the title, and the spelling varies freely: "Br. Sieberer",
+  "Hannes Sieberer", "Sieberer Hannes". Varying in **format and in position**
+  is exactly what a field parser cannot survive — and a cleverer parser would
+  re-decide identity on every run, eventually merging two brothers or
+  splitting one, with nothing to alert you.
+
+  So identity is decided **once, by you**, and recorded as a link:
+
+  - **"Turn speaker names into links"** scans the vault, groups the spellings
+    it finds, and proposes each group for confirmation. A shortening that fits
+    more than one person ("Br. Hannes" where two Hanneses exist) is never
+    assigned to either — it is kept separate, flagged, and starts switched
+    off. The name each group is filed under is editable, because that is the
+    one genuine decision in the whole feature.
+  - What gets written keeps your wording visible:
+    `[[Hannes Sieberer|Br. Sieberer]]`. The migration changes **not one
+    character the reader sees** — only what Obsidian resolves underneath.
+  - **"Prepare the Speaker field as a link"** (setting, off by default) writes
+    new notes with `**Speaker:** [[]]`, so clicking between the brackets opens
+    Obsidian's completion and a second spelling never arises in the first
+    place.
+
+  After that the directory needs no plugin at all: a speaker's note lists
+  every talk in its backlinks, live. Names written outside the Speaker field
+  are deliberately left alone — Obsidian's own "unlinked mentions" finds those
+  once the person's note exists, which is the half of the problem that a
+  parser would have had to guess at.
+
+  Nothing is retrofitted and nothing runs on its own: the Speaker field sits
+  outside every merge marker because it is yours, so no update has ever
+  touched it and none does now.
+
 ## 1.22.0
 
 ### New

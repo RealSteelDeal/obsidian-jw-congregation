@@ -19,6 +19,8 @@ import { findFirstScriptureLinkInText, findScriptureLinkInText, parseScriptureFr
 import { diffNoteContent, hasNoMarkers, mergeNoteContent, NoteChange } from './util/noteMerge';
 import { UpdateNotesModal } from './ui/UpdateNotesModal';
 import { BulkUpdateNotesModal } from './ui/BulkUpdateNotesModal';
+import { SpeakerLinkModal } from './ui/SpeakerLinkModal';
+import { findSpeakerValue, groupSpeakerVariants, replaceSpeakerValue, speakerLink, SpeakerGroup, SpeakerOccurrence } from './util/speakerNames';
 import { applyLegacyCorrections, findLegacyCorrections, LegacyFieldCorrection } from './util/legacyFieldPatch';
 import { LegacyMigrationCandidate, LegacyMigrationModal } from './ui/LegacyMigrationModal';
 import { ParseError } from './util/parseErrors';
@@ -133,6 +135,15 @@ export default class JwCongregationPlugin extends Plugin {
 			id: 'preview-congress-update',
 			name: this.tr.previewUpdateCommand,
 			callback: () => new BulkUpdateNotesModal(this.app, this, 'preview').open(),
+		});
+
+		// The one-off migration from hand-typed speaker names to wiki links —
+		// a command rather than anything automatic: it rewrites text the user
+		// typed, so it runs when asked and only after per-person confirmation.
+		this.addCommand({
+			id: 'link-speaker-names',
+			name: this.tr.speakerLinkCommand,
+			callback: () => void this.openSpeakerLinkModal(),
 		});
 
 		// A second, distinct icon (not 'book-open', which is reserved for the
@@ -493,6 +504,7 @@ export default class JwCongregationPlugin extends Plugin {
 			showTimeField: this.settings.showTimeField,
 			showScriptureField: this.settings.showScriptureField,
 			showSpeakerField: this.settings.showSpeakerField,
+			speakerLink: this.settings.speakerLink,
 			extraFields: this.settings.extraFields,
 			frontmatter: this.settings.frontmatter,
 		});
@@ -661,6 +673,7 @@ export default class JwCongregationPlugin extends Plugin {
 			showTimeField: this.settings.showTimeField,
 			showScriptureField: this.settings.showScriptureField,
 			showSpeakerField: this.settings.showSpeakerField,
+			speakerLink: this.settings.speakerLink,
 			extraFields: this.settings.extraFields,
 			frontmatter: this.settings.frontmatter,
 		});
@@ -754,6 +767,7 @@ export default class JwCongregationPlugin extends Plugin {
 			showTimeField: this.settings.showTimeField,
 			showScriptureField: this.settings.showScriptureField,
 			showSpeakerField: this.settings.showSpeakerField,
+			speakerLink: this.settings.speakerLink,
 			extraFields: this.settings.extraFields,
 			frontmatter: this.settings.frontmatter,
 		});
@@ -927,6 +941,100 @@ export default class JwCongregationPlugin extends Plugin {
 			}
 			throw err;
 		}
+	}
+
+	/** Scans, groups and opens the review dialog — or says plainly that there
+	 *  was nothing to convert, which is the expected outcome for a vault whose
+	 *  Speaker fields are already links or still empty. */
+	private async openSpeakerLinkModal(): Promise<void> {
+		const occurrences = await this.scanSpeakerNames();
+		const groups = groupSpeakerVariants(occurrences);
+		if (groups.length === 0) {
+			new Notice(this.tr.noticeSpeakerLinkNothingFound);
+			return;
+		}
+		new SpeakerLinkModal(this.app, this, groups).open();
+	}
+
+	/** Every spelling a Speaker label can have across the supported note
+	 *  languages. A vault may well hold notes imported from files in more than
+	 *  one language, and a note does not record which one it was — so the scan
+	 *  below recognises all of them instead of assuming the current setting. */
+	private speakerLabels(): string[] {
+		return [...new Set(Object.values(NL).map(strings => strings.speakerLabel))];
+	}
+
+	/**
+	 * Collects every hand-typed name in a Speaker field across the whole vault
+	 * and proposes which spellings belong to the same person — the one-off
+	 * migration described in util/speakerNames.ts. Reads only; the proposal
+	 * goes to SpeakerLinkModal, and nothing is written before it is confirmed.
+	 *
+	 * Names written somewhere other than the Speaker field (an ordinary
+	 * congregation talk often has the name in the lines below the title) are
+	 * deliberately out of scope: outside the labelled field there is nothing
+	 * to anchor to, and picking lines that "look like a name" is the guessing
+	 * this whole approach exists to avoid. Once a speaker's note exists,
+	 * Obsidian's own unlinked-mentions panel finds those by itself.
+	 */
+	async scanSpeakerNames(): Promise<SpeakerOccurrence[]> {
+		const labels = this.speakerLabels();
+		const found: SpeakerOccurrence[] = [];
+		for (const file of this.app.vault.getMarkdownFiles()) {
+			const content = await this.app.vault.cachedRead(file);
+			// Cheap pre-filter: the overwhelming majority of notes in a vault
+			// have no Speaker field at all, and splitting every one of them
+			// into lines would be the expensive part of this scan.
+			if (!labels.some(label => content.includes(`**${label}:**`))) continue;
+			const lines = content.split('\n');
+			for (let i = 0; i < lines.length; i++) {
+				const value = findSpeakerValue(lines[i]!, labels);
+				if (value !== null) found.push({ path: file.path, line: i, text: value });
+			}
+		}
+		return found;
+	}
+
+	/** Writes the confirmed speaker links. Each note is re-read and each line
+	 *  re-checked against the name that was proposed for it, so a note edited
+	 *  between the review and the click is left alone rather than overwritten
+	 *  with a stale line — the same rule applyLegacyNoteCorrections() follows. */
+	async applySpeakerLinks(selected: { group: SpeakerGroup; target: string }[]): Promise<void> {
+		const labels = this.speakerLabels();
+		const byPath = new Map<string, { line: number; text: string; target: string }[]>();
+		for (const { group, target } of selected) {
+			for (const occurrence of group.occurrences) {
+				const list = byPath.get(occurrence.path) ?? [];
+				list.push({ line: occurrence.line, text: occurrence.text, target });
+				byPath.set(occurrence.path, list);
+			}
+		}
+
+		let converted = 0;
+		let skipped = 0;
+		for (const [path, edits] of byPath) {
+			const file = this.app.vault.getAbstractFileByPath(path);
+			if (!(file instanceof TFile)) {
+				skipped += edits.length;
+				continue;
+			}
+			const content = await this.app.vault.read(file);
+			const lines = content.split('\n');
+			let touched = false;
+			for (const edit of edits) {
+				const line = lines[edit.line];
+				if (line === undefined || findSpeakerValue(line, labels) !== edit.text) {
+					skipped++;
+					continue;
+				}
+				lines[edit.line] = replaceSpeakerValue(line, speakerLink(edit.target, edit.text));
+				touched = true;
+				converted++;
+			}
+			if (touched) await this.app.vault.modify(file, lines.join('\n'));
+		}
+
+		new Notice(this.tr.noticeSpeakerLinksApplied(converted, skipped), 10000);
 	}
 
 	/** Called by LegacyMigrationModal once the user confirms a note's corrections.

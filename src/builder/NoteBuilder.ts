@@ -11,6 +11,14 @@ export interface NoteBuilderOptions {
 	showTimeField: boolean;
 	showScriptureField: boolean;
 	showSpeakerField: boolean;
+	/** Write the Speaker field as an empty wiki link (`**Speaker:** [[]]`)
+	 *  instead of the bare label, so clicking between the brackets opens
+	 *  Obsidian's own note completion and the same brother is spelled the
+	 *  same way every time — see util/speakerNames.ts for why that matters.
+	 *  Only affects notes written from now on: the Speaker line sits outside
+	 *  every merge marker (it is yours, not the plugin's), so an update never
+	 *  rewrites it in an existing note. */
+	speakerLink: boolean;
 	extraFields: string;
 	frontmatter: boolean;
 }
@@ -68,6 +76,12 @@ export class NoteBuilder {
 		if (time) lines.push(`time: "${time}"`);
 		lines.push('---', '');
 		return lines;
+	}
+
+	/** The Speaker field: a bare label, or an empty wiki link when the
+	 *  setting asks for one (see NoteBuilderOptions.speakerLink). */
+	private speakerLine(): string {
+		return `**${this.t.speakerLabel}:**${this.opts.speakerLink ? ' [[]]' : ''}`;
 	}
 
 	congressFolderName(congress: Congress): string {
@@ -413,7 +427,7 @@ export class NoteBuilder {
 		});
 
 		if (this.opts.showSpeakerField) {
-			lines.push(`**${this.t.speakerLabel}:**`);
+			lines.push(this.speakerLine());
 			lines.push('');
 		}
 		this.pushExtraFields(lines);
@@ -485,7 +499,7 @@ export class NoteBuilder {
 					}
 				});
 				if (this.opts.showSpeakerField) {
-					lines.push(`**${this.t.speakerLabel}:**`);
+					lines.push(this.speakerLine());
 					lines.push('');
 				}
 				this.pushExtraFields(lines);
@@ -493,7 +507,7 @@ export class NoteBuilder {
 			});
 		} else {
 			if (this.opts.showSpeakerField) {
-				lines.push(`**${this.t.speakerLabel}:**`);
+				lines.push(this.speakerLine());
 				lines.push('');
 			}
 			this.pushExtraFields(lines);

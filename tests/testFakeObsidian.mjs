@@ -60,6 +60,12 @@ export function createFakeApp() {
 		async createBinary(p, data) { binaries.set(p, data); return new TFile(p); },
 		async modifyBinary(file, data) { binaries.set(file.path, data); },
 		async createFolder(p) { folders.add(p); },
+		// Used by the speaker-name scan: the real vault hands back TFiles and
+		// reads them from Obsidian's own cache.
+		getMarkdownFiles() {
+			return [...notes.keys()].filter(path => path.endsWith('.md')).map(path => new TFile(path));
+		},
+		async cachedRead(file) { return notes.get(file.path); },
 		adapter: {
 			async exists() { return false; },
 			async writeBinary() {},

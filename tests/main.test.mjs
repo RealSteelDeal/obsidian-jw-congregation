@@ -355,3 +355,88 @@ test('the preview and the update that follows it agree on what changes', async (
 		assert.equal(fake.notes.get(path), content, path);
 	}
 });
+
+// ── Speaker names → wiki links ────────────────────────────────────────────
+
+/** Writes `name` into the Speaker field of `path`, the way a user would. */
+function setSpeaker(fake, path, name) {
+	fake.notes.set(path, fake.notes.get(path).replace('**Redner:**', `**Redner:** ${name}`));
+}
+
+test('scanSpeakerNames() finds hand-typed names and ignores the empty label the plugin writes', async () => {
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+
+	const itemPath = findItemNotePath(fake.notes);
+	// Untouched to begin with: NoteBuilder writes the label and nothing else.
+	assert.deepEqual(await plugin.scanSpeakerNames(), []);
+
+	setSpeaker(fake, itemPath, 'Br. Sieberer');
+	const found = await plugin.scanSpeakerNames();
+	assert.equal(found.length, 1);
+	assert.equal(found[0].path, itemPath);
+	assert.equal(found[0].text, 'Br. Sieberer');
+});
+
+test('applySpeakerLinks() links the name while leaving the visible wording and the rest of the note alone', async () => {
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+
+	const itemPath = findItemNotePath(fake.notes);
+	setSpeaker(fake, itemPath, 'Br. Sieberer');
+	fake.notes.set(itemPath, fake.notes.get(itemPath) + '\nMeine eigene Notiz.\n');
+	const before = fake.notes.get(itemPath);
+
+	const occurrences = await plugin.scanSpeakerNames();
+	Notice.instances.length = 0;
+	await plugin.applySpeakerLinks([
+		{ group: { suggested: 'Hannes Sieberer', variants: ['Br. Sieberer'], occurrences, ambiguous: false },
+			target: 'Hannes Sieberer' },
+	]);
+
+	const after = fake.notes.get(itemPath);
+	assert.match(after, /\*\*Redner:\*\* \[\[Hannes Sieberer\|Br\. Sieberer\]\]/);
+	assert.match(after, /Meine eigene Notiz\./);
+	// Exactly one line differs — nothing else in the note was rewritten.
+	const changedLines = after.split('\n').filter((line, i) => line !== before.split('\n')[i]);
+	assert.equal(changedLines.length, 1);
+	assert.match(Notice.instances.at(-1).message, /1 Rednernamen verlinkt/);
+});
+
+test('applySpeakerLinks() skips a line that changed since it was reviewed, rather than overwriting it', async () => {
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+
+	const itemPath = findItemNotePath(fake.notes);
+	setSpeaker(fake, itemPath, 'Br. Sieberer');
+	const occurrences = await plugin.scanSpeakerNames();
+
+	// The user edits the very same line between reviewing and applying.
+	fake.notes.set(itemPath, fake.notes.get(itemPath).replace('**Redner:** Br. Sieberer', '**Redner:** Jemand anders'));
+
+	Notice.instances.length = 0;
+	await plugin.applySpeakerLinks([
+		{ group: { suggested: 'Hannes Sieberer', variants: ['Br. Sieberer'], occurrences, ambiguous: false },
+			target: 'Hannes Sieberer' },
+	]);
+
+	// The Speaker line specifically is left as the user last wrote it. (The
+	// note does contain other links — the back link to the day's overview.)
+	assert.match(fake.notes.get(itemPath), /\*\*Redner:\*\* Jemand anders$/m);
+	assert.match(Notice.instances.at(-1).message, /1 übersprungen/);
+});
+
+test('a note written with the link setting on carries the empty link, and the scan does not report it', async () => {
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	plugin.settings.speakerLink = true;
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+
+	const itemPath = findItemNotePath(fake.notes);
+	assert.match(fake.notes.get(itemPath), /\*\*Redner:\*\* \[\[\]\]/);
+	// An empty link is not a name; offering it for conversion would be noise.
+	assert.deepEqual(await plugin.scanSpeakerNames(), []);
+});

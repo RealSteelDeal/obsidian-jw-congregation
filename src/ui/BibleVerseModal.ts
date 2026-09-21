@@ -1,11 +1,11 @@
-import { App, Editor, MarkdownView, Modal, Notice, Setting, setIcon } from 'obsidian';
+import { App, Editor, MarkdownView, Menu, Modal, Notice, Setting, setIcon } from 'obsidian';
 import { BibleReader, VerseDetail, VerseSegment } from '../bible/BibleReader';
 import { Scripture } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 import { SupportedLang } from '../normalizer/bookNames';
 import { L } from '../i18n';
 import { buildScriptureQuoteBlock, stripHtml } from '../util/quoteBuilder';
-import { findQuoteBlockRange, findQuoteInsertionPoint } from '../util/scriptureLinkScan';
+import { findQuoteBlockRange, findQuoteInsertionPoint, findScriptureLinkSpan } from '../util/scriptureLinkScan';
 
 // The scheme used by embedded scripture links *inside* footnote/cross-reference/
 // study-note HTML (e.g. `<a href="jwpub://b/NWTR/43:5:7-43:5:7">Joh 5:7</a>`) —
@@ -194,6 +194,18 @@ export class BibleVerseModal extends Modal {
 		const setting = new Setting(container);
 		const canInsert = this.app.workspace.getActiveViewOfType(MarkdownView)?.getMode() === 'source';
 		const showingOriginalQuotedVerse = this.openedFromQuote && this.history.length === 0;
+		// Only once the passage has actually been widened from what the note
+		// says — ScriptureNormalizer.widens() is false for a cross-reference
+		// navigated to, so this never offers to overwrite the note with an
+		// unrelated verse.
+		if (canInsert && ScriptureNormalizer.widens(this.scripture, this.initialScripture)) {
+			setting.addButton(btn => {
+				btn
+					.setButtonText(L[this.lang].btnAlignReference)
+					.onClick(event => this.openAlignMenu(event));
+				btn.buttonEl.addClass('jw-bible-align-button');
+			});
+		}
 		if (verses && verses.length > 0 && canInsert && !showingOriginalQuotedVerse) {
 			setting.addButton(btn =>
 				btn
@@ -217,6 +229,73 @@ export class BibleVerseModal extends Modal {
 					this.close();
 				}),
 		);
+	}
+
+	// Widening the passage deliberately leaves the note alone (see
+	// renderContextControls) — this is where the user can bring it along.
+	//
+	// The choice is asked after the click rather than split into two buttons:
+	// replacing the reference is what is normally meant, so it leads the menu,
+	// and keeping the original alongside is the deliberate second option. Both
+	// rewrite text the user wrote, which is why the button that opens this is
+	// set apart by colour from the rest of the popup's actions.
+	private openAlignMenu(event: MouseEvent): void {
+		const t = L[this.lang];
+		const menu = new Menu();
+		// Two sections rather than two plain entries: Obsidian draws a divider
+		// between them, so the expected action and the deliberate alternative
+		// do not read as an interchangeable pair. Styling the menu itself would
+		// mean reaching for Menu.dom, which is not in the public API.
+		menu.addItem(item => item
+			.setSection('align-primary')
+			.setTitle(t.alignReplace)
+			.setIcon('replace')
+			.onClick(() => this.alignReference('replace')));
+		menu.addItem(item => item
+			.setSection('align-secondary')
+			.setTitle(t.alignAdd)
+			.setIcon('plus')
+			.onClick(() => this.alignReference('add')));
+		menu.showAtMouseEvent(event);
+	}
+
+	// Rewrites the note's own reference to the passage now on display.
+	//
+	// The line is located fresh from the editor rather than from anything
+	// captured when the popup opened — the note may have been edited since, and
+	// rewriting a stale span would damage an unrelated line. The span comes from
+	// matching the parsed scripture, not from the first link on the line, since
+	// a line often carries several references.
+	private alignReference(mode: 'replace' | 'add'): void {
+		const editor = this.app.workspace.getActiveViewOfType(MarkdownView)?.editor;
+		if (!editor) {
+			new Notice(L[this.lang].noticeNoActiveNote);
+			return;
+		}
+		for (let line = 0; line < editor.lineCount(); line++) {
+			const text = editor.getLine(line);
+			const span = findScriptureLinkSpan(text, this.initialScripture);
+			if (!span) continue;
+
+			// Keeps the user's own spelling of book and chapter ("Phil. 4:")
+			// rather than expanding it to the canonical name — the same promise
+			// ScriptureEditorSuggest makes when it links a typed reference.
+			// Safe because widens() guarantees the same chapter.
+			const colon = span.label.indexOf(':');
+			const prefix = colon === -1 ? undefined : span.label.slice(0, colon + 1);
+			const widened = ScriptureNormalizer.toMarkdownLink(this.scripture, this.lang, prefix);
+			const original = text.slice(span.index, span.index + span.length);
+
+			editor.replaceRange(
+				mode === 'replace' ? widened : `${original}, ${widened}`,
+				{ line, ch: span.index },
+				{ line, ch: span.index + span.length },
+			);
+			new Notice(L[this.lang].noticeReferenceAligned);
+			this.close();
+			return;
+		}
+		new Notice(L[this.lang].noticeReferenceNotFound);
 	}
 
 	// Inserts the currently shown passage as a quote callout into whichever

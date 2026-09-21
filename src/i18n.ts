@@ -90,6 +90,20 @@ export interface Strings extends NoteStrings {
 	/** Shown instead of noticeQuoteRemoved when the callout can no longer be
 	 *  found (e.g. edited or deleted manually since the popup was opened). */
 	noticeQuoteRemoveNotFound: string;
+	/** Widening the shown passage ("verse after" / "whole chapter") deliberately
+	 *  leaves the note untouched; this button offers to bring the note's own
+	 *  reference up to what is now on display. Set apart by colour in
+	 *  styles.css — it is the one popup action that rewrites text the user has
+	 *  already written. */
+	btnAlignReference: string;
+	/** The two choices that button opens. Replacing is the expected one and is
+	 *  presented as such; adding keeps the original reference as well. */
+	alignReplace: string;
+	alignAdd: string;
+	noticeReferenceAligned: string;
+	/** Shown when the reference is no longer in the note — edited away since
+	 *  the popup was opened. */
+	noticeReferenceNotFound: string;
 	/** Suggestion label shown right after typing a scripture reference (e.g.
 	 *  "Psalm 12:1") in any note — turns it into a jwlibrary:// link instead of
 	 *  inserting the verse text (see `btnInsertAsQuote` for the other option). */
@@ -327,6 +341,11 @@ export const L: Record<SupportedLang, Strings> = {
 		btnRemoveQuote: 'Zitat entfernen',
 		noticeQuoteRemoved: 'Zitat entfernt.',
 		noticeQuoteRemoveNotFound: 'Zitat nicht gefunden – wurde es zwischenzeitlich bearbeitet oder gelöscht?',
+		btnAlignReference: 'Notiz angleichen',
+		alignReplace: 'Bibelstelle ersetzen',
+		alignAdd: 'Daneben einfügen',
+		noticeReferenceAligned: 'Bibelstelle in der Notiz angeglichen.',
+		noticeReferenceNotFound: 'Bibelstelle in der Notiz nicht gefunden – wurde sie zwischenzeitlich bearbeitet?',
 		scriptureSuggestLink: 'Verlinken',
 		scriptureSuggestLinkAndOpen: 'Verlinken & JW Library öffnen',
 		scriptureSuggestQuoteKeepLink: 'Zitat einfügen & Verlinkung behalten',
@@ -542,6 +561,11 @@ export const L: Record<SupportedLang, Strings> = {
 		btnRemoveQuote: 'Remove quote',
 		noticeQuoteRemoved: 'Quote removed.',
 		noticeQuoteRemoveNotFound: 'Quote not found – was it edited or deleted in the meantime?',
+		btnAlignReference: 'Update note',
+		alignReplace: 'Replace reference',
+		alignAdd: 'Add alongside',
+		noticeReferenceAligned: 'Reference in the note updated.',
+		noticeReferenceNotFound: 'Reference not found in the note – was it edited in the meantime?',
 		scriptureSuggestLink: 'Link',
 		scriptureSuggestLinkAndOpen: 'Link & Open JW Library',
 		scriptureSuggestQuoteKeepLink: 'Insert as quote & keep the link',
@@ -725,6 +749,11 @@ export const L: Record<SupportedLang, Strings> = {
 		btnRemoveQuote: 'Supprimer la citation',
 		noticeQuoteRemoved: 'Citation supprimée.',
 		noticeQuoteRemoveNotFound: 'Citation introuvable – a-t-elle été modifiée ou supprimée entre-temps ?',
+		btnAlignReference: 'Mettre la note à jour',
+		alignReplace: 'Remplacer la référence',
+		alignAdd: 'Ajouter à côté',
+		noticeReferenceAligned: 'Référence mise à jour dans la note.',
+		noticeReferenceNotFound: 'Référence introuvable dans la note – a-t-elle été modifiée entre-temps ?',
 		scriptureSuggestLink: 'Lier',
 		scriptureSuggestLinkAndOpen: 'Lier et ouvrir JW Library',
 		scriptureSuggestQuoteKeepLink: 'Insérer comme citation et conserver le lien',
@@ -908,6 +937,11 @@ export const L: Record<SupportedLang, Strings> = {
 		btnRemoveQuote: 'Rimuovi citazione',
 		noticeQuoteRemoved: 'Citazione rimossa.',
 		noticeQuoteRemoveNotFound: 'Citazione non trovata – è stata modificata o eliminata nel frattempo?',
+		btnAlignReference: 'Aggiorna la nota',
+		alignReplace: 'Sostituisci il riferimento',
+		alignAdd: 'Aggiungi accanto',
+		noticeReferenceAligned: 'Riferimento aggiornato nella nota.',
+		noticeReferenceNotFound: 'Riferimento non trovato nella nota – è stato modificato nel frattempo?',
 		scriptureSuggestLink: 'Collega',
 		scriptureSuggestLinkAndOpen: 'Collega e apri JW Library',
 		scriptureSuggestQuoteKeepLink: 'Inserisci come citazione e mantieni il collegamento',
@@ -1091,6 +1125,11 @@ export const L: Record<SupportedLang, Strings> = {
 		btnRemoveQuote: 'Remover citação',
 		noticeQuoteRemoved: 'Citação removida.',
 		noticeQuoteRemoveNotFound: 'Citação não encontrada – foi editada ou excluída nesse meio tempo?',
+		btnAlignReference: 'Atualizar a nota',
+		alignReplace: 'Substituir a referência',
+		alignAdd: 'Adicionar ao lado',
+		noticeReferenceAligned: 'Referência atualizada na nota.',
+		noticeReferenceNotFound: 'Referência não encontrada na nota – foi editada nesse meio tempo?',
 		scriptureSuggestLink: 'Vincular',
 		scriptureSuggestLinkAndOpen: 'Vincular e abrir no JW Library',
 		scriptureSuggestQuoteKeepLink: 'Inserir como citação e manter o link',
@@ -1274,6 +1313,11 @@ export const L: Record<SupportedLang, Strings> = {
 		btnRemoveQuote: 'Удалить цитату',
 		noticeQuoteRemoved: 'Цитата удалена.',
 		noticeQuoteRemoveNotFound: 'Цитата не найдена — возможно, она была изменена или удалена.',
+		btnAlignReference: 'Обновить заметку',
+		alignReplace: 'Заменить ссылку',
+		alignAdd: 'Добавить рядом',
+		noticeReferenceAligned: 'Ссылка в заметке обновлена.',
+		noticeReferenceNotFound: 'Ссылка в заметке не найдена — возможно, она была изменена.',
 		scriptureSuggestLink: 'Ссылка',
 		scriptureSuggestLinkAndOpen: 'Ссылка и открытие JW Library',
 		scriptureSuggestQuoteKeepLink: 'Вставить как цитату и сохранить ссылку',
@@ -1457,6 +1501,11 @@ export const L: Record<SupportedLang, Strings> = {
 		btnRemoveQuote: 'Eliminar cita',
 		noticeQuoteRemoved: 'Cita eliminada.',
 		noticeQuoteRemoveNotFound: 'No se encontró la cita – ¿se editó o eliminó mientras tanto?',
+		btnAlignReference: 'Actualizar la nota',
+		alignReplace: 'Sustituir la referencia',
+		alignAdd: 'Añadir al lado',
+		noticeReferenceAligned: 'Referencia actualizada en la nota.',
+		noticeReferenceNotFound: 'No se encontró la referencia en la nota – ¿se editó mientras tanto?',
 		scriptureSuggestLink: 'Enlazar',
 		scriptureSuggestLinkAndOpen: 'Enlazar y abrir JW Library',
 		scriptureSuggestQuoteKeepLink: 'Insertar como cita y mantener el enlace',

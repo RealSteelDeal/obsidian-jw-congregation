@@ -201,6 +201,47 @@ test('fromRtf drops a tail code from another book or chapter rather than guessin
 	);
 });
 
+// widens() decides whether the popup offers to bring the note's reference up
+// to the passage on display — it must say yes only to a genuine widening of
+// the same passage, never to a verse navigated to.
+test('widens recognises a passage widened forwards, backwards and both ways', () => {
+	const original = { book: 50, chapter: 4, verseStart: 6, verseEnd: 7 };
+	assert.equal(ScriptureNormalizer.widens({ ...original, verseEnd: 9 }, original), true);
+	assert.equal(ScriptureNormalizer.widens({ ...original, verseStart: 4 }, original), true);
+	assert.equal(ScriptureNormalizer.widens({ ...original, verseStart: 1, verseEnd: 23 }, original), true);
+});
+
+test('widens recognises a single verse widened into a range', () => {
+	const original = { book: 19, chapter: 1, verseStart: 1 };
+	assert.equal(ScriptureNormalizer.widens({ ...original, verseEnd: 3 }, original), true);
+});
+
+test('widens rejects the unchanged passage, so the offer only appears after widening', () => {
+	const original = { book: 50, chapter: 4, verseStart: 6, verseEnd: 7 };
+	assert.equal(ScriptureNormalizer.widens({ ...original }, original), false);
+	assert.equal(ScriptureNormalizer.widens({ book: 19, chapter: 1, verseStart: 1 }, { book: 19, chapter: 1, verseStart: 1 }), false);
+});
+
+test('widens rejects a narrower or shifted passage', () => {
+	const original = { book: 50, chapter: 4, verseStart: 6, verseEnd: 9 };
+	assert.equal(ScriptureNormalizer.widens({ ...original, verseEnd: 7 }, original), false);
+	assert.equal(ScriptureNormalizer.widens({ ...original, verseStart: 8, verseEnd: 12 }, original), false);
+});
+
+test('widens rejects another book or chapter — a cross-reference is not a widening', () => {
+	const original = { book: 50, chapter: 4, verseStart: 6, verseEnd: 7 };
+	assert.equal(ScriptureNormalizer.widens({ book: 19, chapter: 4, verseStart: 1, verseEnd: 20 }, original), false);
+	assert.equal(ScriptureNormalizer.widens({ book: 50, chapter: 3, verseStart: 1, verseEnd: 20 }, original), false);
+});
+
+test('widens rejects cross-chapter and gapped citations rather than guessing', () => {
+	const crossChapter = { book: 58, chapter: 5, verseStart: 13, verseEnd: 1, chapterEnd: 6 };
+	assert.equal(ScriptureNormalizer.widens({ ...crossChapter, verseEnd: 5 }, crossChapter), false);
+	const gapped = { book: 54, chapter: 4, verseStart: 12, extraVerses: [{ start: 15 }] };
+	assert.equal(ScriptureNormalizer.widens({ book: 54, chapter: 4, verseStart: 12, verseEnd: 20 }, gapped), false);
+	assert.equal(ScriptureNormalizer.widens({ ...gapped, verseEnd: 13 }, gapped), false);
+});
+
 test('fromRtf still reads the comma form written by a 1.19.0 development build', () => {
 	// No longer written (JW Library rejects it), but such links already sit in
 	// real notes — a click on one must still open the popup on every verse it

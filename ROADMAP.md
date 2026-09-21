@@ -68,18 +68,6 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   abbreviation → book pairs. Coverage is limited to the books a given file happens to cite,
   which is the reason to *extend* the prefix rule rather than replace it — a known
   abbreviation wins, everything else keeps resolving by unique prefix as today.
-- **Offer to widen the note's reference after expanding a passage in the popup**, requested
-  from real use on 21.09.2026. "Vers danach" and "whole chapter" widen what the popup shows
-  and deliberately leave the note alone (see `renderContextControls`, which treats expansion
-  as refining the view rather than navigating). When the passage has been widened at least
-  once, closing the popup should offer to bring the note's own reference up to the range now
-  shown.
-
-  The parts are already there: the popup keeps the original scripture apart from the one on
-  display, `scriptureLinkScan` finds the line carrying it, and `toMarkdownLink` writes the
-  replacement. What needs deciding first is whether it asks on close or offers a button
-  (both were suggested), and whether the widened range replaces the reference or is offered
-  next to it.
 
 ## Later (deliberately deferred)
 
@@ -122,7 +110,16 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 
 ## Recently shipped
 
-- **The release workflow no longer runs a Node-20 action.**
+- **The verse popup can bring the note's reference up to the passage it is showing.**
+  "Verse after" and "whole chapter" widen the view and still leave the note alone; an
+  **Update note** button now appears once the passage really has been widened, and opens a
+  menu offering to either replace the reference or keep the original and add the wider one
+  beside it. The button is set apart by colour, since it is the only popup action that
+  rewrites text already in the note. It never appears for a cross-reference navigated to,
+  only for a genuine widening of the same passage, and the reference it rewrites is located
+  fresh from the editor and matched by its parsed scripture — so a line carrying several
+  references keeps the other ones intact. The book is left spelled as it was written
+  ("Phil. 4:" stays "Phil. 4:").
   `softprops/action-gh-release` moved from `v2` to `v3`, whose only change is the action's
   own runtime (Node 20 → 24); the four inputs the workflow passes are unchanged. GitHub was
   already forcing `v2` onto Node 24 and annotating every release run — borrowed time that

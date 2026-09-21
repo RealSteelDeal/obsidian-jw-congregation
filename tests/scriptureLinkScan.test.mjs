@@ -4,7 +4,7 @@ import { jiti } from './_setup.mjs';
 
 const {
 	findFirstScriptureLinkInText, findLineWithScripture, findQuoteBlockRange, findQuoteInsertionPoint,
-	findScriptureLinkInText, parseScriptureFromHref,
+	findScriptureLinkInText, findScriptureLinkSpan, parseScriptureFromHref,
 } = await jiti.import('../src/util/scriptureLinkScan.ts');
 
 const PSALM_1_1_LINK = '[Psalm 1:1](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19001001&pub=nwtsty)';
@@ -132,4 +132,35 @@ test('findQuoteInsertionPoint returns undefined when the target scripture is not
 	const lines = ['Kein Link hier.'];
 	const point = findQuoteInsertionPoint(lines, { book: 19, chapter: 1, verseStart: 1 });
 	assert.equal(point, undefined);
+});
+
+const PHIL_LINK = '[Phil. 4:6,7](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=50004006-50004007&pub=nwtsty)';
+
+test('findScriptureLinkSpan returns the exact span and the label as written', () => {
+	const text = `Siehe ${PHIL_LINK} dazu`;
+	const span = findScriptureLinkSpan(text, { book: 50, chapter: 4, verseStart: 6, verseEnd: 7 });
+	assert.ok(span);
+	assert.equal(text.slice(span.index, span.index + span.length), PHIL_LINK);
+	// The label carries the user's own abbreviation, which is what lets a
+	// caller rewrite the reference without expanding "Phil." to "Philipper".
+	assert.equal(span.label, 'Phil. 4:6,7');
+});
+
+test('findScriptureLinkSpan picks the matching link, not the first one on the line', () => {
+	const text = `${PSALM_1_1_LINK} und ${PHIL_LINK}`;
+	const span = findScriptureLinkSpan(text, { book: 50, chapter: 4, verseStart: 6, verseEnd: 7 });
+	assert.ok(span);
+	assert.equal(text.slice(span.index, span.index + span.length), PHIL_LINK);
+});
+
+test('findScriptureLinkSpan returns undefined when no link matches the target', () => {
+	assert.equal(findScriptureLinkSpan(PSALM_1_1_LINK, { book: 50, chapter: 4, verseStart: 6 }), undefined);
+	assert.equal(findScriptureLinkSpan('Kein Link hier.', { book: 19, chapter: 1, verseStart: 1 }), undefined);
+});
+
+test('findScriptureLinkSpan skips a raw-HTML anchor, which has no label to rewrite', () => {
+	// The overview note writes anchors rather than markdown links; those carry
+	// no "[label]" and must not be offered up as something to replace in place.
+	const html = '<a href="jwlibrary:///finder?bible=19001001">Psalm 1:1</a>';
+	assert.equal(findScriptureLinkSpan(html, { book: 19, chapter: 1, verseStart: 1 }), undefined);
 });

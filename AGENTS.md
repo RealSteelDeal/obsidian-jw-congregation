@@ -520,6 +520,37 @@ Testdateien (`nwt_X.jwpub`, `nwtsty_X.jwpub`) verifiziert.
   dieselbe AES-128-CBC+zlib-Entschlüsselung nutzt, ohne sie zu duplizieren — jedes jwpub-Format
   (Kongressprogramm, Bibel, …) nutzt exakt dasselbe Schema.
 
+### Notiz an den erweiterten Umfang angleichen (BibleVerseModal, scriptureLinkScan)
+
+„Vers davor / Vers danach / Ganzes Kapitel" erweitern **nur die Anzeige** und lassen die
+Notiz bewusst unberührt (siehe `renderContextControls`). Der Knopf **„Notiz angleichen"**
+holt sie auf Wunsch nach — mit einem Menü aus „ersetzen" (der Regelfall, erste Sektion) und
+„daneben einfügen" (behält die ursprüngliche Stelle, zweite Sektion; Obsidian zeichnet
+zwischen Sektionen eine Trennlinie). Nutzerentscheidung vom 21.09.2026: Knopf statt Frage
+beim Schließen, und die Wahl erst danach.
+
+- **Sichtbar nur bei echter Erweiterung.** `ScriptureNormalizer.widens()` ist die Bedingung:
+  gleiches Buch, gleiches Kapitel, Umfang echt gewachsen. Für eine per Querverweis
+  angesteuerte Stelle ist sie falsch — sonst böte das Popup an, die Notiz mit einem ganz
+  anderen Vers zu überschreiben. Kapitelübergreifende und Lücken-Zitationen sind
+  ausgenommen, weil „weiter" dort keine eindeutige Antwort hat.
+- **Die zu ersetzende Stelle wird frisch aus dem Editor gesucht**, nicht beim Öffnen des
+  Popups gemerkt — die Notiz kann zwischenzeitlich bearbeitet worden sein. Gefunden wird
+  über `findScriptureLinkSpan()`, das nach der **geparsten Bibelstelle** vergleicht statt
+  den ersten Link der Zeile zu nehmen: In einer Zeile stehen oft mehrere Stellen, und die
+  falsche zu überschreiben wäre unbemerkter Datenverlust. Rohe HTML-Anker (Übersichtsnotiz)
+  liefern kein Label und werden deshalb übersprungen.
+- **Die Schreibweise des Nutzers bleibt.** Aus dem alten Label wird alles bis zum Doppelpunkt
+  als Präfix übernommen (`Phil. 4:`), sodass das Angleichen keine Abkürzung zu „Philipper"
+  ausschreibt — dieselbe Zusage, die `ScriptureEditorSuggest` beim Verlinken gibt.
+- **Farblich abgesetzt** (`.jw-bible-align-button`, `--color-orange`): Es ist die einzige
+  Aktion des Popups, die bereits geschriebenen Text überschreibt. Bewusst **nicht** die
+  Akzentfarbe — die gehört „In JW Library öffnen"; zwei Akzentknöpfe nebeneinander würden
+  nichts darüber sagen, welcher die Notiz verändert.
+
+⚠️ Nicht automatisiert getestet ist — wie bei allen `ui/*.ts` — das Rendering selbst.
+Geprüft sind `widens()` und `findScriptureLinkSpan()` als reine Logik.
+
 ### Eingefügte Zitate anklickbar machen (quoteBuilder, scriptureLinkScan, main.ts, BibleVerseModal)
 
 Ein per „Als Zitat einfügen" erzeugtes Callout (`util/quoteBuilder.ts`) ist komplett

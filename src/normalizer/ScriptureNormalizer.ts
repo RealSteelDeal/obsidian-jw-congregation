@@ -230,6 +230,28 @@ export class ScriptureNormalizer {
 			.join(', ');
 	}
 
+	/**
+	 * Whether `shown` is the same passage as `original`, only wider — exactly
+	 * the relation the verse popup's "verse before / verse after / whole
+	 * chapter" controls produce, and exactly what navigating to a
+	 * cross-reference does not.
+	 *
+	 * Deliberately false for anything that is not a plain single-chapter
+	 * widening: another book or chapter, a cross-chapter citation (those hide
+	 * the widening controls anyway), and a gapped citation — there "wider" has
+	 * no single answer, since widening the leading run while further verses sit
+	 * beyond the gap is not a question to settle by guessing.
+	 */
+	static widens(shown: Scripture, original: Scripture): boolean {
+		if (shown.book !== original.book || shown.chapter !== original.chapter) return false;
+		if (shown.chapterEnd !== undefined || original.chapterEnd !== undefined) return false;
+		if (shown.extraVerses?.length || original.extraVerses?.length) return false;
+		const shownEnd = shown.verseEnd ?? shown.verseStart;
+		const originalEnd = original.verseEnd ?? original.verseStart;
+		if (shown.verseStart > original.verseStart || shownEnd < originalEnd) return false;
+		return shown.verseStart < original.verseStart || shownEnd > originalEnd;
+	}
+
 	private static toRtfCode(book: number, chapter: number, verse: number): string {
 		return (
 			String(book).padStart(2, '0') +

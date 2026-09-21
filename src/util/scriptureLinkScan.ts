@@ -58,6 +58,32 @@ export function findFirstScriptureLinkInText(text: string): { scripture: Scriptu
 	return undefined;
 }
 
+/**
+ * The exact span of the first jwlibrary:// link in `text` whose scripture is
+ * `target`, plus the label it carries — for rewriting that one reference in
+ * place.
+ *
+ * A line often holds several references ("Röm. 2:14, 15" next to "Ps. 94:19"),
+ * so the span has to come from matching the parsed scripture rather than from
+ * the first link on the line. `label` lets a caller keep the user's own
+ * spelling of the book when it writes the replacement, instead of expanding
+ * "Phil." into "Philipper" behind their back.
+ */
+export function findScriptureLinkSpan(
+	text: string, target: Scripture,
+): { index: number; length: number; label: string } | undefined {
+	for (const m of iterateScriptureLinks(text)) {
+		if (!scripturesEqual(m.scripture, target)) continue;
+		const label = /^\[([^\]]*)\]/.exec(text.slice(m.index, m.index + m.length))?.[1];
+		// Only the markdown form carries a label; the raw-HTML anchors the
+		// overview note uses are not rewritten, so an absent label means this
+		// match is not one a caller can replace in place.
+		if (label === undefined) continue;
+		return { index: m.index, length: m.length, label };
+	}
+	return undefined;
+}
+
 function scripturesEqual(a: Scripture, b: Scripture): boolean {
 	return a.book === b.book
 		&& a.chapter === b.chapter

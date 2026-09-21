@@ -305,3 +305,24 @@ a.external-link[href*="jw.org/finder"]:not(#_)::after {
 	text-decoration: none;
 	cursor: pointer;
 }
+
+/* "Update note" — the one popup action that rewrites text the user has already
+   written, so it must not read as just another button. Deliberately NOT the
+   accent colour: that belongs to "Open in JW Library", the popup's primary
+   action, and two accent buttons side by side would say nothing about which
+   one changes the note. Orange is Obsidian's own theme variable and follows
+   light/dark, so this stays legible without hardcoding a colour. */
+.jw-bible-align-button {
+	background-color: var(--color-orange);
+	color: var(--text-on-accent);
+	font-weight: var(--font-semibold);
+}
+
+.jw-bible-align-button:hover {
+	background-color: var(--color-orange);
+	filter: brightness(1.1);
+}
+
+/* The two choices the button opens are separated by Obsidian's own section
+   divider (see openAlignMenu) rather than by styling the menu, which would
+   mean reaching for Menu.dom — not part of the public API. */

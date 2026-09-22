@@ -230,6 +230,11 @@ export class JwSettingTab extends PluginSettingTab {
 							options: { de: 'Deutsch', en: 'English', fr: 'Français', it: 'Italiano', pt: 'Português', ru: 'Русский', es: 'Español' },
 						},
 					},
+					{
+						name: t.setSongSuggest,
+						desc: t.setSongSuggestDesc,
+						control: { type: 'toggle', key: 'songSuggest' },
+					},
 				],
 			},
 			{
@@ -283,11 +288,6 @@ export class JwSettingTab extends PluginSettingTab {
 						name: t.setBookNameSuggest,
 						desc: t.setBookNameSuggestDesc,
 						control: { type: 'toggle', key: 'bookNameSuggest' },
-					},
-					{
-						name: t.setSongSuggest,
-						desc: t.setSongSuggestDesc,
-						control: { type: 'toggle', key: 'songSuggest' },
 					},
 					{
 						name: t.setBibleFile,
@@ -550,6 +550,18 @@ export class JwSettingTab extends PluginSettingTab {
 					}),
 			);
 
+		new Setting(containerEl)
+			.setName(t.setSongSuggest)
+			.setDesc(t.setSongSuggestDesc)
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.songSuggest)
+					.onChange(async value => {
+						this.plugin.settings.songSuggest = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
 		new Setting(containerEl).setName(t.headNoteFields).setHeading();
 
 		new Setting(containerEl)
@@ -680,18 +692,6 @@ export class JwSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.bookNameSuggest)
 					.onChange(async value => {
 						this.plugin.settings.bookNameSuggest = value;
-						await this.plugin.saveSettings();
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName(t.setSongSuggest)
-			.setDesc(t.setSongSuggestDesc)
-			.addToggle(toggle =>
-				toggle
-					.setValue(this.plugin.settings.songSuggest)
-					.onChange(async value => {
-						this.plugin.settings.songSuggest = value;
 						await this.plugin.saveSettings();
 					}),
 			);

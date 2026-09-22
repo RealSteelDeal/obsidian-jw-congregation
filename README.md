@@ -142,6 +142,8 @@ The very top of the tab, **"Import & update convention programs"**, explains the
 | Create review note | on | Creates the additional review note |
 | Note fields | all on | Show/hide the Day/Time/Scriptures/Speaker fields individually, plus free-form extra fields |
 | Add frontmatter (properties) | off | Adds YAML frontmatter with stable English keys (`convention`, `type`, `day`, `time`) to every generated note, independent of the note's own language – e.g. for Dataview queries |
+| Link songs | on | Typing a song number as plain text ("Lied 45") offers to link it to JW Library. The address comes from the official songbook's own data, not from a formula — a song the songbook does not contain is not offered |
+| Prepare the Speaker field as a link | off | Writes the Speaker field of new notes as an empty wiki link (`**Speaker:** [[]]`), so completion opens as you type and the same brother is spelled the same way every time. Existing notes are never retrofitted |
 
 All settings around scriptures — linking, the click/tap popup and the as-you-type suggester — live together under one **"Scripture references"** heading:
 

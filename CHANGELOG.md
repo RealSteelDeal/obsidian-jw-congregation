@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.27.1
+
+### Fixes
+
+- **The "link songs" toggle sat under "Scripture references".** A song is not
+  a scripture reference, and the setting had landed in that group by
+  proximity rather than by meaning. It now sits under the general settings,
+  in both settings paths.
+
+### Documentation
+
+- The settings table in the README was missing two entries: the new **"Link
+  songs"** and, since 1.23.0, **"Prepare the Speaker field as a link"**. Both
+  are listed now — the table names every setting individually, so a gap there
+  means a setting nobody reading the documentation would know exists.
+
 ## 1.27.0
 
 ### New

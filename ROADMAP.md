@@ -95,6 +95,27 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 
 ## Recently shipped
 
+- **A reference can be removed as easily as it was written.** Typing one offers to link it;
+  starting to delete one now offers to finish the job — the same idea at the opposite end of
+  a reference's life, which is where it was missing.
+
+  The trigger had to be an intention, not a position. Inserting a reference leaves a space
+  after it with the caret beyond that space, so "caret exactly at the link's end, no space
+  behind it" is not a state writing produces — it is the state deleting that space produces.
+  A half-deleted link counts too. Merely moving the caret to the end of a finished reference
+  does not.
+
+  Three choices: delete it, edit it (the link goes, the text stays, the caret lands at its
+  end so a wrong verse is corrected by typing over it), or cancel — which matters most on a
+  phone, where Escape is awkward to reach.
+
+  A command and a context-menu entry came first and both fell short in editing view: the link
+  is rendered rather than shown as source, so pressing it opens the verse popup and the caret
+  can hardly be placed inside it. They remain for desktop work with the source visible.
+  Songs and source citations cannot trigger any of this — they are jw.org links, not
+  jwlibrary:// ones — which is asserted by a test rather than assumed, since the suggestion
+  offers to delete whatever it fires on.
+
 - **Speaker names as wiki links — the directory is then Obsidian's own.** Reported usage
   ruled the obvious approach out: the Speaker field is usually filled in, but for an ordinary
   congregation talk the name often sits in the lines *after* the title, and the spelling

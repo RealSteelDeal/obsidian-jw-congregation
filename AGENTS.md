@@ -57,6 +57,8 @@ src/
     quoteBuilder.ts          # Vers-Text → Obsidian-Zitat-Callout (`> [!quote] …`)
     scriptureLinkScan.ts     # findet jwlibrary://-Links/Zitat-Callouts im Notiztext (Klick-Feature, Einfüge-/Löschpunkt)
                              #   + findScriptureLinkSpanAt()/cutSpan() — Bibelstelle unter dem Cursor entfernen
+                             #   + findScriptureLinkToRemoveAt()/scriptureLinkLabel() — wann der Lösch-Vorschlag erscheint
+                             #     (nur Bibelstellen: Lieder/Quellen sind jw.org-Links, per Test abgesichert)
     speakerNames.ts          # gruppiert Schreibweisen eines Rednernamens — reiner Vorschlag, nie eine Entscheidung (siehe eigener Doc-Kommentar)
   parser/
     JwpubParser.ts           # .jwpub → Congress (primär, nutzt util/jwpubCrypto.ts + DOMParser)
@@ -78,7 +80,7 @@ src/
     UpdateMwbNotesModal.ts   # wie UpdateNotesModal, aber für Leben-und-Dienst-Arbeitshefter
     BibleVerseModal.ts       # Popup mit Vers-Text + "In JW Library öffnen"/"Als Zitat einfügen"/"Zitat entfernen"
     ScriptureEditorSuggest.ts # As-you-type-Vorschlag für eine getippte Bibelstelle (Verlinken/Zitat einfügen)
-    RemoveScriptureLinkSuggest.ts # Gegenstück dazu: bietet beim Löschen an, den Rest des Links zu entfernen
+    RemoveScriptureLinkSuggest.ts # Gegenstück dazu: beim Löschen einer Bibelstelle drei Optionen (löschen/anpassen/abbrechen)
     BookNameEditorSuggest.ts # vervollständigt einen Bibelbuchnamen während des Tippens
     LegacyMigrationModal.ts  # Vorschau/Bestätigung pro Notiz für legacyFieldPatch.ts-Korrekturvorschläge
     SpeakerLinkModal.ts      # Vorschau/Bestätigung pro Person für die einmalige Rednernamen→Wiki-Link-Migration

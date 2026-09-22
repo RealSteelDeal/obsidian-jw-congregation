@@ -1,12 +1,13 @@
 # Changelog
 
-## 1.23.2
+## 1.24.0
 
 ### New
 
-- **The plugin now notices when a reference is being deleted, and offers to
-  finish the job.** Start deleting a linked reference and a suggestion
-  appears, with three choices:
+- **Three named choices when a reference is being deleted, one keystroke
+  earlier.** 1.23.2 offered a single "remove" once the link had already been
+  broken. The suggestion now appears as soon as the space after an inserted
+  reference is deleted — before the link breaks at all — and offers:
 
   1. **Delete scripture reference** — the whole link goes.
   2. **Edit scripture reference** — only the link goes; the text stays and the
@@ -16,25 +17,39 @@
   3. **Cancel** — which matters most on a phone, where Escape is awkward to
      reach.
 
-  It appears as soon as the space after an inserted reference is deleted — one
-  keystroke before the link even breaks — and stays up while a backspace walks
-  back through the URL. While the reference is still finished and its inserted
-  space still there, nothing is offered: moving the caret to the end of a
-  reference is not an intention to delete it.
+  That earlier moment is a reliable signal rather than a guess: inserting a
+  reference leaves a space after it with the caret beyond that space, so
+  "caret exactly at the link's end, no space behind it" is not a state writing
+  produces — it is the state deleting that space produces. While the inserted
+  space is still there, nothing is offered: moving the caret to the end of a
+  finished reference is not an intention to delete it.
+
+  **Scripture links only**, and now asserted rather than assumed. Songs and
+  source citations are deliberately written as `https://www.jw.org/finder`
+  links rather than `jwlibrary://` ones, so they cannot reach this; a test
+  covers song, citation, internal-note and external links, each at several
+  caret positions and half-deleted, because a suggestion that offers to delete
+  whatever it fires on had better not fire on the wrong thing. That is also
+  why every option names the reference explicitly.
+
+## 1.23.2
+
+### New
+
+- **The plugin now notices when a reference is being deleted, and offers to
+  finish the job.** Press backspace over a reference's closing bracket and a
+  suggestion appears — accept it and what is left of the link is gone, instead
+  of holding backspace through a URL nobody wants to read.
 
   It is the counterpart to the suggestion that appears once a reference has
-  been *typed*: the same idea at the opposite end of a reference's life.
-
-  **Scripture links only.** Songs and source citations are deliberately
-  written as `https://www.jw.org/finder` links rather than `jwlibrary://`
-  ones, so they can never trigger this — asserted in tests rather than
-  assumed, since the suggestion offers to delete whatever it fires on.
+  been *typed*: the same idea at the opposite end of a reference's life. The
+  trigger is unambiguous, because `[1. Tim. 4:12](jwlibrary://…` with nothing
+  closing it is not a shape anyone types on purpose.
 
   This is what makes removal workable on a phone, where the command and the
   long-press menu both fall short: in editing view the link is rendered rather
   than shown as source, so pressing it opens the verse popup and the caret can
-  hardly be placed inside it. Deleting, by contrast, is exactly the moment the
-  keyboard is already in hand.
+  hardly be placed inside it.
 
 ### Fixes
 

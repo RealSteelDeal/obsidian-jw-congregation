@@ -262,7 +262,7 @@ src/
     UpdateMwbNotesModal.ts   # same as UpdateNotesModal, for Meeting Workbook files
     BibleVerseModal.ts       # verse popup ("Open in JW Library" / "insert as quote")
     ScriptureEditorSuggest.ts # as-you-type scripture reference → link/quote suggestion
-    RemoveScriptureLinkSuggest.ts # offers to finish removing a reference once deleting has begun
+    RemoveScriptureLinkSuggest.ts # once deleting a reference begins: delete it, edit it, or cancel
     BookNameEditorSuggest.ts # completes a Bible book name while it is being typed
     LegacyMigrationModal.ts  # review/apply field corrections for pre-1.9.0, marker-free notes
     SpeakerLinkModal.ts      # review/apply the one-off speaker-name → wiki-link migration
@@ -277,6 +277,7 @@ src/
     legacyFieldPatch.ts      # label-anchored heuristic fallback for marker-free notes
     quoteBuilder.ts          # verse text → Obsidian quote callout
     scriptureLinkScan.ts     # finds jwlibrary:// links in note text
+                             #   + the spans and states the removal suggestion acts on
     speakerNames.ts          # groups spellings of a speaker's name (proposal only, never a decision)
 ```
 

@@ -632,3 +632,63 @@ test('the overview keeps its list intact: no marker lands between two programme 
 		assert.equal(between, false, `marker on line ${i} splits the list`);
 	}
 });
+
+// ── Accepting a song suggestion ──────────────────────────────────────────
+// Live Preview shows a link's source while the caret is still inside it, so
+// without a trailing space (and the caret beyond it) the user is left looking
+// at markdown instead of the finished "Lied 120" — reported 22.09.2026.
+
+const { SongEditorSuggest } = await jitiWithObsidianStub.import('../src/ui/SongEditorSuggest.ts');
+
+/** A one-line editor with real positions, enough for selectSuggestion(). */
+function lineEditor(line) {
+	let text = line;
+	let caret = null;
+	return {
+		getLine: () => text,
+		getRange: (from, to) => text.slice(from.ch, to.ch),
+		replaceRange(replacement, from, to) { text = text.slice(0, from.ch) + replacement + text.slice(to.ch); },
+		setCursor(pos) { caret = pos; },
+		get text() { return text; },
+		get caret() { return caret; },
+	};
+}
+
+/** Runs the suggester's accept step over `line`, linking `Lied <n>` at its end. */
+function acceptSong(line, songNumber) {
+	const suggest = new SongEditorSuggest({ app: {}, settings: { ...DEFAULT_SETTINGS } });
+	const editor = lineEditor(line);
+	const start = { line: 0, ch: line.lastIndexOf(`Lied ${songNumber}`) };
+	suggest.songNumber = songNumber;
+	suggest.context = { editor, start, end: { line: 0, ch: start.ch + `Lied ${songNumber}`.length } };
+	suggest.selectSuggestion();
+	return editor;
+}
+
+test('accepting a song suggestion leaves a trailing space, with the caret past it', async () => {
+	const editor = acceptSong('Wir singen Lied 120', 120);
+
+	assert.match(editor.text, /\[Lied 120\]\(https:\/\/www\.jw\.org\/finder\?[^)]*docid=1102016920\)/);
+	assert.ok(editor.text.endsWith(' '), 'expected a trailing space so the link renders');
+	assert.equal(editor.caret.ch, editor.text.length); // caret beyond the link
+});
+
+test('accepting a song suggestion mid-sentence does not double an existing space', async () => {
+	const editor = acceptSong('Wir singen Lied 120 und beten', 120);
+
+	assert.doesNotMatch(editor.text, /\) {2}und/);
+	assert.match(editor.text, /\) und beten$/);
+});
+
+test('accepting a song suggestion keeps the wording that was typed', async () => {
+	// "Song No. 45" must not come back as this plugin's own phrasing — the
+	// same restraint the scripture suggestion shows towards a book name.
+	const suggest = new SongEditorSuggest({ app: {}, settings: { ...DEFAULT_SETTINGS } });
+	const line = 'Song No. 45';
+	const editor = lineEditor(line);
+	suggest.songNumber = 45;
+	suggest.context = { editor, start: { line: 0, ch: 0 }, end: { line: 0, ch: line.length } };
+	suggest.selectSuggestion();
+
+	assert.match(editor.text, /^\[Song No\. 45\]\(/);
+});

@@ -57,8 +57,17 @@ export class SongEditorSuggest extends EditorSuggest<string> {
 		// "Song No. 45" rather than being rewritten into this plugin's own
 		// phrasing — the same restraint the scripture suggestion shows towards
 		// a user's spelling of a book name.
-		const label = context.editor.getRange(context.start, context.end);
-		context.editor.replaceRange(`[${label}](${url})`, context.start, context.end);
+		const editor = context.editor;
+		const label = editor.getRange(context.start, context.end);
+		const link = `[${label}](${url})`;
+		// A trailing space with the caret beyond it, exactly as the scripture
+		// suggestion does: Live Preview shows a link's source while the caret
+		// is still inside it, so without this the user is left looking at the
+		// markdown instead of the finished "Lied 120". Skipped when a space is
+		// already there, so accepting mid-sentence does not double it.
+		const padding = editor.getLine(context.end.line).slice(context.end.ch).startsWith(' ') ? '' : ' ';
+		editor.replaceRange(`${link}${padding}`, context.start, context.end);
+		editor.setCursor({ line: context.start.line, ch: context.start.ch + link.length + padding.length });
 		this.close();
 	}
 }

@@ -104,6 +104,9 @@ export class Modal {
 
 export class EditorSuggest {
 	constructor(app) { this.app = app; }
+	/** The real class closes its popup here; the tests only need it to exist
+	 *  so an accept step can run to completion. */
+	close() {}
 }
 
 export function setIcon() {}

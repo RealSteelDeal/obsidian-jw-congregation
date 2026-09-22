@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.27.3
+
+### Fixes
+
+- **Accepting a song suggestion left you looking at the markdown.** Live
+  Preview shows a link's source for as long as the caret sits inside it, so
+  "Lied 120" turned into visible `[Lied 120](https://…)` instead of the
+  finished link. It now adds a trailing space and puts the caret beyond it,
+  exactly as the scripture suggestion has always done — and skips the space
+  when one is already there, so accepting mid-sentence does not double it
+  (reported 22.09.2026).
+
+  That trailing space is also what the removal suggestion watches for, so
+  linking a song and later removing it now fit together: delete the space and
+  the offer to remove the link appears.
+
 ## 1.27.2
 
 ### Documentation

@@ -95,6 +95,22 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 
 ## Recently shipped
 
+- **A generated field can now be corrected for good.** Songs, the "Next:" hint and an
+  imported note's scripture field all sit inside generated blocks, which an update rewrites
+  wholesale — so correcting one would have looked as though it worked and quietly reverted.
+  That is why the removal offer was scripture-only at first: extending it to songs without
+  this would have been a trap.
+
+  Accepting a removal or adjustment now flags that block as the user's, with an invisible
+  `data-jw-kept="1"` on the marker it already carries. The merge skips it, the preview stops
+  promising a change to it, and its neighbours keep updating. The flag is written only by the
+  plugin's own edit actions — never by NoteBuilder — so a freshly generated note never has
+  one, and the 1.9.0–1.18.0 marker format, which has nowhere to put it, is unaffected.
+
+  With that in place the offer covers every link the plugin writes (scripture references,
+  songs, source citations) and its options are neutrally named. Links the plugin did not
+  write are still out of scope, asserted from both sides.
+
 - **A reference can be removed as easily as it was written.** Typing one offers to link it;
   starting to delete one now offers to finish the job — the same idea at the opposite end of
   a reference's life, which is where it was missing.

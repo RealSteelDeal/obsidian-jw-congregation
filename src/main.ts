@@ -12,12 +12,12 @@ import { BibleReader } from './bible/BibleReader';
 import { BibleVerseModal } from './ui/BibleVerseModal';
 import { ScriptureEditorSuggest } from './ui/ScriptureEditorSuggest';
 import { BookNameEditorSuggest } from './ui/BookNameEditorSuggest';
-import { RemoveScriptureLinkSuggest } from './ui/RemoveScriptureLinkSuggest';
+import { RemoveLinkSuggest } from './ui/RemoveLinkSuggest';
 import { Congress, Scripture } from './models/congress';
 import { CongressLang } from './normalizer/bookNames';
 import { L, NL } from './i18n';
-import { cutSpan, findFirstScriptureLinkInText, findScriptureLinkInText, findScriptureLinkSpanAt, parseScriptureFromHref, QUOTE_CALLOUT_START_RE, soleScriptureLinkSpan } from './util/scriptureLinkScan';
-import { diffNoteContent, hasNoMarkers, mergeNoteContent, NoteChange } from './util/noteMerge';
+import { cutSpan, findFirstScriptureLinkInText, findScriptureLinkInText, findPluginLinkSpanAt, parseScriptureFromHref, QUOTE_CALLOUT_START_RE, solePluginLinkSpan } from './util/scriptureLinkScan';
+import { diffNoteContent, hasNoMarkers, markBlockKept, mergeNoteContent, NoteChange } from './util/noteMerge';
 import { UpdateNotesModal } from './ui/UpdateNotesModal';
 import { BulkUpdateNotesModal } from './ui/BulkUpdateNotesModal';
 import { SpeakerLinkModal } from './ui/SpeakerLinkModal';
@@ -144,9 +144,9 @@ export default class JwCongregationPlugin extends Plugin {
 		// can carry a shortcut) and from the editor's context menu, which is
 		// also the only workable route on a phone, via long-press.
 		this.addCommand({
-			id: 'remove-scripture-link',
-			name: this.tr.removeScriptureLinkCommand,
-			editorCallback: editor => this.removeScriptureLinkAtCursor(editor),
+			id: 'remove-plugin-link',
+			name: this.tr.removeLinkCommand,
+			editorCallback: editor => this.removeLinkAtCursor(editor),
 		});
 
 		this.registerEvent(this.app.workspace.on('editor-menu', (menu, editor) => {
@@ -154,12 +154,12 @@ export default class JwCongregationPlugin extends Plugin {
 			// same reasoning as the popup's hidden buttons: a dead menu entry
 			// is worse than no entry.
 			const cursor = editor.getCursor();
-			if (!this.scriptureLinkToRemove(editor.getLine(cursor.line), cursor.ch)) return;
+			if (!this.pluginLinkToRemove(editor.getLine(cursor.line), cursor.ch)) return;
 			menu.addItem(item =>
 				item
-					.setTitle(this.tr.removeScriptureLinkCommand)
+					.setTitle(this.tr.removeLinkCommand)
 					.setIcon('unlink')
-					.onClick(() => this.removeScriptureLinkAtCursor(editor)),
+					.onClick(() => this.removeLinkAtCursor(editor)),
 			);
 		}));
 
@@ -200,7 +200,7 @@ export default class JwCongregationPlugin extends Plugin {
 		// Registered first: it fires only on a half-deleted link, a shape the
 		// other two can never match, and getting its turn first means the
 		// offer appears on the very keystroke that breaks the link.
-		this.registerEditorSuggest(new RemoveScriptureLinkSuggest(this));
+		this.registerEditorSuggest(new RemoveLinkSuggest(this));
 		this.registerEditorSuggest(new BookNameEditorSuggest(this));
 		this.registerEditorSuggest(new ScriptureEditorSuggest(this));
 
@@ -979,25 +979,35 @@ export default class JwCongregationPlugin extends Plugin {
 	 *  the caret can hardly be placed inside it. A line with two references and
 	 *  the caret in neither deliberately yields nothing: picking one would be a
 	 *  guess, and the wrong guess deletes the wrong reference. */
-	private scriptureLinkToRemove(line: string, ch: number): { index: number; length: number } | undefined {
-		return findScriptureLinkSpanAt(line, ch) ?? soleScriptureLinkSpan(line);
+	private pluginLinkToRemove(line: string, ch: number): { index: number; length: number } | undefined {
+		return findPluginLinkSpanAt(line, ch) ?? solePluginLinkSpan(line);
 	}
 
 	/** Removes the whole scripture link the cursor sits in — brackets, label,
 	 *  URL and all. The cursor position is read here rather than passed in, so
 	 *  a context-menu click acts on where the menu was opened, not on where
 	 *  the caret happened to be beforehand. */
-	private removeScriptureLinkAtCursor(editor: Editor): void {
+	private removeLinkAtCursor(editor: Editor): void {
 		const cursor = editor.getCursor();
 		const line = editor.getLine(cursor.line);
-		const span = this.scriptureLinkToRemove(line, cursor.ch);
+		const span = this.pluginLinkToRemove(line, cursor.ch);
 		if (!span) {
-			new Notice(this.tr.noticeNoScriptureLinkAtCursor);
+			new Notice(this.tr.noticeNoLinkAtCursor);
 			return;
 		}
 		const updated = cutSpan(line, span.index, span.length);
 		editor.replaceRange(updated, { line: cursor.line, ch: 0 }, { line: cursor.line, ch: line.length });
-		// Left where the reference stood, so typing can simply continue there.
+		// A link inside a generated block would be restored by the next update,
+		// so the block is flagged as the user's — see noteMerge.markBlockKept.
+		// Same reasoning as RemoveLinkSuggest, and done here too so the command
+		// and the suggestion cannot behave differently.
+		const lines = editor.getValue().split('\n');
+		const marked = markBlockKept(lines, cursor.line);
+		if (marked !== lines) {
+			const last = lines.length - 1;
+			editor.replaceRange(marked.join('\n'), { line: 0, ch: 0 }, { line: last, ch: lines[last]!.length });
+		}
+		// Left where the link stood, so typing can simply continue there.
 		editor.setCursor({ line: cursor.line, ch: Math.min(span.index, updated.length) });
 	}
 

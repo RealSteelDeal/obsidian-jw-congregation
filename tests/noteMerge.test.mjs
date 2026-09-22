@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { jiti } from './_setup.mjs';
 
-const { mergeNoteContent, hasNoMarkers, diffNoteContent } = await jiti.import('../src/util/noteMerge.ts');
+const { mergeNoteContent, hasNoMarkers, diffNoteContent, markBlockKept } = await jiti.import('../src/util/noteMerge.ts');
 
 // Current (1.18.1+) marker format — invisible via this plugin's own
 // `.jw-marker { display: none; }` CSS rule, unlike the pre-1.18.1 `%%jw:id%%`
@@ -229,4 +229,75 @@ test('diffNoteContent reports no change when only the marker format is upgraded'
 
 	assert.deepEqual(diffNoteContent(existing, fresh), []);
 	assert.notEqual(mergeNoteContent(existing, fresh), existing); // written all the same
+});
+
+// ── Blocks the user corrected themselves ──────────────────────────────────
+// A derived field the user fixed on purpose (a song the congregation actually
+// sang, a reference the programme got wrong) must survive the next update.
+// Without that, offering the correction at all would be a trap: it would look
+// as though it worked and quietly revert later.
+
+const keptStart = id => `<span class="jw-marker" data-jw-start="${id}" data-jw-kept="1"></span>`;
+
+test('markBlockKept flags the block a line sits in, and only its opening marker', () => {
+	const lines = [start('hint'), '**Anschließend:** Lied 12', end('hint'), 'Mein Text.'];
+	const marked = markBlockKept(lines, 1);
+
+	assert.equal(marked[0], keptStart('hint'));
+	assert.equal(marked[1], '**Anschließend:** Lied 12'); // content untouched
+	assert.equal(marked[2], end('hint')); // closing marker untouched
+	assert.equal(marked[3], 'Mein Text.');
+});
+
+test('markBlockKept leaves lines outside every block alone', () => {
+	// The user's own text is never overwritten in the first place, so there is
+	// nothing to protect and no flag to add.
+	const lines = [start('hint'), 'Feld', end('hint'), 'Mein eigener Text.'];
+	assert.deepEqual(markBlockKept(lines, 3), lines);
+	assert.deepEqual(markBlockKept(lines, 0), lines); // the marker line itself
+});
+
+test('markBlockKept is idempotent and never doubles the flag', () => {
+	const lines = [start('hint'), 'Feld', end('hint')];
+	const once = markBlockKept(lines, 1);
+	assert.deepEqual(markBlockKept(once, 1), once);
+});
+
+test('a kept block survives an update that would otherwise rewrite it', () => {
+	const existing = [keptStart('hint'), '**Anschließend:** Lied 45', end('hint')].join('\n');
+	const fresh = [start('hint'), '**Anschließend:** Lied 12', end('hint')].join('\n');
+
+	// The programme still says 12; the congregation sang 45 and the user said so.
+	assert.equal(mergeNoteContent(existing, fresh), existing);
+});
+
+test('a kept block does not stop its neighbours from being updated', () => {
+	const existing = [
+		start('header'), '**Uhrzeit:** 9:40', end('header'),
+		keptStart('hint'), '**Anschließend:** Lied 45', end('hint'),
+	].join('\n');
+	const fresh = [
+		start('header'), '**Uhrzeit:** 9:50', end('header'),
+		start('hint'), '**Anschließend:** Lied 12', end('hint'),
+	].join('\n');
+
+	const merged = mergeNoteContent(existing, fresh);
+	assert.match(merged, /9:50/);       // the corrected time still lands
+	assert.match(merged, /Lied 45/);    // the user's own correction stands
+	assert.doesNotMatch(merged, /Lied 12/);
+});
+
+test('the preview does not announce a change to a kept block', () => {
+	// It would be listing a change that the merge then refuses to make.
+	const existing = [keptStart('hint'), '**Anschließend:** Lied 45', end('hint')].join('\n');
+	const fresh = [start('hint'), '**Anschließend:** Lied 12', end('hint')].join('\n');
+
+	assert.deepEqual(diffNoteContent(existing, fresh), []);
+});
+
+test('a kept marker is still recognised as a marker at all', () => {
+	// Otherwise the note would look marker-free and be swept into the
+	// pre-1.9.0 heuristic, which knows nothing about markers.
+	const content = [keptStart('hint'), 'Feld', end('hint')].join('\n');
+	assert.equal(hasNoMarkers(content), false);
 });

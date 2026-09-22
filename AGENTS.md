@@ -52,13 +52,14 @@ src/
     bytes.ts                 # latin1Decode(), hexToBytes()
     parseErrors.ts           # ParseError/ParseErrorCode — strukturierte Fehler statt hartkodierter Strings (siehe unten)
     decompressionGuard.ts    # Größenlimits gegen Zip-Bomb-artige Dekompression (siehe unten)
+                             #   markBlockKept() setzt data-jw-kept="1": vom Nutzer korrigierte Blöcke überlebt das Update
     noteMerge.ts             # Marker-basiertes Merge für "…Notizen aktualisieren" (unsichtbare <span>-Marker, siehe eigener Abschnitt unten) — von Kongress- UND mwb-Feature genutzt; diffNoteContent() meldet dasselbe Merge, statt es auszuführen (Vorschau)
     legacyFieldPatch.ts      # Heuristischer Fallback für Notizen ohne Marker (vor v1.9.0) — siehe eigener Abschnitt unten
     quoteBuilder.ts          # Vers-Text → Obsidian-Zitat-Callout (`> [!quote] …`)
     scriptureLinkScan.ts     # findet jwlibrary://-Links/Zitat-Callouts im Notiztext (Klick-Feature, Einfüge-/Löschpunkt)
                              #   + findScriptureLinkSpanAt()/cutSpan() — Bibelstelle unter dem Cursor entfernen
-                             #   + findScriptureLinkToRemoveAt()/scriptureLinkLabel() — wann der Lösch-Vorschlag erscheint
-                             #     (nur Bibelstellen: Lieder/Quellen sind jw.org-Links, per Test abgesichert)
+                             #   + findPluginLinkToRemoveAt()/pluginLinkLabel() — wann der Lösch-Vorschlag erscheint
+                             #     (alle Plugin-Links: Bibelstellen jwlibrary://, Lieder/Quellen jw.org — Fremdlinks nie, per Test abgesichert)
     speakerNames.ts          # gruppiert Schreibweisen eines Rednernamens — reiner Vorschlag, nie eine Entscheidung (siehe eigener Doc-Kommentar)
   parser/
     JwpubParser.ts           # .jwpub → Congress (primär, nutzt util/jwpubCrypto.ts + DOMParser)
@@ -80,7 +81,7 @@ src/
     UpdateMwbNotesModal.ts   # wie UpdateNotesModal, aber für Leben-und-Dienst-Arbeitshefter
     BibleVerseModal.ts       # Popup mit Vers-Text + "In JW Library öffnen"/"Als Zitat einfügen"/"Zitat entfernen"
     ScriptureEditorSuggest.ts # As-you-type-Vorschlag für eine getippte Bibelstelle (Verlinken/Zitat einfügen)
-    RemoveScriptureLinkSuggest.ts # Gegenstück dazu: beim Löschen einer Bibelstelle drei Optionen (löschen/anpassen/abbrechen)
+    RemoveLinkSuggest.ts     # Gegenstück dazu: beim Entfernen eines Plugin-Links drei Optionen (löschen/anpassen/abbrechen)
     BookNameEditorSuggest.ts # vervollständigt einen Bibelbuchnamen während des Tippens
     LegacyMigrationModal.ts  # Vorschau/Bestätigung pro Notiz für legacyFieldPatch.ts-Korrekturvorschläge
     SpeakerLinkModal.ts      # Vorschau/Bestätigung pro Person für die einmalige Rednernamen→Wiki-Link-Migration

@@ -51,64 +51,77 @@ export function findScriptureLinkInText(text: string, offset: number): { scriptu
 	return undefined;
 }
 
-/**
- * The exact span of the jwlibrary:// scripture link covering `offset` — what
- * "remove the reference under the cursor" needs in order to cut it out.
- *
- * Separate from findScriptureLinkInText() above, which answers *which* verse
- * was clicked rather than *where* the link sits. Both walk the same matches,
- * so a reference the popup opens is exactly one the removal can find.
- */
-export function findScriptureLinkSpanAt(text: string, offset: number): { index: number; length: number } | undefined {
-	for (const m of iterateScriptureLinks(text)) {
-		if (offset >= m.index && offset <= m.index + m.length) return { index: m.index, length: m.length };
+// Every link this plugin writes: scripture references as jwlibrary:// deep
+// links, and songs and source citations as jw.org/finder ones (deliberately
+// not jwlibrary://, see NoteBuilder.songLink). The removal offer covers all
+// of them and nothing else — an ordinary note link or an outside URL is none
+// of this plugin's business.
+const PLUGIN_URL = String.raw`(?:jwlibrary:\/\/|https:\/\/www\.jw\.org\/finder\?)`;
+const PLUGIN_LINK_RE = new RegExp(String.raw`\[[^\]]*\]\(${PLUGIN_URL}[^)\s]*\)`, 'g');
+const PLUGIN_HTML_LINK_RE = new RegExp(String.raw`<a\s+href="${PLUGIN_URL}[^"]*"[^>]*>[^<]*<\/a>`, 'g');
+/** The opening half of such a link with nothing closing it — what is left the
+ *  moment someone backspaces over a link's final `)`. */
+const BROKEN_PLUGIN_LINK_TAIL_RE = new RegExp(String.raw`\[[^\]]*\]\(${PLUGIN_URL}[^)\s]*$`);
+
+/** Yields the span of every plugin-written link in `text`, in order. */
+function* iteratePluginLinks(text: string): Generator<{ index: number; length: number }> {
+	for (const re of [PLUGIN_LINK_RE, PLUGIN_HTML_LINK_RE]) {
+		re.lastIndex = 0;
+		let m: RegExpExecArray | null;
+		while ((m = re.exec(text))) yield { index: m.index, length: m[0].length };
+	}
+}
+
+/** The span of the plugin-written link covering `offset`. */
+export function findPluginLinkSpanAt(text: string, offset: number): { index: number; length: number } | undefined {
+	for (const m of iteratePluginLinks(text)) {
+		if (offset >= m.index && offset <= m.index + m.length) return m;
 	}
 	return undefined;
 }
 
-/** A link whose opening `[label](jwlibrary://…` is present but which is no
- *  longer closed — what is left the moment someone backspaces over a
- *  reference's final `)`. */
-const BROKEN_LINK_TAIL_RE = /\[[^\]]*\]\(jwlibrary:\/\/[^)\s]*$/;
-
-/**
- * Recognises that a scripture reference is in the middle of being deleted:
- * the text up to `ch` ends in the opening half of a jwlibrary link that
- * nothing closes any more.
- *
- * This is the one moment where the intention is unambiguous. Deleting such a
- * reference by hand means backspacing through a URL nobody wants to read, so
- * catching that first keystroke is what lets the plugin offer to finish the
- * job — the same idea as the suggestion that appears once a reference has
- * been typed, at the opposite end of its life.
- *
- * An intact link is deliberately not matched, even with the caret inside its
- * URL: nothing is being deleted there, and offering to remove a reference the
- * user is merely passing through would be noise.
- */
-export function findBrokenScriptureLinkAt(line: string, ch: number): { start: number; end: number } | undefined {
-	if (findScriptureLinkSpanAt(line, ch)) return undefined;
-	const match = BROKEN_LINK_TAIL_RE.exec(line.slice(0, ch));
-	return match ? { start: match.index, end: ch } : undefined;
+/** The span of the ONLY plugin-written link in `text`, when there is exactly
+ *  one. The fallback for "remove the link under the cursor" when the caret is
+ *  merely somewhere on the line: with a single link there is nothing to choose
+ *  between, and on a phone the caret can hardly be placed inside a rendered
+ *  link at all. Two or more, and this returns nothing rather than pick. */
+export function solePluginLinkSpan(text: string): { index: number; length: number } | undefined {
+	let found: { index: number; length: number } | undefined;
+	for (const m of iteratePluginLinks(text)) {
+		if (found) return undefined;
+		found = m;
+	}
+	return found;
 }
 
 /** The visible text of a link, given the exact span of one — `1. Petrus 2:3`
- *  out of `[1. Petrus 2:3](jwlibrary://…`. What "unlink" leaves behind, so
- *  the reference can be corrected by typing rather than retyped from nothing.
- *  Works on a half-deleted link too: its label is the part deletion reaches
- *  last. */
-export function scriptureLinkLabel(span: string): string | undefined {
+ *  out of `[1. Petrus 2:3](jwlibrary://…`. What "adjust the link" leaves
+ *  behind, so the entry can be corrected by typing rather than retyped from
+ *  nothing. Works on a half-deleted link too: its label is the part deletion
+ *  reaches last. */
+export function pluginLinkLabel(span: string): string | undefined {
 	return /^\[([^\]]*)\]/.exec(span)?.[1] ?? /<a\s[^>]*>([^<]*)<\/a>/.exec(span)?.[1];
 }
 
 /**
- * The reference a removal suggestion should offer to take out, if any — used
- * by RemoveScriptureLinkSuggest to decide whether to show itself at all.
+ * Recognises that a plugin-written link is in the middle of being deleted:
+ * the text up to `ch` ends in the opening half of one that nothing closes any
+ * more.
+ */
+export function findBrokenPluginLinkAt(line: string, ch: number): { start: number; end: number } | undefined {
+	if (findPluginLinkSpanAt(line, ch)) return undefined;
+	const match = BROKEN_PLUGIN_LINK_TAIL_RE.exec(line.slice(0, ch));
+	return match ? { start: match.index, end: ch } : undefined;
+}
+
+/**
+ * The link a removal suggestion should offer to act on, if any — used by
+ * RemoveLinkSuggest to decide whether to show itself at all.
  *
- * Two moments count as "this reference is on its way out":
+ * Two moments count as "this link is on its way out":
  *
- *  1. The link is already broken (see findBrokenScriptureLinkAt) — the
- *     backspace over its closing bracket has happened.
+ *  1. The link is already broken (see findBrokenPluginLinkAt) — the backspace
+ *     over its closing bracket has happened.
  *  2. The link is still intact, the caret sits exactly at its end, and no
  *     space follows. Inserting a reference leaves a space after it with the
  *     caret beyond that space, so this state is not what writing produces —
@@ -116,38 +129,18 @@ export function scriptureLinkLabel(span: string): string | undefined {
  *     keystroke that would break the link in the first place.
  *
  * A space after the caret rules case 2 out on purpose: with the inserted
- * space still in place, the caret merely being moved to the end of a
- * reference is not an intention to delete it.
+ * space still in place, the caret merely being moved to the end of a link is
+ * not an intention to delete it.
  */
-export function findScriptureLinkToRemoveAt(line: string, ch: number): { start: number; end: number } | undefined {
-	const broken = findBrokenScriptureLinkAt(line, ch);
+export function findPluginLinkToRemoveAt(line: string, ch: number): { start: number; end: number } | undefined {
+	const broken = findBrokenPluginLinkAt(line, ch);
 	if (broken) return broken;
 
-	const intact = findScriptureLinkSpanAt(line, ch);
+	const intact = findPluginLinkSpanAt(line, ch);
 	if (!intact) return undefined;
 	const end = intact.index + intact.length;
 	if (ch !== end || line[ch] === ' ') return undefined;
 	return { start: intact.index, end };
-}
-
-/**
- * The span of the ONLY scripture link in `text`, when there is exactly one.
- *
- * The fallback for "remove the reference under the cursor" when the caret is
- * merely somewhere on the line: with a single reference on it there is nothing
- * to choose between, so insisting on an exact hit would only make the command
- * fussy — and on a phone, where the link is rendered rather than shown as
- * source, placing the caret inside it is barely possible at all. With two or
- * more references this returns nothing, and the caller falls back to saying so
- * rather than picking one.
- */
-export function soleScriptureLinkSpan(text: string): { index: number; length: number } | undefined {
-	let found: { index: number; length: number } | undefined;
-	for (const m of iterateScriptureLinks(text)) {
-		if (found) return undefined;
-		found = { index: m.index, length: m.length };
-	}
-	return found;
 }
 
 /**

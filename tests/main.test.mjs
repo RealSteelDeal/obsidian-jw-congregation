@@ -451,6 +451,7 @@ function fakeEditor(line, ch) {
 	return {
 		getCursor: () => cursor,
 		getLine: () => text,
+		getValue: () => text,
 		replaceRange(replacement) { text = replacement; },
 		setCursor(pos) { cursor = pos; },
 		get text() { return text; },
@@ -466,7 +467,7 @@ test('removing a reference takes the whole link out and leaves the caret where i
 	const editor = fakeEditor(line, line.indexOf('Psalm 1:1'));
 	Notice.instances.length = 0;
 
-	plugin.removeScriptureLinkAtCursor(editor);
+	plugin.removeLinkAtCursor(editor);
 
 	assert.equal(editor.text, 'Lesen wir dazu.');
 	assert.equal(editor.caret.ch, 'Lesen wir '.length);
@@ -478,10 +479,10 @@ test('removing a reference says so when the caret is not in one, instead of dele
 	const editor = fakeEditor('Ein Satz ganz ohne Bibelstelle.', 4);
 	Notice.instances.length = 0;
 
-	plugin.removeScriptureLinkAtCursor(editor);
+	plugin.removeLinkAtCursor(editor);
 
 	assert.equal(editor.text, 'Ein Satz ganz ohne Bibelstelle.');
-	assert.match(Notice.instances[0].message, /keine verlinkte Bibelstelle/);
+	assert.match(Notice.instances[0].message, /keine Verlinkung/);
 });
 
 test('removing a reference takes the one the caret is in, not the first on the line', async () => {
@@ -490,7 +491,7 @@ test('removing a reference takes the one the caret is in, not the first on the l
 	const line = `${PSALM_LINK} und ${second}`;
 	const editor = fakeEditor(line, line.indexOf('Psalm 2:2'));
 
-	plugin.removeScriptureLinkAtCursor(editor);
+	plugin.removeLinkAtCursor(editor);
 
 	assert.match(editor.text, /Psalm 1:1/);
 	assert.doesNotMatch(editor.text, /Psalm 2:2/);
@@ -504,7 +505,7 @@ test('removing a reference works from anywhere on a line that holds only one', a
 	const editor = fakeEditor(line, 2); // caret at the very start of the line
 	Notice.instances.length = 0;
 
-	plugin.removeScriptureLinkAtCursor(editor);
+	plugin.removeLinkAtCursor(editor);
 
 	assert.equal(editor.text, 'Lesen wir dazu.');
 	assert.equal(Notice.instances.length, 0);
@@ -517,8 +518,55 @@ test('removing a reference refuses to guess when the line holds two and the care
 	const editor = fakeEditor(line, line.indexOf(' und ') + 2); // between the two
 	Notice.instances.length = 0;
 
-	plugin.removeScriptureLinkAtCursor(editor);
+	plugin.removeLinkAtCursor(editor);
 
 	assert.equal(editor.text, line); // untouched — the wrong guess deletes the wrong reference
-	assert.match(Notice.instances[0].message, /keine verlinkte Bibelstelle/);
+	assert.match(Notice.instances[0].message, /keine Verlinkung/);
+});
+
+// ── A correction inside a generated block survives the next update ────────
+// The point of the whole markBlockKept mechanism: without it, changing a
+// derived field would look as though it worked and quietly revert.
+
+test('a field corrected through the plugin is not undone by a later update', async () => {
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+
+	const itemPath = findItemNotePath(fake.notes);
+	const congressPath = dirname(itemPath);
+	const lines = fake.notes.get(itemPath).split('\n');
+
+	// Stand in for the suggestion/command: correct a derived line, then flag
+	// its block exactly as they do.
+	const timeLine = lines.findIndex(l => l.startsWith('**Uhrzeit:**'));
+	lines[timeLine] = '**Uhrzeit:** 10:15';
+	const { markBlockKept } = await jitiWithObsidianStub.import('../src/util/noteMerge.ts');
+	fake.notes.set(itemPath, markBlockKept(lines, timeLine).join('\n'));
+
+	// The programme still says 9:50 — the user's own value has to win.
+	await plugin.updateFile('Test.rtf', makeRtf('9 Uhr 50'), congressPath);
+
+	const after = fake.notes.get(itemPath);
+	assert.match(after, /\*\*Uhrzeit:\*\* 10:15/);
+	assert.doesNotMatch(after, /9:50/);
+});
+
+test('the preview does not promise a change to a field the user corrected', async () => {
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+
+	const itemPath = findItemNotePath(fake.notes);
+	const lines = fake.notes.get(itemPath).split('\n');
+	const timeLine = lines.findIndex(l => l.startsWith('**Uhrzeit:**'));
+	lines[timeLine] = '**Uhrzeit:** 10:15';
+	const { markBlockKept } = await jitiWithObsidianStub.import('../src/util/noteMerge.ts');
+	fake.notes.set(itemPath, markBlockKept(lines, timeLine).join('\n'));
+
+	const congress = await parseCongress(makeRtf('9 Uhr 50'));
+	const previews = await plugin.previewFolders([{ label: 'Test.rtf', folder: dirname(itemPath), congress }]);
+
+	const planned = previews[0].plan.notes.find(n => n.path === itemPath);
+	assert.equal(planned.kind, 'unchanged');
 });

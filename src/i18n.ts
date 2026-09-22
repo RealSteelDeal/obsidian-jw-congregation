@@ -262,10 +262,10 @@ export interface Strings extends NoteStrings {
 	noticeSpeakerLinksApplied: (converted: number, skipped: number) => string;
 
 	// ── Removing a scripture link (settings.lang) ───────────────────────────
-	removeScriptureLinkCommand: string;
-	noticeNoScriptureLinkAtCursor: string;
-	suggestRemoveScriptureLink: string;
-	suggestEditScripture: string;
+	removeLinkCommand: string;
+	noticeNoLinkAtCursor: string;
+	suggestRemoveLink: string;
+	suggestEditLink: string;
 
 	// ── Legacy note migration modal (settings.lang) ─────────────────────────
 	legacyModalTitle: string;
@@ -584,10 +584,10 @@ export const L: Record<SupportedLang, Strings> = {
 			return `${parts.join(', ')}.`;
 		},
 
-		removeScriptureLinkCommand: 'Bibelstelle unter dem Cursor entfernen',
-		noticeNoScriptureLinkAtCursor: 'An dieser Stelle steht keine verlinkte Bibelstelle.',
-		suggestRemoveScriptureLink: 'Bibelstelle löschen',
-		suggestEditScripture: 'Bibelstelle anpassen',
+		removeLinkCommand: 'Verlinkung unter dem Cursor entfernen',
+		noticeNoLinkAtCursor: 'An dieser Stelle steht keine Verlinkung dieses Plugins.',
+		suggestRemoveLink: 'Verlinkung löschen',
+		suggestEditLink: 'Verlinkung anpassen',
 
 		legacyModalTitle: 'Mögliche Korrekturen für alte Notizen',
 		legacyModalDesc: 'Diese Notizen wurden mit einer Plugin-Version vor 1.9.0 erstellt und haben keine unsichtbaren Marker – deshalb werden hier nur Zeilen vorgeschlagen, die eindeutig einem bekannten Feld zugeordnet werden können. Nur Notizen mit aktiviertem Schalter werden beim Klick auf „Übernehmen" geändert; alles andere in jeder Notiz bleibt unangetastet.',
@@ -869,10 +869,10 @@ export const L: Record<SupportedLang, Strings> = {
 			return `${parts.join(', ')}.`;
 		},
 
-		removeScriptureLinkCommand: 'Remove the scripture reference under the cursor',
-		noticeNoScriptureLinkAtCursor: 'There is no linked scripture reference at this position.',
-		suggestRemoveScriptureLink: 'Delete scripture reference',
-		suggestEditScripture: 'Edit scripture reference',
+		removeLinkCommand: 'Remove the link under the cursor',
+		noticeNoLinkAtCursor: 'There is no link of this plugin at this position.',
+		suggestRemoveLink: 'Delete link',
+		suggestEditLink: 'Adjust link',
 
 		legacyModalTitle: 'Possible corrections for old notes',
 		legacyModalDesc: 'These notes were created with a plugin version before 1.9.0 and have no invisible markers — so only lines that can be unambiguously matched to a known field are proposed here. Only notes with the toggle enabled are changed when clicking "Apply"; everything else in every note is left untouched.',
@@ -1122,10 +1122,10 @@ export const L: Record<SupportedLang, Strings> = {
 			return `${parts.join(', ')}.`;
 		},
 
-		removeScriptureLinkCommand: 'Supprimer le texte biblique sous le curseur',
-		noticeNoScriptureLinkAtCursor: 'Aucun texte biblique lié à cet endroit.',
-		suggestRemoveScriptureLink: 'Supprimer le texte biblique',
-		suggestEditScripture: 'Modifier le texte biblique',
+		removeLinkCommand: 'Supprimer le lien sous le curseur',
+		noticeNoLinkAtCursor: 'Aucun lien de ce plugin à cet endroit.',
+		suggestRemoveLink: 'Supprimer le lien',
+		suggestEditLink: 'Modifier le lien',
 
 		legacyModalTitle: 'Corrections possibles pour les anciennes notes',
 		legacyModalDesc: 'Ces notes ont été créées avec une version du plugin antérieure à la 1.9.0 et ne contiennent aucun marqueur invisible — seules les lignes pouvant être associées sans ambiguïté à un champ connu sont donc proposées ici. Seules les notes dont l’interrupteur est activé sont modifiées en cliquant sur « Appliquer » ; tout le reste de chaque note reste inchangé.',
@@ -1375,10 +1375,10 @@ export const L: Record<SupportedLang, Strings> = {
 			return `${parts.join(', ')}.`;
 		},
 
-		removeScriptureLinkCommand: 'Rimuovi il riferimento biblico sotto il cursore',
-		noticeNoScriptureLinkAtCursor: 'In questa posizione non c’è alcun riferimento biblico collegato.',
-		suggestRemoveScriptureLink: 'Elimina il riferimento biblico',
-		suggestEditScripture: 'Modifica il riferimento biblico',
+		removeLinkCommand: 'Rimuovi il collegamento sotto il cursore',
+		noticeNoLinkAtCursor: 'In questa posizione non c’è alcun collegamento di questo plugin.',
+		suggestRemoveLink: 'Elimina il collegamento',
+		suggestEditLink: 'Modifica il collegamento',
 
 		legacyModalTitle: 'Possibili correzioni per le note vecchie',
 		legacyModalDesc: 'Queste note sono state create con una versione del plugin precedente alla 1.9.0 e non contengono marcatori invisibili — vengono quindi proposte solo le righe che possono essere associate senza ambiguità a un campo noto. Vengono modificate solo le note con l’interruttore attivo, cliccando su "Applica"; tutto il resto di ogni nota resta invariato.',
@@ -1628,10 +1628,10 @@ export const L: Record<SupportedLang, Strings> = {
 			return `${parts.join(', ')}.`;
 		},
 
-		removeScriptureLinkCommand: 'Remover o texto bíblico sob o cursor',
-		noticeNoScriptureLinkAtCursor: 'Não há nenhum texto bíblico vinculado nesta posição.',
-		suggestRemoveScriptureLink: 'Excluir o texto bíblico',
-		suggestEditScripture: 'Editar o texto bíblico',
+		removeLinkCommand: 'Remover o link sob o cursor',
+		noticeNoLinkAtCursor: 'Não há nenhum link deste plugin nesta posição.',
+		suggestRemoveLink: 'Excluir o link',
+		suggestEditLink: 'Ajustar o link',
 
 		legacyModalTitle: 'Possíveis correções para notas antigas',
 		legacyModalDesc: 'Estas notas foram criadas com uma versão do plugin anterior à 1.9.0 e não têm marcadores invisíveis — por isso, só são propostas aqui linhas que possam ser associadas sem ambiguidade a um campo conhecido. Apenas as notas com a chave ativada são alteradas ao clicar em "Aplicar"; todo o resto de cada nota permanece intocado.',
@@ -1881,10 +1881,10 @@ export const L: Record<SupportedLang, Strings> = {
 			return `${parts.join(', ')}.`;
 		},
 
-		removeScriptureLinkCommand: 'Удалить библейский стих под курсором',
-		noticeNoScriptureLinkAtCursor: 'В этом месте нет связанного библейского стиха.',
-		suggestRemoveScriptureLink: 'Удалить библейский стих',
-		suggestEditScripture: 'Изменить библейский стих',
+		removeLinkCommand: 'Удалить ссылку под курсором',
+		noticeNoLinkAtCursor: 'В этом месте нет ссылки этого плагина.',
+		suggestRemoveLink: 'Удалить ссылку',
+		suggestEditLink: 'Изменить ссылку',
 
 		legacyModalTitle: 'Возможные исправления для старых заметок',
 		legacyModalDesc: 'Эти заметки были созданы в версии плагина до 1.9.0 и не содержат невидимых маркеров — поэтому здесь предлагаются только строки, которые можно однозначно сопоставить с известным полем. При нажатии «Применить» изменяются только заметки с включённым переключателем; всё остальное в каждой заметке остаётся без изменений.',
@@ -2134,10 +2134,10 @@ export const L: Record<SupportedLang, Strings> = {
 			return `${parts.join(', ')}.`;
 		},
 
-		removeScriptureLinkCommand: 'Quitar el texto bíblico bajo el cursor',
-		noticeNoScriptureLinkAtCursor: 'No hay ningún texto bíblico enlazado en esta posición.',
-		suggestRemoveScriptureLink: 'Eliminar el texto bíblico',
-		suggestEditScripture: 'Editar el texto bíblico',
+		removeLinkCommand: 'Quitar el enlace bajo el cursor',
+		noticeNoLinkAtCursor: 'No hay ningún enlace de este plugin en esta posición.',
+		suggestRemoveLink: 'Eliminar el enlace',
+		suggestEditLink: 'Ajustar el enlace',
 
 		legacyModalTitle: 'Posibles correcciones para notas antiguas',
 		legacyModalDesc: 'Estas notas se crearon con una versión del plugin anterior a la 1.9.0 y no tienen marcadores invisibles — por eso aquí solo se proponen líneas que se puedan asociar sin ambigüedad a un campo conocido. Solo se modifican las notas con el interruptor activado al hacer clic en "Aplicar"; el resto de cada nota permanece intacto.',

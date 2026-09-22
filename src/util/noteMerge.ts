@@ -32,14 +32,22 @@
  * old format again.
  */
 
-const MARKER_START_RE = /^<span class="jw-marker" data-jw-start="([A-Za-z0-9_-]+)"><\/span>$/;
+// The optional data-jw-kept="1" is how a block says "the user corrected this
+// on purpose, leave it alone" — see markBlockKept() and the module doc's
+// section on it. Written only by the plugin's own edit actions, never by
+// NoteBuilder, so a freshly generated note never carries it.
+const MARKER_START_RE = /^<span class="jw-marker" data-jw-start="([A-Za-z0-9_-]+)"( data-jw-kept="1")?><\/span>$/;
 const MARKER_END_RE = /^<span class="jw-marker" data-jw-end="([A-Za-z0-9_-]+)"><\/span>$/;
 // 1.9.0–1.18.0 marker format — read-only, see module doc comment above.
 const LEGACY_MARKER_START_RE = /^%%jw:([A-Za-z0-9_-]+)%%$/;
 const LEGACY_MARKER_END_RE = /^%%\/jw:([A-Za-z0-9_-]+)%%$/;
 
-function matchStart(line: string): string | null {
-	return MARKER_START_RE.exec(line)?.[1] ?? LEGACY_MARKER_START_RE.exec(line)?.[1] ?? null;
+function matchStart(line: string): { id: string; kept: boolean } | null {
+	const current = MARKER_START_RE.exec(line);
+	if (current) return { id: current[1]!, kept: current[2] !== undefined };
+	const legacy = LEGACY_MARKER_START_RE.exec(line);
+	// The 1.9.0–1.18.0 format has nowhere to carry the flag, and never did.
+	return legacy ? { id: legacy[1]!, kept: false } : null;
 }
 
 function matchEnd(line: string): string | null {
@@ -50,6 +58,8 @@ interface MarkerBlock {
 	id: string;
 	startLine: number;
 	endLine: number;
+	/** The user corrected this block themselves; an update leaves it as it is. */
+	kept: boolean;
 }
 
 /** Parses top-level (non-nested — markers never nest in NoteBuilder's own output) marker
@@ -57,20 +67,20 @@ interface MarkerBlock {
  *  Recognizes both the current span-based markers and the legacy %%jw:id%% ones (see module doc). */
 function findMarkerBlocks(lines: string[]): MarkerBlock[] | null {
 	const blocks: MarkerBlock[] = [];
-	let open: { id: string; startLine: number } | null = null;
+	let open: { id: string; startLine: number; kept: boolean } | null = null;
 
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i]!.trim();
-		const startId = matchStart(line);
-		if (startId !== null) {
+		const start = matchStart(line);
+		if (start !== null) {
 			if (open) return null; // nested/unclosed marker — not a shape NoteBuilder produces
-			open = { id: startId, startLine: i };
+			open = { id: start.id, startLine: i, kept: start.kept };
 			continue;
 		}
 		const endId = matchEnd(line);
 		if (endId !== null) {
 			if (!open || open.id !== endId) return null; // mismatched close
-			blocks.push({ id: open.id, startLine: open.startLine, endLine: i });
+			blocks.push({ id: open.id, startLine: open.startLine, endLine: i, kept: open.kept });
 			open = null;
 		}
 	}
@@ -119,6 +129,39 @@ export function hasNoMarkers(content: string): boolean {
 		const trimmed = line.trim();
 		return matchStart(trimmed) !== null || matchEnd(trimmed) !== null;
 	});
+}
+
+/**
+ * Marks the block containing `lineIndex` as the user's own, so later updates
+ * leave it alone. The flag goes on that block's opening marker, which is
+ * invisible in both Reading View and Live Preview like every other marker.
+ *
+ * This is what keeps a correction made through the plugin's own edit actions
+ * from being undone by the next "update notes" run. Without it, changing a
+ * derived field — a song number the congregation actually sang, a reference
+ * the programme got wrong — would look as though it worked and quietly revert
+ * later, which is worse than not offering the change at all.
+ *
+ * Returns the lines unchanged when `lineIndex` lies outside every block: text
+ * the user typed themselves is never overwritten to begin with, so it needs
+ * no flag.
+ */
+export function markBlockKept(lines: string[], lineIndex: number): string[] {
+	const blocks = findMarkerBlocks(lines);
+	if (!blocks) return lines;
+	const block = blocks.find(b => lineIndex > b.startLine && lineIndex < b.endLine);
+	if (!block || block.kept) return lines;
+	const startLine = lines[block.startLine]!;
+	// Only the current span format can carry the flag. A legacy %%jw:id%%
+	// marker becomes a span on its next merge anyway, and flagging it here
+	// would produce a line neither format recognises.
+	if (!MARKER_START_RE.test(startLine.trim())) return lines;
+	const updated = lines.slice();
+	updated[block.startLine] = startLine.replace(
+		/ data-jw-start="([A-Za-z0-9_-]+)"/,
+		' data-jw-start="$1" data-jw-kept="1"',
+	);
+	return updated;
 }
 
 export function pushMarked(lines: string[], id: string, render: () => void): void {
@@ -208,6 +251,8 @@ export function diffNoteContent(existing: string, fresh: string): NoteChange[] |
 	for (let i = 0; i < aligned.existingBlocks.length; i++) {
 		const eb = aligned.existingBlocks[i]!;
 		const fb = aligned.freshBlocks[i]!;
+		// A kept block is not rewritten, so the preview must not announce it.
+		if (eb.kept) continue;
 		// The marker lines themselves are skipped: they are invisible in the
 		// note, and a legacy %%jw:…%% pair being upgraded to a span is not a
 		// change the user has any reason to be shown.
@@ -228,6 +273,10 @@ export function mergeNoteContent(existing: string, fresh: string): string | null
 	for (let i = existingBlocks.length - 1; i >= 0; i--) {
 		const eb = existingBlocks[i]!;
 		const fb = freshBlocks[i]!;
+		// The user corrected this block on purpose (see markBlockKept): an
+		// update must not undo that, or the correction would quietly come back
+		// wrong on the next parser fix.
+		if (eb.kept) continue;
 		const freshSpan = freshBody.slice(fb.startLine, fb.endLine + 1);
 		mergedBody.splice(eb.startLine, eb.endLine - eb.startLine + 1, ...freshSpan);
 	}

@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.25.0
+
+### New
+
+- **The removal offer now covers every link the plugin writes, and a
+  correction made through it survives.** Two changes that only make sense
+  together.
+
+  The suggestion used to fire on scripture references only, so its options
+  could name them. It now also covers **songs and source citations** —
+  jw.org/finder links rather than `jwlibrary://` ones, but just as much the
+  plugin's own and just as tedious to delete by hand. The options are
+  therefore neutral: **Delete link**, **Adjust link**, **Cancel**. Ordinary
+  note links and outside URLs are still none of this plugin's business, which
+  a test asserts from both sides.
+
+- **A corrected field is no longer undone by the next update.** Songs, the
+  "Next:" hint and an imported note's scripture field all sit inside generated
+  blocks, which an update rewrites wholesale. Correcting one — the song the
+  congregation actually sang, a reference the programme got wrong — would have
+  looked as though it worked and quietly reverted later. Offering the change
+  without this would have been a trap.
+
+  Accepting a removal or adjustment now flags that block as yours: an
+  invisible `data-jw-kept="1"` on the marker the block already carries. The
+  merge then leaves it alone, the preview stops promising a change to it, and
+  its neighbours keep updating as before. Text you typed yourself sits outside
+  every block and was never at risk, so it gets no flag.
+
+  The flag only ever comes from the plugin's own edit actions; a freshly
+  generated note never carries one, and notes written by 1.9.0–1.18.0 (whose
+  marker format has nowhere to put it) are unaffected.
+
 ## 1.24.0
 
 ### New

@@ -36,3 +36,8 @@ scripts/out/
 # User-supplied Bible jwpub file for the Bible-verse popup feature — copyrighted
 # content, never committed. Written here at runtime by main.ts.setBibleFile().
 /bible-cache.jwpub
+
+# Any other publication file dropped in for analysis (songbook, workbook, …).
+# Same reason: copyrighted content. Only the facts read out of such a file —
+# ids, language indexes, names — ever enter the repo, never the file itself.
+*.jwpub

@@ -1,3 +1,8 @@
+# Claude Code's per-session working files (worktrees, local settings, and the
+# launch.json its preview pane writes — this plugin has no dev server, so that
+# file describes nothing real here).
+.claude
+
 # vscode
 .vscode 
 

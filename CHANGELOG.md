@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.23.1
+
+### Fixes
+
+- **"Extend reference" was unreachable on a phone.** The popup's action row
+  carries up to three buttons, and Obsidian's control row does not wrap — at
+  390 px of phone width the three need 441 px, so one was pushed out of sight.
+  With the row right-aligned that was the first one, "Extend reference"
+  (reported 22.09.2026).
+
+  The row now wraps at any width, and on a phone the buttons stack across the
+  full width instead, with the main action ("Open in JW Library") at the top
+  right under the verse text and "Extend reference" at the bottom. The
+  stacking is reversed visually rather than in the markup, so the desktop row
+  keeps its established order.
+
 ## 1.23.0
 
 ### New

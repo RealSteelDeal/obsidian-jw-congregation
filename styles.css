@@ -275,6 +275,32 @@ a.external-link[href*="jw.org/finder"]:not(#_)::after {
 	border-top: none;
 }
 
+/* The popup's action row carries up to three buttons ("Extend reference",
+   "Insert as quote"/"Remove quote", "Open in JW Library"), and Obsidian's
+   .setting-item-control is a flex container WITHOUT wrapping. Measured at
+   phone width (390 px) the three need 441 px together, so one was pushed out
+   of view — with the row right-aligned, the FIRST one, "Extend reference"
+   (reported 22.09.2026). Wrapping keeps all three reachable at any width. */
+.jw-bible-verse-modal .setting-item-control {
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+
+/* On a phone, wrapping alone reads as an accident (two buttons on one line,
+   one below). There they stack across the full width instead — in
+   column-reverse, so the main action sits at the top, right under the verse
+   text, and "Extend reference" at the bottom. Reversing visually rather than
+   in the markup leaves the desktop row in its established order. */
+.is-phone .jw-bible-verse-modal .setting-item-control {
+	flex: 1 1 100%;
+	flex-direction: column-reverse;
+	align-items: stretch;
+}
+
+.is-phone .jw-bible-verse-modal .setting-item-control > button {
+	width: 100%;
+}
+
 /* Context-expansion row beneath the verse text: verse-by-verse widening and
    the whole-chapter shortcut. Kept visually quiet (muted, small) so the verse
    text stays the focal point. */

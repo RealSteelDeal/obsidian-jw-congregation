@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.27.2
+
+### Documentation
+
+- **The README named a command that no longer exists.** It still called it
+  "Remove the scripture reference under the cursor"; since 1.25.0 the command
+  is "Remove the link under the cursor", because it covers songs and source
+  citations too. Anyone searching the command palette for the documented name
+  would have found nothing. The entry now carries the real name and says what
+  it actually covers.
+
+- Two modules were missing from the README's file listing: `parseErrors.ts`
+  and `decompressionGuard.ts`.
+
 ## 1.27.1
 
 ### Fixes

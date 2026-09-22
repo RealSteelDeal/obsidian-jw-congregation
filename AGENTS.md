@@ -56,6 +56,7 @@ src/
     legacyFieldPatch.ts      # Heuristischer Fallback für Notizen ohne Marker (vor v1.9.0) — siehe eigener Abschnitt unten
     quoteBuilder.ts          # Vers-Text → Obsidian-Zitat-Callout (`> [!quote] …`)
     scriptureLinkScan.ts     # findet jwlibrary://-Links/Zitat-Callouts im Notiztext (Klick-Feature, Einfüge-/Löschpunkt)
+                             #   + findScriptureLinkSpanAt()/cutSpan() — Bibelstelle unter dem Cursor entfernen
     speakerNames.ts          # gruppiert Schreibweisen eines Rednernamens — reiner Vorschlag, nie eine Entscheidung (siehe eigener Doc-Kommentar)
   parser/
     JwpubParser.ts           # .jwpub → Congress (primär, nutzt util/jwpubCrypto.ts + DOMParser)

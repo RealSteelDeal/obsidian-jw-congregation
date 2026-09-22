@@ -4,7 +4,7 @@ import { jiti } from './_setup.mjs';
 
 const {
 	findFirstScriptureLinkInText, findLineWithScripture, findQuoteBlockRange, findQuoteInsertionPoint,
-	findScriptureLinkInText, findScriptureLinkSpan, parseScriptureFromHref,
+	findScriptureLinkInText, findScriptureLinkSpan, findScriptureLinkSpanAt, cutSpan, parseScriptureFromHref,
 } = await jiti.import('../src/util/scriptureLinkScan.ts');
 
 const PSALM_1_1_LINK = '[Psalm 1:1](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19001001&pub=nwtsty)';
@@ -163,4 +163,71 @@ test('findScriptureLinkSpan skips a raw-HTML anchor, which has no label to rewri
 	// no "[label]" and must not be offered up as something to replace in place.
 	const html = '<a href="jwlibrary:///finder?bible=19001001">Psalm 1:1</a>';
 	assert.equal(findScriptureLinkSpan(html, { book: 19, chapter: 1, verseStart: 1 }), undefined);
+});
+
+// ── Removing the reference under the cursor ───────────────────────────────
+// A typed reference turns into a long markdown link, so deleting it by hand
+// means backspacing through a URL nobody wants to read (reported 22.09.2026).
+
+test('findScriptureLinkSpanAt covers the whole link, from the first bracket to the last', () => {
+	const text = `Siehe ${PSALM_1_1_LINK} für mehr.`;
+	const span = findScriptureLinkSpanAt(text, text.indexOf('Psalm'));
+	assert.equal(span.index, text.indexOf('['));
+	assert.equal(span.length, PSALM_1_1_LINK.length);
+	assert.equal(text.slice(span.index, span.index + span.length), PSALM_1_1_LINK);
+});
+
+test('findScriptureLinkSpanAt works from anywhere inside the link, including its ends', () => {
+	const text = `Siehe ${PSALM_1_1_LINK} für mehr.`;
+	const start = text.indexOf('[');
+	const end = start + PSALM_1_1_LINK.length;
+	for (const offset of [start, start + 3, text.indexOf('jwlibrary'), end]) {
+		assert.ok(findScriptureLinkSpanAt(text, offset), `offset ${offset}`);
+	}
+});
+
+test('findScriptureLinkSpanAt returns nothing when the cursor is outside any link', () => {
+	const text = `Siehe ${PSALM_1_1_LINK} für mehr.`;
+	assert.equal(findScriptureLinkSpanAt(text, 0), undefined);
+	assert.equal(findScriptureLinkSpanAt(text, text.length - 1), undefined);
+	assert.equal(findScriptureLinkSpanAt('Ganz ohne Link.', 5), undefined);
+});
+
+test('findScriptureLinkSpanAt picks the link the cursor is in, not the first on the line', () => {
+	// A line often holds several references; removing the wrong one would be
+	// the worst possible outcome of a delete command.
+	const second = PSALM_1_1_LINK.replace('19001001', '19002002').replace('Psalm 1:1', 'Psalm 2:2');
+	const text = `${PSALM_1_1_LINK} und ${second}`;
+	const span = findScriptureLinkSpanAt(text, text.indexOf('Psalm 2:2'));
+	assert.equal(text.slice(span.index, span.index + span.length), second);
+});
+
+test('cutSpan removes the link and collapses the double space it would leave behind', () => {
+	const text = `Lesen wir ${PSALM_1_1_LINK} dazu.`;
+	const span = findScriptureLinkSpanAt(text, text.indexOf('Psalm'));
+	assert.equal(cutSpan(text, span.index, span.length), 'Lesen wir dazu.');
+});
+
+test('cutSpan leaves surrounding punctuation exactly as it was written', () => {
+	// Brackets the reference stood in are the user's own sentence, not part of
+	// the reference — tidying them would be editing their text.
+	const text = `Vortrag (${PSALM_1_1_LINK}), danach Lied.`;
+	const span = findScriptureLinkSpanAt(text, text.indexOf('Psalm'));
+	assert.equal(cutSpan(text, span.index, span.length), 'Vortrag (), danach Lied.');
+});
+
+test('cutSpan keeps a single leading or trailing space rather than joining words', () => {
+	const atEnd = `Siehe ${PSALM_1_1_LINK}`;
+	const spanEnd = findScriptureLinkSpanAt(atEnd, atEnd.indexOf('Psalm'));
+	assert.equal(cutSpan(atEnd, spanEnd.index, spanEnd.length), 'Siehe ');
+
+	const atStart = `${PSALM_1_1_LINK} steht dort.`;
+	const spanStart = findScriptureLinkSpanAt(atStart, atStart.indexOf('Psalm'));
+	assert.equal(cutSpan(atStart, spanStart.index, spanStart.length), ' steht dort.');
+});
+
+test('findScriptureLinkSpanAt also finds the raw-HTML link form the overview notes use', () => {
+	const text = `Programm: ${MATTHEW_5_1_HTML_LINK} danach`;
+	const span = findScriptureLinkSpanAt(text, text.indexOf('Matthäus'));
+	assert.equal(text.slice(span.index, span.index + span.length), MATTHEW_5_1_HTML_LINK);
 });

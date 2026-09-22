@@ -2,6 +2,25 @@
 
 ## 1.23.1
 
+### New
+
+- **Remove a scripture reference without backspacing through its URL.** A
+  typed reference becomes one long markdown link, so deleting it by hand meant
+  wading through an address nobody wants to read (reported 22.09.2026).
+  Obsidian has no command for this of its own.
+
+  "Remove the scripture reference under the cursor" takes the whole link out —
+  brackets, label, URL — from the command palette (so it can carry a keyboard
+  shortcut) and from the editor's right-click menu, which is also the only
+  workable route on a phone, by long-press. The menu entry only appears when
+  the cursor really is in a reference, rather than sitting there greyed out.
+
+  It removes the reference the cursor is *in*, not the first one on the line —
+  a line often holds several. The one bit of tidying it does is dropping the
+  double space that a reference removed from mid-sentence would leave behind;
+  brackets and punctuation around it are the user's own sentence and stay
+  exactly as written.
+
 ### Fixes
 
 - **"Extend reference" was unreachable on a phone.** The popup's action row
@@ -15,6 +34,14 @@
   right under the verse text and "Extend reference" at the bottom. The
   stacking is reversed visually rather than in the markup, so the desktop row
   keeps its established order.
+
+### Internal
+
+- The raw-HTML link pattern in `scriptureLinkScan.ts` now matches through to
+  the closing `</a>`. It used to stop after the href, so the span it reported
+  covered only the opening tag — harmless while nothing read that length back,
+  but cutting a link out at the cursor does, and half an anchor left behind
+  would be broken markup.
 
 ## 1.23.0
 

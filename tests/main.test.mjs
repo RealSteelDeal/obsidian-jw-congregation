@@ -440,3 +440,58 @@ test('a note written with the link setting on carries the empty link, and the sc
 	// An empty link is not a name; offering it for conversion would be noise.
 	assert.deepEqual(await plugin.scanSpeakerNames(), []);
 });
+
+// ── Removing a scripture link at the cursor ───────────────────────────────
+
+/** Just enough of Obsidian's Editor for removeScriptureLinkAtCursor(): one
+ *  line of text and a caret in it. */
+function fakeEditor(line, ch) {
+	let text = line;
+	let cursor = { line: 0, ch };
+	return {
+		getCursor: () => cursor,
+		getLine: () => text,
+		replaceRange(replacement) { text = replacement; },
+		setCursor(pos) { cursor = pos; },
+		get text() { return text; },
+		get caret() { return cursor; },
+	};
+}
+
+const PSALM_LINK = '[Psalm 1:1](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&bible=19001001&pub=nwtsty)';
+
+test('removing a reference takes the whole link out and leaves the caret where it stood', async () => {
+	const plugin = makePlugin(createFakeApp().app);
+	const line = `Lesen wir ${PSALM_LINK} dazu.`;
+	const editor = fakeEditor(line, line.indexOf('Psalm 1:1'));
+	Notice.instances.length = 0;
+
+	plugin.removeScriptureLinkAtCursor(editor);
+
+	assert.equal(editor.text, 'Lesen wir dazu.');
+	assert.equal(editor.caret.ch, 'Lesen wir '.length);
+	assert.equal(Notice.instances.length, 0); // silent on success — the result is visible
+});
+
+test('removing a reference says so when the caret is not in one, instead of deleting something else', async () => {
+	const plugin = makePlugin(createFakeApp().app);
+	const editor = fakeEditor('Ein Satz ganz ohne Bibelstelle.', 4);
+	Notice.instances.length = 0;
+
+	plugin.removeScriptureLinkAtCursor(editor);
+
+	assert.equal(editor.text, 'Ein Satz ganz ohne Bibelstelle.');
+	assert.match(Notice.instances[0].message, /keine verlinkte Bibelstelle/);
+});
+
+test('removing a reference takes the one the caret is in, not the first on the line', async () => {
+	const plugin = makePlugin(createFakeApp().app);
+	const second = PSALM_LINK.replace('19001001', '19002002').replace('Psalm 1:1', 'Psalm 2:2');
+	const line = `${PSALM_LINK} und ${second}`;
+	const editor = fakeEditor(line, line.indexOf('Psalm 2:2'));
+
+	plugin.removeScriptureLinkAtCursor(editor);
+
+	assert.match(editor.text, /Psalm 1:1/);
+	assert.doesNotMatch(editor.text, /Psalm 2:2/);
+});

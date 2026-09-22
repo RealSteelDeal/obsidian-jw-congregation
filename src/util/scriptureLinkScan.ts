@@ -6,7 +6,11 @@ import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 // Preview shows the *source* text for whichever form is actually written, so
 // both patterns need to be recognised here.
 const MARKDOWN_LINK_RE = /\[[^\]]*\]\((jwlibrary:\/\/[^)\s]*)\)/g;
-const HTML_LINK_RE = /<a\s+href="(jwlibrary:\/\/[^"]*)"/g;
+// Matched through to the closing </a> on purpose: until 22.09.2026 this
+// stopped after the href, so the reported `length` covered only the opening
+// tag. Nothing read that length back then, but cutting a link out at the
+// cursor does — and half an anchor left behind would be broken markup.
+const HTML_LINK_RE = /<a\s+href="(jwlibrary:\/\/[^"]*)"[^>]*>[^<]*<\/a>/g;
 
 export function parseScriptureFromHref(href: string): Scripture | undefined {
 	try {
@@ -45,6 +49,39 @@ export function findScriptureLinkInText(text: string, offset: number): { scriptu
 		if (offset >= m.index && offset <= m.index + m.length) return { scripture: m.scripture, href: m.href };
 	}
 	return undefined;
+}
+
+/**
+ * The exact span of the jwlibrary:// scripture link covering `offset` — what
+ * "remove the reference under the cursor" needs in order to cut it out.
+ *
+ * Separate from findScriptureLinkInText() above, which answers *which* verse
+ * was clicked rather than *where* the link sits. Both walk the same matches,
+ * so a reference the popup opens is exactly one the removal can find.
+ */
+export function findScriptureLinkSpanAt(text: string, offset: number): { index: number; length: number } | undefined {
+	for (const m of iterateScriptureLinks(text)) {
+		if (offset >= m.index && offset <= m.index + m.length) return { index: m.index, length: m.length };
+	}
+	return undefined;
+}
+
+/**
+ * Cuts `length` characters at `index` out of `text`, dropping one of the two
+ * spaces that would otherwise be left behind.
+ *
+ * The only tidying done, and deliberately the least that can be justified: a
+ * reference removed from mid-sentence leaves "Lesen wir  dazu" with a double
+ * space, which nobody typed and nobody wants. Everything else around it —
+ * brackets the reference stood in, punctuation — is left exactly as written,
+ * because guessing at what else "belongs" to the reference would start
+ * editing the user's own sentence.
+ */
+export function cutSpan(text: string, index: number, length: number): string {
+	const before = text.slice(0, index);
+	const after = text.slice(index + length);
+	if (before.endsWith(' ') && after.startsWith(' ')) return before + after.slice(1);
+	return before + after;
 }
 
 /**

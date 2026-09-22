@@ -261,6 +261,10 @@ export interface Strings extends NoteStrings {
 	noticeSpeakerLinkNothingSelected: string;
 	noticeSpeakerLinksApplied: (converted: number, skipped: number) => string;
 
+	// ── Removing a scripture link (settings.lang) ───────────────────────────
+	removeScriptureLinkCommand: string;
+	noticeNoScriptureLinkAtCursor: string;
+
 	// ── Legacy note migration modal (settings.lang) ─────────────────────────
 	legacyModalTitle: string;
 	legacyModalDesc: string;
@@ -578,6 +582,9 @@ export const L: Record<SupportedLang, Strings> = {
 			return `${parts.join(', ')}.`;
 		},
 
+		removeScriptureLinkCommand: 'Bibelstelle unter dem Cursor entfernen',
+		noticeNoScriptureLinkAtCursor: 'An dieser Stelle steht keine verlinkte Bibelstelle.',
+
 		legacyModalTitle: 'Mögliche Korrekturen für alte Notizen',
 		legacyModalDesc: 'Diese Notizen wurden mit einer Plugin-Version vor 1.9.0 erstellt und haben keine unsichtbaren Marker – deshalb werden hier nur Zeilen vorgeschlagen, die eindeutig einem bekannten Feld zugeordnet werden können. Nur Notizen mit aktiviertem Schalter werden beim Klick auf „Übernehmen" geändert; alles andere in jeder Notiz bleibt unangetastet.',
 		noticeLegacyCorrectionsFound: count => `${count} alte Notiz(en) mit möglichen Korrekturen gefunden. (Klicken zum Prüfen)`,
@@ -858,6 +865,9 @@ export const L: Record<SupportedLang, Strings> = {
 			return `${parts.join(', ')}.`;
 		},
 
+		removeScriptureLinkCommand: 'Remove the scripture reference under the cursor',
+		noticeNoScriptureLinkAtCursor: 'There is no linked scripture reference at this position.',
+
 		legacyModalTitle: 'Possible corrections for old notes',
 		legacyModalDesc: 'These notes were created with a plugin version before 1.9.0 and have no invisible markers — so only lines that can be unambiguously matched to a known field are proposed here. Only notes with the toggle enabled are changed when clicking "Apply"; everything else in every note is left untouched.',
 		noticeLegacyCorrectionsFound: count => `${count} old note(s) with possible corrections found. (Click to review)`,
@@ -1105,6 +1115,9 @@ export const L: Record<SupportedLang, Strings> = {
 			if (skipped > 0) parts.push(`${skipped} ignorés (note modifiée entre-temps)`);
 			return `${parts.join(', ')}.`;
 		},
+
+		removeScriptureLinkCommand: 'Supprimer le texte biblique sous le curseur',
+		noticeNoScriptureLinkAtCursor: 'Aucun texte biblique lié à cet endroit.',
 
 		legacyModalTitle: 'Corrections possibles pour les anciennes notes',
 		legacyModalDesc: 'Ces notes ont été créées avec une version du plugin antérieure à la 1.9.0 et ne contiennent aucun marqueur invisible — seules les lignes pouvant être associées sans ambiguïté à un champ connu sont donc proposées ici. Seules les notes dont l’interrupteur est activé sont modifiées en cliquant sur « Appliquer » ; tout le reste de chaque note reste inchangé.',
@@ -1354,6 +1367,9 @@ export const L: Record<SupportedLang, Strings> = {
 			return `${parts.join(', ')}.`;
 		},
 
+		removeScriptureLinkCommand: 'Rimuovi il riferimento biblico sotto il cursore',
+		noticeNoScriptureLinkAtCursor: 'In questa posizione non c’è alcun riferimento biblico collegato.',
+
 		legacyModalTitle: 'Possibili correzioni per le note vecchie',
 		legacyModalDesc: 'Queste note sono state create con una versione del plugin precedente alla 1.9.0 e non contengono marcatori invisibili — vengono quindi proposte solo le righe che possono essere associate senza ambiguità a un campo noto. Vengono modificate solo le note con l’interruttore attivo, cliccando su "Applica"; tutto il resto di ogni nota resta invariato.',
 		noticeLegacyCorrectionsFound: count => `Trovate ${count} nota/e vecchia/e con possibili correzioni. (Clicca per controllare)`,
@@ -1601,6 +1617,9 @@ export const L: Record<SupportedLang, Strings> = {
 			if (skipped > 0) parts.push(`${skipped} ignorados (nota alterada nesse meio-tempo)`);
 			return `${parts.join(', ')}.`;
 		},
+
+		removeScriptureLinkCommand: 'Remover o texto bíblico sob o cursor',
+		noticeNoScriptureLinkAtCursor: 'Não há nenhum texto bíblico vinculado nesta posição.',
 
 		legacyModalTitle: 'Possíveis correções para notas antigas',
 		legacyModalDesc: 'Estas notas foram criadas com uma versão do plugin anterior à 1.9.0 e não têm marcadores invisíveis — por isso, só são propostas aqui linhas que possam ser associadas sem ambiguidade a um campo conhecido. Apenas as notas com a chave ativada são alteradas ao clicar em "Aplicar"; todo o resto de cada nota permanece intocado.',
@@ -1850,6 +1869,9 @@ export const L: Record<SupportedLang, Strings> = {
 			return `${parts.join(', ')}.`;
 		},
 
+		removeScriptureLinkCommand: 'Удалить библейский стих под курсором',
+		noticeNoScriptureLinkAtCursor: 'В этом месте нет связанного библейского стиха.',
+
 		legacyModalTitle: 'Возможные исправления для старых заметок',
 		legacyModalDesc: 'Эти заметки были созданы в версии плагина до 1.9.0 и не содержат невидимых маркеров — поэтому здесь предлагаются только строки, которые можно однозначно сопоставить с известным полем. При нажатии «Применить» изменяются только заметки с включённым переключателем; всё остальное в каждой заметке остаётся без изменений.',
 		noticeLegacyCorrectionsFound: count => `Найдено старых заметок с возможными исправлениями: ${count}. (Нажмите, чтобы проверить)`,
@@ -2097,6 +2119,9 @@ export const L: Record<SupportedLang, Strings> = {
 			if (skipped > 0) parts.push(`${skipped} omitidos (la nota cambió mientras tanto)`);
 			return `${parts.join(', ')}.`;
 		},
+
+		removeScriptureLinkCommand: 'Quitar el texto bíblico bajo el cursor',
+		noticeNoScriptureLinkAtCursor: 'No hay ningún texto bíblico enlazado en esta posición.',
 
 		legacyModalTitle: 'Posibles correcciones para notas antiguas',
 		legacyModalDesc: 'Estas notas se crearon con una versión del plugin anterior a la 1.9.0 y no tienen marcadores invisibles — por eso aquí solo se proponen líneas que se puedan asociar sin ambigüedad a un campo conocido. Solo se modifican las notas con el interruptor activado al hacer clic en "Aplicar"; el resto de cada nota permanece intacto.',

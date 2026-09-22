@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile, TFolder, normalizePath } from 'obsidian';
+import { Editor, Notice, Plugin, TFile, TFolder, normalizePath } from 'obsidian';
 import { EditorView } from '@codemirror/view';
 import { DEFAULT_SCRIPTURE_SUGGEST_ACTIONS, DEFAULT_SETTINGS, JwPluginSettings, JwSettingTab } from './settings';
 import { SourceRouter } from './parser/SourceRouter';
@@ -15,7 +15,7 @@ import { BookNameEditorSuggest } from './ui/BookNameEditorSuggest';
 import { Congress, Scripture } from './models/congress';
 import { CongressLang } from './normalizer/bookNames';
 import { L, NL } from './i18n';
-import { findFirstScriptureLinkInText, findScriptureLinkInText, parseScriptureFromHref, QUOTE_CALLOUT_START_RE } from './util/scriptureLinkScan';
+import { cutSpan, findFirstScriptureLinkInText, findScriptureLinkInText, findScriptureLinkSpanAt, parseScriptureFromHref, QUOTE_CALLOUT_START_RE } from './util/scriptureLinkScan';
 import { diffNoteContent, hasNoMarkers, mergeNoteContent, NoteChange } from './util/noteMerge';
 import { UpdateNotesModal } from './ui/UpdateNotesModal';
 import { BulkUpdateNotesModal } from './ui/BulkUpdateNotesModal';
@@ -136,6 +136,31 @@ export default class JwCongregationPlugin extends Plugin {
 			name: this.tr.previewUpdateCommand,
 			callback: () => new BulkUpdateNotesModal(this.app, this, 'preview').open(),
 		});
+
+		// Deleting a typed reference by hand means backspacing through a URL
+		// nobody wants to read, since the whole markdown link is one blob of
+		// text (reported 22.09.2026). Offered from the command palette (so it
+		// can carry a shortcut) and from the editor's context menu, which is
+		// also the only workable route on a phone, via long-press.
+		this.addCommand({
+			id: 'remove-scripture-link',
+			name: this.tr.removeScriptureLinkCommand,
+			editorCallback: editor => this.removeScriptureLinkAtCursor(editor),
+		});
+
+		this.registerEvent(this.app.workspace.on('editor-menu', (menu, editor) => {
+			// Added only when there is actually a reference to remove — the
+			// same reasoning as the popup's hidden buttons: a dead menu entry
+			// is worse than no entry.
+			const cursor = editor.getCursor();
+			if (!findScriptureLinkSpanAt(editor.getLine(cursor.line), cursor.ch)) return;
+			menu.addItem(item =>
+				item
+					.setTitle(this.tr.removeScriptureLinkCommand)
+					.setIcon('unlink')
+					.onClick(() => this.removeScriptureLinkAtCursor(editor)),
+			);
+		}));
 
 		// The one-off migration from hand-typed speaker names to wiki links —
 		// a command rather than anything automatic: it rewrites text the user
@@ -941,6 +966,24 @@ export default class JwCongregationPlugin extends Plugin {
 			}
 			throw err;
 		}
+	}
+
+	/** Removes the whole scripture link the cursor sits in — brackets, label,
+	 *  URL and all. The cursor position is read here rather than passed in, so
+	 *  a context-menu click acts on where the menu was opened, not on where
+	 *  the caret happened to be beforehand. */
+	private removeScriptureLinkAtCursor(editor: Editor): void {
+		const cursor = editor.getCursor();
+		const line = editor.getLine(cursor.line);
+		const span = findScriptureLinkSpanAt(line, cursor.ch);
+		if (!span) {
+			new Notice(this.tr.noticeNoScriptureLinkAtCursor);
+			return;
+		}
+		const updated = cutSpan(line, span.index, span.length);
+		editor.replaceRange(updated, { line: cursor.line, ch: 0 }, { line: cursor.line, ch: line.length });
+		// Left where the reference stood, so typing can simply continue there.
+		editor.setCursor({ line: cursor.line, ch: Math.min(span.index, updated.length) });
 	}
 
 	/** Scans, groups and opens the review dialog — or says plainly that there

@@ -1,5 +1,54 @@
 # Changelog
 
+## 1.27.0
+
+### New
+
+- **A song number typed as text can now be linked** — "Lied 45" offers to
+  become a JW Library link, the same way a typed scripture reference does.
+  This is what makes a corrected song usable: adjusting a song link leaves its
+  text to be typed over, and until now the corrected number could not be
+  linked again.
+
+  Why it was impossible before: the id a song link needs is **not derivable
+  from the song number**. It now comes from the official songbook's own data.
+
+  Recognises the wording of all seven languages, including the "No."/"no"/"№"
+  infix that only some of them use. A number the songbook does not contain is
+  not offered at all — there would be no link to make. Can be switched off in
+  the settings.
+
+### Fixes
+
+- **Song links from an RTF import were wrong for 12 of the 163 songs.** That
+  path has no id to read and fell back to `1102016800 + songNumber`, which
+  holds for most songs and fails for the rest — Lied 160's real id is
+  1102022960 where the formula predicts 1102016960. Those links opened the
+  wrong publication.
+
+  The ids are now read from the songbook instead of computed, for the
+  convention and the meeting-workbook notes alike. A song the table does not
+  contain is left as plain text rather than linked to a guess.
+
+### Internal
+
+- The table was established against evidence fixed in advance, not by
+  inspection: the four ids already recorded in the code from real shared links
+  had to match before anything was built. Two assumptions failed that test
+  first — the song number is neither in the document title (those are song
+  titles) nor given by position (front matter sits among the songs). It is
+  `Document.ChapterNumber`, paired with `Document.MepsDocumentId`.
+
+- The ids are **language-independent**: verified across the German, English
+  and Russian convention programmes, 36 songs, identical throughout. One table
+  serves all seven languages, since a link carries its language in
+  `wtlocale=`. The whole table was then cross-checked against the 18 songs the
+  real parser reads out of a programme file.
+
+- `scripts/dump-song-docids.mjs` reads the table out of a songbook file and
+  has a `--check` mode that re-runs those four fixed cases, so a newer
+  songbook can be verified the same way rather than trusted.
+
 ## 1.26.0
 
 ### New

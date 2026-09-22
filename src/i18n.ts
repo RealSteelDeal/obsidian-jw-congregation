@@ -264,6 +264,9 @@ export interface Strings extends NoteStrings {
 	// ── Removing a scripture link (settings.lang) ───────────────────────────
 	removeLinkCommand: string;
 	noticeNoLinkAtCursor: string;
+	setSongSuggest: string;
+	setSongSuggestDesc: string;
+	songSuggestLink: string;
 	suggestRemoveLink: string;
 	suggestEditLink: string;
 
@@ -586,7 +589,10 @@ export const L: Record<SupportedLang, Strings> = {
 
 		removeLinkCommand: 'Verlinkung unter dem Cursor entfernen',
 		noticeNoLinkAtCursor: 'An dieser Stelle steht keine Verlinkung dieses Plugins.',
-		suggestRemoveLink: 'Verlinkung löschen',
+				setSongSuggest: 'Lieder verlinken',
+		setSongSuggestDesc: 'Wenn du eine Liednummer als Text tippst („Lied 45"), wird angeboten, sie mit JW Library zu verlinken – wie bei einer getippten Bibelstelle. Die Zieladresse stammt aus dem offiziellen Liederbuch, nicht aus einer Formel; Lieder, die dort nicht vorkommen, werden bewusst nicht angeboten.',
+		songSuggestLink: 'Lied verlinken',
+suggestRemoveLink: 'Verlinkung löschen',
 		suggestEditLink: 'Verlinkung anpassen',
 
 		legacyModalTitle: 'Mögliche Korrekturen für alte Notizen',
@@ -871,7 +877,10 @@ export const L: Record<SupportedLang, Strings> = {
 
 		removeLinkCommand: 'Remove the link under the cursor',
 		noticeNoLinkAtCursor: 'There is no link of this plugin at this position.',
-		suggestRemoveLink: 'Delete link',
+				setSongSuggest: 'Link songs',
+		setSongSuggestDesc: 'Typing a song number as plain text ("Song 45") offers to link it to JW Library, the same way a typed scripture reference is offered. The target comes from the official songbook rather than a formula; songs it does not contain are deliberately not offered.',
+		songSuggestLink: 'Link song',
+suggestRemoveLink: 'Delete link',
 		suggestEditLink: 'Adjust link',
 
 		legacyModalTitle: 'Possible corrections for old notes',
@@ -1124,7 +1133,10 @@ export const L: Record<SupportedLang, Strings> = {
 
 		removeLinkCommand: 'Supprimer le lien sous le curseur',
 		noticeNoLinkAtCursor: 'Aucun lien de ce plugin à cet endroit.',
-		suggestRemoveLink: 'Supprimer le lien',
+				setSongSuggest: 'Lier les cantiques',
+		setSongSuggestDesc: 'Si vous tapez un numéro de cantique en texte (« Cantique 45 »), il vous est proposé de le lier à JW Library, comme pour un texte biblique saisi. L’adresse provient du recueil de cantiques officiel et non d’une formule ; les cantiques qui n’y figurent pas ne sont volontairement pas proposés.',
+		songSuggestLink: 'Lier le cantique',
+suggestRemoveLink: 'Supprimer le lien',
 		suggestEditLink: 'Modifier le lien',
 
 		legacyModalTitle: 'Corrections possibles pour les anciennes notes',
@@ -1377,7 +1389,10 @@ export const L: Record<SupportedLang, Strings> = {
 
 		removeLinkCommand: 'Rimuovi il collegamento sotto il cursore',
 		noticeNoLinkAtCursor: 'In questa posizione non c’è alcun collegamento di questo plugin.',
-		suggestRemoveLink: 'Elimina il collegamento',
+				setSongSuggest: 'Collega i cantici',
+		setSongSuggestDesc: 'Se scrivi il numero di un cantico come testo («Cantico 45»), ti viene proposto di collegarlo a JW Library, come per un riferimento biblico digitato. L’indirizzo proviene dal cantico ufficiale e non da una formula; i cantici che non vi compaiono non vengono proposti di proposito.',
+		songSuggestLink: 'Collega il cantico',
+suggestRemoveLink: 'Elimina il collegamento',
 		suggestEditLink: 'Modifica il collegamento',
 
 		legacyModalTitle: 'Possibili correzioni per le note vecchie',
@@ -1630,7 +1645,10 @@ export const L: Record<SupportedLang, Strings> = {
 
 		removeLinkCommand: 'Remover o link sob o cursor',
 		noticeNoLinkAtCursor: 'Não há nenhum link deste plugin nesta posição.',
-		suggestRemoveLink: 'Excluir o link',
+				setSongSuggest: 'Vincular cânticos',
+		setSongSuggestDesc: 'Ao digitar o número de um cântico como texto (“Cântico 45”), é oferecido vinculá-lo ao JW Library, como acontece com um texto bíblico digitado. O endereço vem do cancioneiro oficial e não de uma fórmula; cânticos que não constam dele não são oferecidos, de propósito.',
+		songSuggestLink: 'Vincular cântico',
+suggestRemoveLink: 'Excluir o link',
 		suggestEditLink: 'Ajustar o link',
 
 		legacyModalTitle: 'Possíveis correções para notas antigas',
@@ -1883,7 +1901,10 @@ export const L: Record<SupportedLang, Strings> = {
 
 		removeLinkCommand: 'Удалить ссылку под курсором',
 		noticeNoLinkAtCursor: 'В этом месте нет ссылки этого плагина.',
-		suggestRemoveLink: 'Удалить ссылку',
+				setSongSuggest: 'Связывать песни',
+		setSongSuggestDesc: 'Если набрать номер песни текстом («Песня 45»), будет предложено связать её с JW Library — так же, как с набранным библейским стихом. Адрес берётся из официального сборника песен, а не из формулы; песни, которых там нет, намеренно не предлагаются.',
+		songSuggestLink: 'Связать песню',
+suggestRemoveLink: 'Удалить ссылку',
 		suggestEditLink: 'Изменить ссылку',
 
 		legacyModalTitle: 'Возможные исправления для старых заметок',
@@ -2136,7 +2157,10 @@ export const L: Record<SupportedLang, Strings> = {
 
 		removeLinkCommand: 'Quitar el enlace bajo el cursor',
 		noticeNoLinkAtCursor: 'No hay ningún enlace de este plugin en esta posición.',
-		suggestRemoveLink: 'Eliminar el enlace',
+				setSongSuggest: 'Enlazar canciones',
+		setSongSuggestDesc: 'Al escribir el número de una canción como texto («Canción 45»), se ofrece enlazarla con JW Library, igual que con un texto bíblico escrito. La dirección procede del cancionero oficial y no de una fórmula; las canciones que no figuran en él no se ofrecen, a propósito.',
+		songSuggestLink: 'Enlazar canción',
+suggestRemoveLink: 'Eliminar el enlace',
 		suggestEditLink: 'Ajustar el enlace',
 
 		legacyModalTitle: 'Posibles correcciones para notas antiguas',

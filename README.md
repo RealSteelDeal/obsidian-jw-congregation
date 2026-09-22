@@ -34,6 +34,7 @@ An Obsidian community plugin that imports official convention program files of J
   Instead, click the reference you already wrote, widen the passage in the popup with "verse after" (or "whole chapter") as he reads, and press **Extend reference** when he is done. A menu then offers to replace the reference or to keep the original and add the wider one beside it.
 
   Widening the popup deliberately never changes the note by itself — you follow along while reading and only commit to a range once you know where it ended. The button appears only when the passage really has been widened, never for a cross-reference you navigated to, and it leaves your own spelling of the book alone (`Phil. 4:` stays `Phil. 4:`). If the line holds several references, only the one you opened is rewritten.
+- **Type a song number and it offers to link it.** "Lied 45" becomes a JW Library link, just as a typed scripture reference does — in all seven languages. The address comes from the official songbook's own data, not from a formula: for 12 of the 163 songs a formula gets it wrong, so those links used to open the wrong publication on the RTF import path. A song the songbook does not contain is left unlinked rather than guessed at.
 - **Start removing a link and the plugin offers to finish it.** Delete the space after a linked reference and a suggestion appears, offering to *delete* the link, to *adjust* it (the link goes, the text stays and the caret lands at its end, so a wrong verse or song number is corrected by typing over it), or to cancel. Covers everything the plugin writes — scripture references, songs, source citations — and nothing else. A correction made this way is flagged as yours, so the next update leaves it alone instead of restoring the generated value. This is also the route that works on a phone, where the link is rendered rather than shown as source.
 - **Remove a reference without deleting its URL by hand.** A typed reference becomes one long markdown link; "Remove the scripture reference under the cursor" takes the whole thing out, from the command palette (shortcut-able) or the editor's right-click menu. It acts on the reference the cursor is in — or, on a line that holds only one, from anywhere on that line, which is what makes it workable on a phone (add it to the mobile toolbar under Settings → Mobile). With two references and the cursor in neither it does nothing rather than guess. The only tidying is the double space a mid-sentence removal would leave behind.
 - **Speaker names as wiki links, so the directory is Obsidian's own.** "Turn speaker names into links" scans the vault, proposes which spellings mean the same brother ("Br. Sieberer" / "Hannes Sieberer" / "Sieberer Hannes") and — once you confirm each group — writes `[[Hannes Sieberer|Br. Sieberer]]`, keeping your wording visible. His note then lists every talk in its backlinks, live and without any generation step. An optional setting writes new notes with `**Speaker:** [[]]` so completion opens as you type and a second spelling never arises.
@@ -244,6 +245,7 @@ src/
     ScriptureNormalizer.ts   # scripture normalization & link generation
     ScriptureTextParser.ts   # recognizes a scripture reference typed as plain text
     bookNames.ts             # Bible book names for all 7 supported languages
+    songDocIds.ts            # song number → JW Library id, read from the songbook (never computed)
   parser/
     JwpubParser.ts           # jwpub → data model (primary)
     RtfParser.ts             # RTF-ZIP → data model (fallback, German only)
@@ -264,6 +266,7 @@ src/
     UpdateMwbNotesModal.ts   # same as UpdateNotesModal, for Meeting Workbook files
     BibleVerseModal.ts       # verse popup ("Open in JW Library" / "insert as quote")
     ScriptureEditorSuggest.ts # as-you-type scripture reference → link/quote suggestion
+    SongEditorSuggest.ts     # as-you-type song number → link suggestion
     RemoveLinkSuggest.ts     # once removing a plugin link begins: delete it, adjust it, or cancel
     BookNameEditorSuggest.ts # completes a Bible book name while it is being typed
     LegacyMigrationModal.ts  # review/apply field corrections for pre-1.9.0, marker-free notes

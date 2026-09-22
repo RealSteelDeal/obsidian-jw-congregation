@@ -1,6 +1,7 @@
 import { Mwb, MwbSection, MwbSong, MwbTextSegment, MwbWeek } from '../models/mwb';
 import { Scripture } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
+import { songFinderUrl } from '../normalizer/songDocIds';
 import { NL } from '../i18n';
 import { pushMarked } from '../util/noteMerge';
 
@@ -249,13 +250,14 @@ export class MwbNoteBuilder {
 		return scriptures.map(s => this.scriptureText(s)).join('; ');
 	}
 
-	// Same jw.org/finder deep-link shape and songDocid-over-formula preference
-	// as NoteBuilder.songLink() — see that method's doc comment for why this
-	// exact URL form (not jwlibrary://) is the one confirmed to work.
+	// Same jw.org/finder deep-link shape and songDocid-over-table preference as
+	// NoteBuilder.songLink() — see that method's doc comment for why this exact
+	// URL form (not jwlibrary://) is the one confirmed to work, and
+	// SONG_DOC_IDS for why the id is read rather than computed. A song in
+	// neither stays unlinked here too.
 	private songLine(song: MwbSong): string {
-		const docid = song.songDocid ?? 1102016800 + song.songNumber;
-		const url = `https://www.jw.org/finder?srcid=jwlshare&wtlocale=${ScriptureNormalizer.wtlocale('de')}&prefer=lang&docid=${docid}`;
-		const link = `[Lied ${song.songNumber}](${url})`;
+		const url = songFinderUrl(song.songNumber, 'de', song.songDocid);
+		const link = url === undefined ? `Lied ${song.songNumber}` : `[Lied ${song.songNumber}](${url})`;
 		const suffix = [
 			song.includesIntroWords ? 'und Gebet | Einleitende Worte' : song.includesPrayer ? 'und Gebet' : undefined,
 		].filter(Boolean).join(' ');

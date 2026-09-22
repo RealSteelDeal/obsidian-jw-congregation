@@ -13,6 +13,7 @@ import { BibleVerseModal } from './ui/BibleVerseModal';
 import { ScriptureEditorSuggest } from './ui/ScriptureEditorSuggest';
 import { BookNameEditorSuggest } from './ui/BookNameEditorSuggest';
 import { RemoveLinkSuggest } from './ui/RemoveLinkSuggest';
+import { SongEditorSuggest } from './ui/SongEditorSuggest';
 import { Congress, Scripture } from './models/congress';
 import { CongressLang } from './normalizer/bookNames';
 import { L, NL } from './i18n';
@@ -203,6 +204,9 @@ export default class JwCongregationPlugin extends Plugin {
 		this.registerEditorSuggest(new RemoveLinkSuggest(this));
 		this.registerEditorSuggest(new BookNameEditorSuggest(this));
 		this.registerEditorSuggest(new ScriptureEditorSuggest(this));
+		// Songs are numbers, scriptures are book-chapter-verse — the two can
+		// never match the same text, so the order between them does not matter.
+		this.registerEditorSuggest(new SongEditorSuggest(this));
 
 		// WINDOW-level, CAPTURE-phase listeners handle both Reading View (real
 		// <a href> elements) and Live Preview (links rendered as decoration

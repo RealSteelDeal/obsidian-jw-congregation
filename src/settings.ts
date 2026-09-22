@@ -53,6 +53,11 @@ export interface JwPluginSettings {
 	 *  fires on a capitalised word of three or more letters, which measured at
 	 *  eight false triggers across a real 12 000-word vault. */
 	bookNameSuggest: boolean;
+	/** Whether typing a song number as plain text ("Lied 45") offers to link it
+	 *  (see SongEditorSuggest). On by default, like the book-name completion:
+	 *  it only fires on the song wording followed by a number, and only for
+	 *  songs the songbook table actually knows. */
+	songSuggest: boolean;
 	/** Write the Speaker field as an empty wiki link (`**Redner:** [[]]`) in
 	 *  newly generated notes, so clicking between the brackets opens Obsidian's
 	 *  own completion and the same brother ends up spelled the same way every
@@ -102,6 +107,7 @@ export const DEFAULT_SETTINGS: JwPluginSettings = {
 	bibleFileLoaded: false,
 	bibleFilePopupEnabled: true,
 	bookNameSuggest: true,
+	songSuggest: true,
 	speakerLink: false,
 	mwbTargetFolder: '',
 	mwbScriptureLinks: true,
@@ -277,6 +283,11 @@ export class JwSettingTab extends PluginSettingTab {
 						name: t.setBookNameSuggest,
 						desc: t.setBookNameSuggestDesc,
 						control: { type: 'toggle', key: 'bookNameSuggest' },
+					},
+					{
+						name: t.setSongSuggest,
+						desc: t.setSongSuggestDesc,
+						control: { type: 'toggle', key: 'songSuggest' },
 					},
 					{
 						name: t.setBibleFile,
@@ -669,6 +680,18 @@ export class JwSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.bookNameSuggest)
 					.onChange(async value => {
 						this.plugin.settings.bookNameSuggest = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t.setSongSuggest)
+			.setDesc(t.setSongSuggestDesc)
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.songSuggest)
+					.onChange(async value => {
+						this.plugin.settings.songSuggest = value;
 						await this.plugin.saveSettings();
 					}),
 			);

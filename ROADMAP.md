@@ -95,6 +95,19 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 
 ## Recently shipped
 
+- **A typed song number can be linked**, which closes the last gap in correcting a song: the
+  link could be removed and the text typed over, but not linked again, because the id a song
+  link needs cannot be derived from the number.
+
+  It now comes from the songbook's own data, read with `scripts/dump-song-docids.mjs`. The
+  method was proved against evidence fixed beforehand — the four ids already recorded in the
+  code from real shared links — and two assumptions failed that test first: the number is
+  neither in the document title nor given by position. It is `Document.ChapterNumber`.
+
+  The ids turned out to be **language-independent** (36 songs, identical across the German,
+  English and Russian programmes), so one table serves all seven languages. It also fixed a
+  standing defect: the RTF import path had been computing ids, wrong for 12 of the 163 songs.
+
 - **The overview note became mergeable**, closing the last hole in "a correction stays
   corrected". It had been classed as purely derived and rewritten wholesale, so a song number
   corrected there returned on the next update — in the one note where the programme is most

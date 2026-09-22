@@ -3,6 +3,7 @@ import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 import { CongressLang } from '../normalizer/bookNames';
 import { NL, NoteStrings } from '../i18n';
 import { pushMarked } from '../util/noteMerge';
+import { songFinderUrl } from '../normalizer/songDocIds';
 
 export interface NoteBuilderOptions {
 	scriptureLinks: boolean;
@@ -298,7 +299,10 @@ export class NoteBuilder {
 	// (see renderSingleNote()/renderSeriesNote()), so both link identically.
 	private songLinkText(item: ProgramItem): string {
 		const { label, remark } = this.splitSongTitle(item.title);
-		const link = `[${label}](${this.songLink(item.songNumber!, item.songDocid)})`;
+		const href = this.songLink(item.songNumber!, item.songDocid);
+		// An unknown song keeps its label unlinked rather than carrying a link
+		// that would open something else.
+		const link = href ? `[${label}](${href})` : label;
 		return remark ? `${link} ${remark}` : link;
 	}
 
@@ -399,15 +403,19 @@ export class NoteBuilder {
 	// Deliberately NOT jwlibrary:// here, unlike scripture links — per user testing,
 	// this exact https://www.jw.org form is the only one that has ever worked.
 	//
-	// The docid itself is NOT a linear function of the song number — Lied 14/54/94
-	// happen to sit in a contiguous block (docid = 1102016800 + songNumber), but Lied
-	// 160's real docid is 1102022960, not the predicted 1102016960. So `songDocid`
-	// (read straight out of the jwpub file's own song link, see JwpubParser) is used
-	// whenever available; the formula is only a fallback for the RTF import path,
-	// which has no docid to read and can't do better than a guess.
-	private songLink(songNumber: number, songDocid?: number): string {
-		const docid = songDocid ?? 1102016800 + songNumber;
-		return `https://www.jw.org/finder?srcid=jwlshare&wtlocale=${ScriptureNormalizer.wtlocale(this.lang)}&prefer=lang&docid=${docid}`;
+	// The docid is NOT a linear function of the song number — Lied 14/54/94 happen
+	// to sit in a contiguous block (1102016800 + songNumber), but Lied 160's real
+	// docid is 1102022960, not the predicted 1102016960. `songDocid`, read straight
+	// out of the jwpub file's own song link (see JwpubParser), is therefore used
+	// whenever available.
+	//
+	// The RTF import path has no docid to read, and until 22.09.2026 fell back to
+	// that formula — wrong for 12 of the 163 songs. SONG_DOC_IDS replaces the guess
+	// with the real table, read out of the songbook itself. A song in neither
+	// (numbered above what the songbook contains) is left as plain text: no link at
+	// all beats one that opens the wrong publication.
+	private songLink(songNumber: number, songDocid?: number): string | undefined {
+		return songFinderUrl(songNumber, this.lang, songDocid);
 	}
 
 	// Every derived block below is wrapped in a pushMarked() marker so a later

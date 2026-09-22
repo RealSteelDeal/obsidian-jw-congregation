@@ -42,6 +42,7 @@ src/
     mwb.ts                   # Typen für den Leben-und-Dienst-Import: Mwb, MwbWeek, MwbItem, MemorialReadingSchedule
   normalizer/
     bookNames.ts             # Buchnamenstabelle 1–66, alle 7 Sprachen (DE/EN/FR/IT/PT/RU/ES)
+    songDocIds.ts            # Liednummer → JW-Library-docid, AUS dem Liederbuch gelesen (nie berechnet — die Formel liegt bei 12 von 163 falsch); songFinderUrl()/findSongNumberAtEnd()
     ScriptureNormalizer.ts   # fromJwpub(), fromRtf(), toJwLibraryLink(), toMarkdownLink()
     ScriptureTextParser.ts   # erkennt eine als Klartext getippte Bibelstelle (für den Editor-Suggester)
   util/
@@ -81,11 +82,13 @@ src/
     UpdateMwbNotesModal.ts   # wie UpdateNotesModal, aber für Leben-und-Dienst-Arbeitshefter
     BibleVerseModal.ts       # Popup mit Vers-Text + "In JW Library öffnen"/"Als Zitat einfügen"/"Zitat entfernen"
     ScriptureEditorSuggest.ts # As-you-type-Vorschlag für eine getippte Bibelstelle (Verlinken/Zitat einfügen)
+    SongEditorSuggest.ts     # As-you-type-Vorschlag für eine getippte Liednummer (Verlinken)
     RemoveLinkSuggest.ts     # Gegenstück dazu: beim Entfernen eines Plugin-Links drei Optionen (löschen/anpassen/abbrechen)
     BookNameEditorSuggest.ts # vervollständigt einen Bibelbuchnamen während des Tippens
     LegacyMigrationModal.ts  # Vorschau/Bestätigung pro Notiz für legacyFieldPatch.ts-Korrekturvorschläge
     SpeakerLinkModal.ts      # Vorschau/Bestätigung pro Person für die einmalige Rednernamen→Wiki-Link-Migration
 scripts/
+  dump-song-docids.mjs       # Entwickler-Tool: Liednummer→docid aus einem Liederbuch lesen; --check prüft die 4 belegten Fälle
   dump-structure.mjs         # Entwickler-Tool: Publication-Zeile + h1/h2/li-Struktur je Dokument ausgeben (nutzt util/jwpubCrypto)
   test-parse.mjs             # Entwickler-Test: importiert den echten JwpubParser per jiti und parst übergebene .jwpub-Dateien
   extract-changelog.mjs      # Release-Tool: extrahiert den Abschnitt einer Version aus CHANGELOG.md für die GitHub-Release-Notes

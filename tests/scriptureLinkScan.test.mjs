@@ -5,7 +5,7 @@ import { jiti } from './_setup.mjs';
 const {
 	findFirstScriptureLinkInText, findLineWithScripture, findQuoteBlockRange, findQuoteInsertionPoint,
 	findScriptureLinkInText, findScriptureLinkSpan, findScriptureLinkSpanAt, soleScriptureLinkSpan,
-	findBrokenScriptureLinkAt, cutSpan, parseScriptureFromHref,
+	findBrokenScriptureLinkAt, findScriptureLinkToRemoveAt, scriptureLinkLabel, cutSpan, parseScriptureFromHref,
 } = await jiti.import('../src/util/scriptureLinkScan.ts');
 
 const PSALM_1_1_LINK = '[Psalm 1:1](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19001001&pub=nwtsty)';
@@ -296,4 +296,66 @@ test('findBrokenScriptureLinkAt reports the span that is left to remove', () => 
 	const broken = line.slice(0, line.length - 1);
 	const hit = findBrokenScriptureLinkAt(broken, broken.length);
 	assert.equal(broken.slice(hit.start, hit.end), PSALM_1_1_LINK.slice(0, -1));
+});
+
+// ── When the removal suggestion shows itself ─────────────────────────────
+// Inserting a reference leaves a space after it with the caret beyond that
+// space. So "caret exactly at the link's end, no space after it" is not a
+// state writing produces — it is the state deleting that space produces,
+// which is one keystroke earlier than the broken-link case above.
+
+test('findScriptureLinkToRemoveAt fires once the space after an inserted reference is deleted', () => {
+	const line = `Siehe ${PSALM_1_1_LINK}`; // the trailing space removed
+	const span = findScriptureLinkToRemoveAt(line, line.length);
+	assert.equal(line.slice(span.start, span.end), PSALM_1_1_LINK);
+});
+
+test('findScriptureLinkToRemoveAt stays quiet while the inserted space is still there', () => {
+	// The caret merely being moved to the end of a finished reference is not
+	// an intention to delete it.
+	const line = `Siehe ${PSALM_1_1_LINK} und weiter`;
+	assert.equal(findScriptureLinkToRemoveAt(line, `Siehe ${PSALM_1_1_LINK}`.length), undefined);
+});
+
+test('findScriptureLinkToRemoveAt stays quiet with the caret inside or before an intact reference', () => {
+	const line = `Siehe ${PSALM_1_1_LINK}`;
+	for (const ch of [0, line.indexOf('Psalm'), line.indexOf('bible=')]) {
+		assert.equal(findScriptureLinkToRemoveAt(line, ch), undefined, `ch ${ch}`);
+	}
+});
+
+test('findScriptureLinkToRemoveAt still covers the half-deleted link', () => {
+	const line = `Siehe ${PSALM_1_1_LINK}`.slice(0, -1); // ")" gone
+	assert.ok(findScriptureLinkToRemoveAt(line, line.length));
+});
+
+test('scriptureLinkLabel recovers the visible text, from an intact and a half-deleted link alike', () => {
+	// This is what "remove only the link" leaves behind, so a wrong verse can
+	// be corrected by typing over it instead of written again from nothing.
+	assert.equal(scriptureLinkLabel(PSALM_1_1_LINK), 'Psalm 1:1');
+	assert.equal(scriptureLinkLabel(PSALM_1_1_LINK.slice(0, -1)), 'Psalm 1:1');
+	assert.equal(scriptureLinkLabel(MATTHEW_5_1_HTML_LINK), 'Matthäus 5:1');
+	assert.equal(scriptureLinkLabel('kein Link'), undefined);
+});
+
+test('the removal suggestion never fires on a link that is not a scripture reference', () => {
+	// Songs and source citations are deliberately written as
+	// https://www.jw.org/finder?…docid=… rather than jwlibrary:// (see
+	// NoteBuilder.songLink), so they can never be mistaken for a reference —
+	// asserted here rather than assumed, because the suggestion offers to
+	// delete whatever it fires on.
+	const song = '[Lied 12](https://www.jw.org/finder?srcid=jwlshare&wtlocale=X&prefer=lang&docid=1011214)';
+	const citation = '[Werde ein besserer Leser](https://www.jw.org/finder?wtlocale=X&docid=1102016100)';
+	const internal = '[Eine andere Notiz](andere-notiz.md)';
+	const external = '[Eine Seite](https://example.invalid/seite)';
+
+	for (const link of [song, citation, internal, external]) {
+		const line = `Siehe ${link}`;
+		for (const ch of [line.length, line.length - 1, line.indexOf('('), line.indexOf('[') + 2]) {
+			assert.equal(findScriptureLinkToRemoveAt(line, ch), undefined, `${link} @ ${ch}`);
+		}
+		// Nor half-deleted, which is the state the suggestion watches for.
+		const broken = line.slice(0, -1);
+		assert.equal(findScriptureLinkToRemoveAt(broken, broken.length), undefined, `broken: ${link}`);
+	}
 });

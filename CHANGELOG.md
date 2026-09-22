@@ -5,16 +5,30 @@
 ### New
 
 - **The plugin now notices when a reference is being deleted, and offers to
-  finish the job.** Press backspace over a reference's closing bracket and a
-  suggestion appears — accept it and what is left of the link is gone, instead
-  of holding backspace through a URL nobody wants to read.
+  finish the job.** Start deleting a linked reference and a suggestion
+  appears, with three choices:
+
+  1. **Delete scripture reference** — the whole link goes.
+  2. **Edit scripture reference** — only the link goes; the text stays and the
+     caret lands at its end, so a wrong verse is corrected by typing over it
+     rather than written again from nothing. The ordinary suggestion then
+     offers to link the corrected reference straight away.
+  3. **Cancel** — which matters most on a phone, where Escape is awkward to
+     reach.
+
+  It appears as soon as the space after an inserted reference is deleted — one
+  keystroke before the link even breaks — and stays up while a backspace walks
+  back through the URL. While the reference is still finished and its inserted
+  space still there, nothing is offered: moving the caret to the end of a
+  reference is not an intention to delete it.
 
   It is the counterpart to the suggestion that appears once a reference has
-  been *typed*: the same idea at the opposite end of a reference's life. The
-  trigger is unambiguous, because `[1. Tim. 4:12](jwlibrary://…` with nothing
-  closing it is not a shape anyone types on purpose. While the link is still
-  intact nothing is offered, not even with the caret inside its URL — nothing
-  is being deleted there.
+  been *typed*: the same idea at the opposite end of a reference's life.
+
+  **Scripture links only.** Songs and source citations are deliberately
+  written as `https://www.jw.org/finder` links rather than `jwlibrary://`
+  ones, so they can never trigger this — asserted in tests rather than
+  assumed, since the suggestion offers to delete whatever it fires on.
 
   This is what makes removal workable on a phone, where the command and the
   long-press menu both fall short: in editing view the link is rendered rather

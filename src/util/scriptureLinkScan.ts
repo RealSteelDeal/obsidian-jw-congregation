@@ -92,6 +92,44 @@ export function findBrokenScriptureLinkAt(line: string, ch: number): { start: nu
 	return match ? { start: match.index, end: ch } : undefined;
 }
 
+/** The visible text of a link, given the exact span of one — `1. Petrus 2:3`
+ *  out of `[1. Petrus 2:3](jwlibrary://…`. What "unlink" leaves behind, so
+ *  the reference can be corrected by typing rather than retyped from nothing.
+ *  Works on a half-deleted link too: its label is the part deletion reaches
+ *  last. */
+export function scriptureLinkLabel(span: string): string | undefined {
+	return /^\[([^\]]*)\]/.exec(span)?.[1] ?? /<a\s[^>]*>([^<]*)<\/a>/.exec(span)?.[1];
+}
+
+/**
+ * The reference a removal suggestion should offer to take out, if any — used
+ * by RemoveScriptureLinkSuggest to decide whether to show itself at all.
+ *
+ * Two moments count as "this reference is on its way out":
+ *
+ *  1. The link is already broken (see findBrokenScriptureLinkAt) — the
+ *     backspace over its closing bracket has happened.
+ *  2. The link is still intact, the caret sits exactly at its end, and no
+ *     space follows. Inserting a reference leaves a space after it with the
+ *     caret beyond that space, so this state is not what writing produces —
+ *     it is what deleting that space produces. Catching it saves the user the
+ *     keystroke that would break the link in the first place.
+ *
+ * A space after the caret rules case 2 out on purpose: with the inserted
+ * space still in place, the caret merely being moved to the end of a
+ * reference is not an intention to delete it.
+ */
+export function findScriptureLinkToRemoveAt(line: string, ch: number): { start: number; end: number } | undefined {
+	const broken = findBrokenScriptureLinkAt(line, ch);
+	if (broken) return broken;
+
+	const intact = findScriptureLinkSpanAt(line, ch);
+	if (!intact) return undefined;
+	const end = intact.index + intact.length;
+	if (ch !== end || line[ch] === ' ') return undefined;
+	return { start: intact.index, end };
+}
+
 /**
  * The span of the ONLY scripture link in `text`, when there is exactly one.
  *

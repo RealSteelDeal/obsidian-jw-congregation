@@ -66,6 +66,32 @@ export function findScriptureLinkSpanAt(text: string, offset: number): { index: 
 	return undefined;
 }
 
+/** A link whose opening `[label](jwlibrary://…` is present but which is no
+ *  longer closed — what is left the moment someone backspaces over a
+ *  reference's final `)`. */
+const BROKEN_LINK_TAIL_RE = /\[[^\]]*\]\(jwlibrary:\/\/[^)\s]*$/;
+
+/**
+ * Recognises that a scripture reference is in the middle of being deleted:
+ * the text up to `ch` ends in the opening half of a jwlibrary link that
+ * nothing closes any more.
+ *
+ * This is the one moment where the intention is unambiguous. Deleting such a
+ * reference by hand means backspacing through a URL nobody wants to read, so
+ * catching that first keystroke is what lets the plugin offer to finish the
+ * job — the same idea as the suggestion that appears once a reference has
+ * been typed, at the opposite end of its life.
+ *
+ * An intact link is deliberately not matched, even with the caret inside its
+ * URL: nothing is being deleted there, and offering to remove a reference the
+ * user is merely passing through would be noise.
+ */
+export function findBrokenScriptureLinkAt(line: string, ch: number): { start: number; end: number } | undefined {
+	if (findScriptureLinkSpanAt(line, ch)) return undefined;
+	const match = BROKEN_LINK_TAIL_RE.exec(line.slice(0, ch));
+	return match ? { start: match.index, end: ch } : undefined;
+}
+
 /**
  * The span of the ONLY scripture link in `text`, when there is exactly one.
  *

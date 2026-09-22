@@ -12,6 +12,7 @@ import { BibleReader } from './bible/BibleReader';
 import { BibleVerseModal } from './ui/BibleVerseModal';
 import { ScriptureEditorSuggest } from './ui/ScriptureEditorSuggest';
 import { BookNameEditorSuggest } from './ui/BookNameEditorSuggest';
+import { RemoveScriptureLinkSuggest } from './ui/RemoveScriptureLinkSuggest';
 import { Congress, Scripture } from './models/congress';
 import { CongressLang } from './normalizer/bookNames';
 import { L, NL } from './i18n';
@@ -196,6 +197,10 @@ export default class JwCongregationPlugin extends Plugin {
 		// Registered first so the shorter-lived trigger gets its turn before
 		// the reference one — they cannot both match the same text anyway,
 		// since a completed reference ends in digits, not a bare word.
+		// Registered first: it fires only on a half-deleted link, a shape the
+		// other two can never match, and getting its turn first means the
+		// offer appears on the very keystroke that breaks the link.
+		this.registerEditorSuggest(new RemoveScriptureLinkSuggest(this));
 		this.registerEditorSuggest(new BookNameEditorSuggest(this));
 		this.registerEditorSuggest(new ScriptureEditorSuggest(this));
 

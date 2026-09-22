@@ -4,7 +4,8 @@ import { jiti } from './_setup.mjs';
 
 const {
 	findFirstScriptureLinkInText, findLineWithScripture, findQuoteBlockRange, findQuoteInsertionPoint,
-	findScriptureLinkInText, findScriptureLinkSpan, findScriptureLinkSpanAt, soleScriptureLinkSpan, cutSpan, parseScriptureFromHref,
+	findScriptureLinkInText, findScriptureLinkSpan, findScriptureLinkSpanAt, soleScriptureLinkSpan,
+	findBrokenScriptureLinkAt, cutSpan, parseScriptureFromHref,
 } = await jiti.import('../src/util/scriptureLinkScan.ts');
 
 const PSALM_1_1_LINK = '[Psalm 1:1](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19001001&pub=nwtsty)';
@@ -247,4 +248,52 @@ test('soleScriptureLinkSpan refuses a line with two references rather than picki
 
 test('soleScriptureLinkSpan returns nothing for a line without any reference', () => {
 	assert.equal(soleScriptureLinkSpan('Ein Satz ganz ohne Bibelstelle.'), undefined);
+});
+
+// ── Noticing that a reference is being deleted ────────────────────────────
+// The suggestion that offers to finish the job (RemoveScriptureLinkSuggest)
+// hangs entirely off this: it must fire on the first backspace over a
+// reference's closing bracket, and stay quiet the rest of the time.
+
+test('findBrokenScriptureLinkAt fires the moment the closing bracket is deleted', () => {
+	const line = `Lesen wir ${PSALM_1_1_LINK} dazu.`;
+	// Exactly what one backspace at the end of the link leaves behind.
+	const broken = line.replace(')', '');
+	const ch = broken.indexOf(' dazu.');
+	const hit = findBrokenScriptureLinkAt(broken, ch);
+	assert.equal(hit.start, broken.indexOf('['));
+	assert.equal(hit.end, ch);
+});
+
+test('findBrokenScriptureLinkAt stays quiet while the link is still intact', () => {
+	// Including with the caret inside the URL: nothing is being deleted there,
+	// and offering to remove a reference merely being passed through is noise.
+	const line = `Lesen wir ${PSALM_1_1_LINK} dazu.`;
+	for (const ch of [0, line.indexOf('Psalm'), line.indexOf('bible='), line.length]) {
+		assert.equal(findBrokenScriptureLinkAt(line, ch), undefined, `ch ${ch}`);
+	}
+});
+
+test('findBrokenScriptureLinkAt ignores ordinary text and other links', () => {
+	assert.equal(findBrokenScriptureLinkAt('Ein Satz ganz ohne Link.', 10), undefined);
+	assert.equal(findBrokenScriptureLinkAt('[Eine Notiz](andere-notiz.md', 20), undefined);
+	// A half-typed markdown link to something else must not be swept up.
+	assert.equal(findBrokenScriptureLinkAt('[Titel](https://example.invalid/seite', 25), undefined);
+});
+
+test('findBrokenScriptureLinkAt keeps firing as the deletion eats into the URL', () => {
+	// Holding backspace walks back through the address; the offer has to stay
+	// up for that whole stretch, not just the first keystroke.
+	const line = `Siehe ${PSALM_1_1_LINK}`;
+	const fullEnd = line.length - 1; // the ")" removed
+	for (const ch of [fullEnd, fullEnd - 5, line.indexOf('bible=') + 3]) {
+		assert.ok(findBrokenScriptureLinkAt(line.slice(0, ch), ch), `ch ${ch}`);
+	}
+});
+
+test('findBrokenScriptureLinkAt reports the span that is left to remove', () => {
+	const line = `Siehe ${PSALM_1_1_LINK}`;
+	const broken = line.slice(0, line.length - 1);
+	const hit = findBrokenScriptureLinkAt(broken, broken.length);
+	assert.equal(broken.slice(hit.start, hit.end), PSALM_1_1_LINK.slice(0, -1));
 });

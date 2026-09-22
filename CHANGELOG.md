@@ -2,6 +2,26 @@
 
 ## 1.23.2
 
+### New
+
+- **The plugin now notices when a reference is being deleted, and offers to
+  finish the job.** Press backspace over a reference's closing bracket and a
+  suggestion appears — accept it and what is left of the link is gone, instead
+  of holding backspace through a URL nobody wants to read.
+
+  It is the counterpart to the suggestion that appears once a reference has
+  been *typed*: the same idea at the opposite end of a reference's life. The
+  trigger is unambiguous, because `[1. Tim. 4:12](jwlibrary://…` with nothing
+  closing it is not a shape anyone types on purpose. While the link is still
+  intact nothing is offered, not even with the caret inside its URL — nothing
+  is being deleted there.
+
+  This is what makes removal workable on a phone, where the command and the
+  long-press menu both fall short: in editing view the link is rendered rather
+  than shown as source, so pressing it opens the verse popup and the caret can
+  hardly be placed inside it. Deleting, by contrast, is exactly the moment the
+  keyboard is already in hand.
+
 ### Fixes
 
 - **"Remove the scripture reference under the cursor" was unusable on a

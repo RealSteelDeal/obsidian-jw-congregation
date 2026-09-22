@@ -78,6 +78,7 @@ src/
     UpdateMwbNotesModal.ts   # wie UpdateNotesModal, aber für Leben-und-Dienst-Arbeitshefter
     BibleVerseModal.ts       # Popup mit Vers-Text + "In JW Library öffnen"/"Als Zitat einfügen"/"Zitat entfernen"
     ScriptureEditorSuggest.ts # As-you-type-Vorschlag für eine getippte Bibelstelle (Verlinken/Zitat einfügen)
+    RemoveScriptureLinkSuggest.ts # Gegenstück dazu: bietet beim Löschen an, den Rest des Links zu entfernen
     BookNameEditorSuggest.ts # vervollständigt einen Bibelbuchnamen während des Tippens
     LegacyMigrationModal.ts  # Vorschau/Bestätigung pro Notiz für legacyFieldPatch.ts-Korrekturvorschläge
     SpeakerLinkModal.ts      # Vorschau/Bestätigung pro Person für die einmalige Rednernamen→Wiki-Link-Migration

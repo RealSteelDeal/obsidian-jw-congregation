@@ -4,7 +4,7 @@ import { jiti } from './_setup.mjs';
 
 const {
 	findFirstScriptureLinkInText, findLineWithScripture, findQuoteBlockRange, findQuoteInsertionPoint,
-	findScriptureLinkInText, findScriptureLinkSpan, findScriptureLinkSpanAt, cutSpan, parseScriptureFromHref,
+	findScriptureLinkInText, findScriptureLinkSpan, findScriptureLinkSpanAt, soleScriptureLinkSpan, cutSpan, parseScriptureFromHref,
 } = await jiti.import('../src/util/scriptureLinkScan.ts');
 
 const PSALM_1_1_LINK = '[Psalm 1:1](jwlibrary:///finder?srcid=jwlshare&wtlocale=X&prefer=lang&bible=19001001&pub=nwtsty)';
@@ -230,4 +230,21 @@ test('findScriptureLinkSpanAt also finds the raw-HTML link form the overview not
 	const text = `Programm: ${MATTHEW_5_1_HTML_LINK} danach`;
 	const span = findScriptureLinkSpanAt(text, text.indexOf('Matthäus'));
 	assert.equal(text.slice(span.index, span.index + span.length), MATTHEW_5_1_HTML_LINK);
+});
+
+test('soleScriptureLinkSpan returns the only reference on a line', () => {
+	// The caret can hardly be placed inside a rendered link on a phone, so a
+	// line with one reference has to work from anywhere on it.
+	const text = `Lesen wir ${PSALM_1_1_LINK} dazu.`;
+	const span = soleScriptureLinkSpan(text);
+	assert.equal(text.slice(span.index, span.index + span.length), PSALM_1_1_LINK);
+});
+
+test('soleScriptureLinkSpan refuses a line with two references rather than picking one', () => {
+	const second = PSALM_1_1_LINK.replace('19001001', '19002002').replace('Psalm 1:1', 'Psalm 2:2');
+	assert.equal(soleScriptureLinkSpan(`${PSALM_1_1_LINK} und ${second}`), undefined);
+});
+
+test('soleScriptureLinkSpan returns nothing for a line without any reference', () => {
+	assert.equal(soleScriptureLinkSpan('Ein Satz ganz ohne Bibelstelle.'), undefined);
 });

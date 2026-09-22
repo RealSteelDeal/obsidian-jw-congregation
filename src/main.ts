@@ -15,7 +15,7 @@ import { BookNameEditorSuggest } from './ui/BookNameEditorSuggest';
 import { Congress, Scripture } from './models/congress';
 import { CongressLang } from './normalizer/bookNames';
 import { L, NL } from './i18n';
-import { cutSpan, findFirstScriptureLinkInText, findScriptureLinkInText, findScriptureLinkSpanAt, parseScriptureFromHref, QUOTE_CALLOUT_START_RE } from './util/scriptureLinkScan';
+import { cutSpan, findFirstScriptureLinkInText, findScriptureLinkInText, findScriptureLinkSpanAt, parseScriptureFromHref, QUOTE_CALLOUT_START_RE, soleScriptureLinkSpan } from './util/scriptureLinkScan';
 import { diffNoteContent, hasNoMarkers, mergeNoteContent, NoteChange } from './util/noteMerge';
 import { UpdateNotesModal } from './ui/UpdateNotesModal';
 import { BulkUpdateNotesModal } from './ui/BulkUpdateNotesModal';
@@ -153,7 +153,7 @@ export default class JwCongregationPlugin extends Plugin {
 			// same reasoning as the popup's hidden buttons: a dead menu entry
 			// is worse than no entry.
 			const cursor = editor.getCursor();
-			if (!findScriptureLinkSpanAt(editor.getLine(cursor.line), cursor.ch)) return;
+			if (!this.scriptureLinkToRemove(editor.getLine(cursor.line), cursor.ch)) return;
 			menu.addItem(item =>
 				item
 					.setTitle(this.tr.removeScriptureLinkCommand)
@@ -968,6 +968,16 @@ export default class JwCongregationPlugin extends Plugin {
 		}
 	}
 
+	/** Which reference a removal would act on: the one the caret is inside, or
+	 *  else the line's only one. The fallback is what makes the command usable
+	 *  on a phone at all — there the link is rendered, not shown as source, so
+	 *  the caret can hardly be placed inside it. A line with two references and
+	 *  the caret in neither deliberately yields nothing: picking one would be a
+	 *  guess, and the wrong guess deletes the wrong reference. */
+	private scriptureLinkToRemove(line: string, ch: number): { index: number; length: number } | undefined {
+		return findScriptureLinkSpanAt(line, ch) ?? soleScriptureLinkSpan(line);
+	}
+
 	/** Removes the whole scripture link the cursor sits in — brackets, label,
 	 *  URL and all. The cursor position is read here rather than passed in, so
 	 *  a context-menu click acts on where the menu was opened, not on where
@@ -975,7 +985,7 @@ export default class JwCongregationPlugin extends Plugin {
 	private removeScriptureLinkAtCursor(editor: Editor): void {
 		const cursor = editor.getCursor();
 		const line = editor.getLine(cursor.line);
-		const span = findScriptureLinkSpanAt(line, cursor.ch);
+		const span = this.scriptureLinkToRemove(line, cursor.ch);
 		if (!span) {
 			new Notice(this.tr.noticeNoScriptureLinkAtCursor);
 			return;

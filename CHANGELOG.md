@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.23.2
+
+### Fixes
+
+- **"Remove the scripture reference under the cursor" was unusable on a
+  phone.** It only offered itself when the caret sat *inside* the reference —
+  and in editing view the link is rendered, not shown as source, so pressing
+  it opens the verse popup instead of placing a caret in it. The command was
+  effectively unreachable there (reported 22.09.2026).
+
+  It now also acts on a line's **only** reference, wherever the caret is on
+  that line. A line carrying two references with the caret in neither still
+  does nothing and says so: picking one would be a guess, and the wrong guess
+  deletes the wrong reference.
+
+  On a phone the command is best reached by adding it to the mobile toolbar
+  (Settings → Mobile → Manage toolbar options); the long-press context menu
+  works too, but only where the caret is not already on a rendered link.
+
 ## 1.23.1
 
 ### New

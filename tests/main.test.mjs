@@ -495,3 +495,30 @@ test('removing a reference takes the one the caret is in, not the first on the l
 	assert.match(editor.text, /Psalm 1:1/);
 	assert.doesNotMatch(editor.text, /Psalm 2:2/);
 });
+
+test('removing a reference works from anywhere on a line that holds only one', async () => {
+	// What makes the command usable on a phone: the caret lands next to the
+	// rendered link rather than inside it, and there is nothing to choose.
+	const plugin = makePlugin(createFakeApp().app);
+	const line = `Lesen wir ${PSALM_LINK} dazu.`;
+	const editor = fakeEditor(line, 2); // caret at the very start of the line
+	Notice.instances.length = 0;
+
+	plugin.removeScriptureLinkAtCursor(editor);
+
+	assert.equal(editor.text, 'Lesen wir dazu.');
+	assert.equal(Notice.instances.length, 0);
+});
+
+test('removing a reference refuses to guess when the line holds two and the caret is in neither', async () => {
+	const plugin = makePlugin(createFakeApp().app);
+	const second = PSALM_LINK.replace('19001001', '19002002').replace('Psalm 1:1', 'Psalm 2:2');
+	const line = `${PSALM_LINK} und ${second}`;
+	const editor = fakeEditor(line, line.indexOf(' und ') + 2); // between the two
+	Notice.instances.length = 0;
+
+	plugin.removeScriptureLinkAtCursor(editor);
+
+	assert.equal(editor.text, line); // untouched — the wrong guess deletes the wrong reference
+	assert.match(Notice.instances[0].message, /keine verlinkte Bibelstelle/);
+});

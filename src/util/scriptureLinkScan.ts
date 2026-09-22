@@ -67,6 +67,26 @@ export function findScriptureLinkSpanAt(text: string, offset: number): { index: 
 }
 
 /**
+ * The span of the ONLY scripture link in `text`, when there is exactly one.
+ *
+ * The fallback for "remove the reference under the cursor" when the caret is
+ * merely somewhere on the line: with a single reference on it there is nothing
+ * to choose between, so insisting on an exact hit would only make the command
+ * fussy — and on a phone, where the link is rendered rather than shown as
+ * source, placing the caret inside it is barely possible at all. With two or
+ * more references this returns nothing, and the caller falls back to saying so
+ * rather than picking one.
+ */
+export function soleScriptureLinkSpan(text: string): { index: number; length: number } | undefined {
+	let found: { index: number; length: number } | undefined;
+	for (const m of iterateScriptureLinks(text)) {
+		if (found) return undefined;
+		found = { index: m.index, length: m.length };
+	}
+	return found;
+}
+
+/**
  * Cuts `length` characters at `index` out of `text`, dropping one of the two
  * spaces that would otherwise be left behind.
  *

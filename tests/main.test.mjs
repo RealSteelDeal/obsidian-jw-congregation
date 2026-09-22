@@ -297,11 +297,10 @@ test('previewFolders() reports no changes for a folder that is already up to dat
 
 	const item = previews[0].plan.notes.find(n => n.path === itemPath);
 	assert.equal(item.kind, 'unchanged');
-	// The overview is regenerate-flagged: it is rewritten either way, but with
-	// identical content there is nothing to show the user.
+	// The overview carries markers since 1.26.0, so an unchanged programme
+	// leaves it genuinely untouched rather than rewritten with the same bytes.
 	const overview = previews[0].plan.notes.find(n => n.path.endsWith('Übersicht.md'));
-	assert.equal(overview.kind, 'regenerate');
-	assert.equal(overview.changed, false);
+	assert.equal(overview.kind, 'unchanged');
 });
 
 test('previewFolders() marks a marker-free note as needing a re-import instead of planning a merge', async () => {
@@ -569,4 +568,67 @@ test('the preview does not promise a change to a field the user corrected', asyn
 
 	const planned = previews[0].plan.notes.find(n => n.path === itemPath);
 	assert.equal(planned.kind, 'unchanged');
+});
+
+// ── The overview note became mergeable in 1.26.0 ─────────────────────────
+// It used to be rewritten wholesale, so a song number corrected there came
+// back on the next update — the very trap the kept-block flag exists to
+// close, left open in the one note where the programme is most visible.
+
+test('a corrected line in the overview survives an update', async () => {
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+
+	const overviewPath = [...fake.notes.keys()].find(p => p.endsWith('Übersicht.md'));
+	const congressPath = dirname(overviewPath);
+	const lines = fake.notes.get(overviewPath).split('\n');
+	const itemLine = lines.findIndex(l => l.startsWith('- ') && l.includes('9:40'));
+	assert.ok(itemLine > 0, 'expected a programme line in the overview');
+
+	const { markBlockKept } = await jitiWithObsidianStub.import('../src/util/noteMerge.ts');
+	lines[itemLine] = lines[itemLine].replace('9:40', '10:15');
+	fake.notes.set(overviewPath, markBlockKept(lines, itemLine).join('\n'));
+
+	await plugin.updateFile('Test.rtf', makeRtf('9 Uhr 50'), congressPath);
+
+	const after = fake.notes.get(overviewPath);
+	assert.match(after, /10:15/);
+	assert.doesNotMatch(after, /9:50/);
+});
+
+test('an overview written before markers existed is rewritten once, and merges from then on', async () => {
+	// The migration: no markers means no anchor, so the file is rebuilt
+	// exactly as it always was — and comes back with markers.
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+
+	const overviewPath = [...fake.notes.keys()].find(p => p.endsWith('Übersicht.md'));
+	const congressPath = dirname(overviewPath);
+	const markerFree = fake.notes.get(overviewPath)
+		.replace(/^<span class="jw-marker" data-jw-(?:start|end)="[^"]+"><\/span>\n?/gm, '');
+	fake.notes.set(overviewPath, markerFree);
+
+	await plugin.updateFile('Test.rtf', makeRtf('9 Uhr 50'), congressPath);
+
+	const after = fake.notes.get(overviewPath);
+	assert.match(after, /9:50/);                       // brought up to date
+	assert.match(after, /data-jw-start="session-1"/);  // and now carries markers
+});
+
+test('the overview keeps its list intact: no marker lands between two programme lines', async () => {
+	// A marker sits on its own line, so one placed between list items would
+	// split the list in two. They belong either side of the whole list.
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+
+	const overview = [...fake.notes.keys()].find(p => p.endsWith('Übersicht.md'));
+	const lines = fake.notes.get(overview).split('\n');
+	for (let i = 1; i < lines.length - 1; i++) {
+		if (!lines[i].includes('jw-marker')) continue;
+		const between = lines[i - 1].startsWith('- ') && lines[i + 1].startsWith('- ');
+		assert.equal(between, false, `marker on line ${i} splits the list`);
+	}
 });

@@ -249,24 +249,33 @@ export class NoteBuilder {
 			lines.push('');
 			if (day.theme) {
 				const scripture = day.themeScripture ? ` (${this.formatScripture(day.themeScripture)})` : '';
-				lines.push(`${day.theme}${scripture}`);
+				pushMarked(lines, 'theme', () => {
+					lines.push(`${day.theme}${scripture}`);
+				});
 				lines.push('');
 			}
 		}
 
-		for (const session of day.sessions) {
+		// One marker per session rather than per line: a marker sits on its own
+		// line, and putting one between two list items would break the list
+		// apart. Per session the markers fall either side of the whole list,
+		// where they are harmless — at the cost that correcting one line pins
+		// that session as a whole (see markBlockKept).
+		day.sessions.forEach((session, index) => {
 			lines.push(`## ${session.name}`);
-			for (const item of session.items) {
-				lines.push(`- ${this.overviewLine(item, noteBaseNames.get(item))}`);
+			pushMarked(lines, `session-${index + 1}`, () => {
+				for (const item of session.items) {
+					lines.push(`- ${this.overviewLine(item, noteBaseNames.get(item))}`);
 
-				const parts = item.parts ?? [];
-				const parentBaseName = noteBaseNames.get(item);
-				for (const part of parts) {
-					lines.push(`  - ${this.overviewPartLine(part, parentBaseName)}`);
+					const parts = item.parts ?? [];
+					const parentBaseName = noteBaseNames.get(item);
+					for (const part of parts) {
+						lines.push(`  - ${this.overviewPartLine(part, parentBaseName)}`);
+					}
 				}
-			}
+			});
 			lines.push('');
-		}
+		});
 
 		return lines.join('\n').trim() + '\n';
 	}

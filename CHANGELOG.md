@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.26.0
+
+### New
+
+- **The overview note can now keep a correction too.** 1.25.0 made corrected
+  fields survive an update — but only inside notes that carry merge markers.
+  The day's overview had none: it was classed as purely derived and rewritten
+  wholesale, so a song number corrected *there* came back on the next update.
+  That left the trap open in the one note where the programme is most visible.
+
+  The overview now carries markers as well, one per session, and is merged
+  rather than rebuilt whenever they line up. A line you corrected through the
+  plugin is flagged as yours and left alone; everything else keeps updating.
+
+  **One marker per session, not per line**, because a marker occupies its own
+  line and one placed between two programme entries would split the list in
+  two. The markers therefore fall either side of a whole session, at the cost
+  that correcting one line pins that session as a whole. A test asserts no
+  marker ever lands between two list items.
+
+  **Nothing to migrate by hand.** An overview written before this has no
+  markers, so it is rewritten once exactly as it always was — and comes back
+  with them. From then on it merges. If the programme itself changes so much
+  that the markers no longer line up, it is rebuilt, which for a derived note
+  is the right answer rather than the "needs re-import" a hand-edited note
+  would get.
+
 ## 1.25.0
 
 ### New

@@ -854,7 +854,25 @@ export default class JwCongregationPlugin extends Plugin {
 			}
 			if (note.regenerate) {
 				const before = await this.app.vault.read(existing);
-				plannedNotes.push({ kind: 'regenerate', path, content: note.content, changed: before !== note.content });
+				// A purely derived note is normally rewritten outright. But since
+				// 1.26.0 the overview carries markers too, so a line the user
+				// corrected through the plugin can be kept — merge instead
+				// whenever the file on disk already has markers that line up.
+				//
+				// That "whenever" is also the migration: an overview written
+				// before 1.26.0 has no markers, gets rewritten once exactly as it
+				// always was, and comes back with them. From then on it merges.
+				// Markers that no longer line up (the programme itself changed)
+				// fall back to rewriting too — for a derived note that is the
+				// right answer, not the "needs re-import" a hand-edited note gets.
+				const merged = hasNoMarkers(before) ? null : mergeNoteContent(before, note.content);
+				if (merged === null) {
+					plannedNotes.push({ kind: 'regenerate', path, content: note.content, changed: before !== note.content });
+				} else if (merged !== before) {
+					plannedNotes.push({ kind: 'merge', path, content: merged, changes: diffNoteContent(before, note.content) ?? [] });
+				} else {
+					plannedNotes.push({ kind: 'unchanged', path });
+				}
 				continue;
 			}
 			const existingContent = await this.app.vault.read(existing);

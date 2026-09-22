@@ -95,6 +95,17 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 
 ## Recently shipped
 
+- **The overview note became mergeable**, closing the last hole in "a correction stays
+  corrected". It had been classed as purely derived and rewritten wholesale, so a song number
+  corrected there returned on the next update — in the one note where the programme is most
+  visible. It now carries markers and is merged whenever they line up.
+
+  One marker per session rather than per line: a marker occupies its own line, and one placed
+  between two programme entries would split the list apart. The cost is that correcting a
+  line pins its session as a whole, which is the honest trade for keeping the list intact.
+  Nothing migrates by hand — an overview without markers is rewritten once, as always, and
+  comes back with them.
+
 - **A generated field can now be corrected for good.** Songs, the "Next:" hint and an
   imported note's scripture field all sit inside generated blocks, which an update rewrites
   wholesale — so correcting one would have looked as though it worked and quietly reverted.

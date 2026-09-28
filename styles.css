@@ -325,6 +325,31 @@ a.external-link[href*="jw.org/finder"]:not(#_)::after {
 	background-color: var(--background-modifier-hover);
 }
 
+/* settings.underlineLinks switched off (main.ts puts the class on <body>):
+   this plugin's own links keep their colour but lose the underline, which
+   comes back on hover — the same treatment the verse popup already gives its
+   cross-references (.jw-bible-inline-link above). In a note that is mostly
+   scripture references, a solid run of underlines is hard to read past.
+
+   Matched by their target, so nothing else in the vault is touched:
+   jwlibrary:// is a scripture reference, jw.org/finder a song or a source
+   citation (see NoteBuilder.songLink for why those two schemes differ).
+
+   READING VIEW ONLY, unavoidably: editing view renders links as CodeMirror
+   decoration spans with no href in the DOM, so there is nothing to match on
+   and this plugin's links cannot be told from any other. Restyling every link
+   in the vault to cover that case would overstep what a plugin should do —
+   the user asked for its own links, not for the vault's. */
+.jw-no-link-underline a[href^="jwlibrary://"],
+.jw-no-link-underline a[href*="jw.org/finder"] {
+	text-decoration: none;
+}
+
+.jw-no-link-underline a[href^="jwlibrary://"]:hover,
+.jw-no-link-underline a[href*="jw.org/finder"]:hover {
+	text-decoration: underline;
+}
+
 /* An inserted verse quote (see util/quoteBuilder.ts) is a "> [!quote]" callout
    whose title AND body are both jwlibrary:// links to the same verse popup,
    and main.ts treats the WHOLE box as one click target (background, padding,

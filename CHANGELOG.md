@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.28.0
+
+### New
+
+- **"Underline links" can be switched off.** The plugin's own links — scripture
+  references, songs, source citations — then keep their colour but lose the
+  underline, which comes back on hover. In a note that is mostly references, a
+  solid run of underlines is hard to read past. On by default: the underline is
+  what Obsidian itself does, and a plugin should not quietly restyle a vault.
+
+  It matches links by their target, so nothing else in the vault is touched —
+  your own note links and outside URLs keep their usual look.
+
+  **Reading view only, and that is a limitation rather than a choice.** Editing
+  view renders links as decoration spans with no target in the DOM, so this
+  plugin's links cannot be told apart from any other there. Covering that case
+  would mean restyling every link in the vault, which is more than this setting
+  is entitled to do. The two views therefore look slightly different while a
+  note is being edited.
+
 ## 1.27.3
 
 ### Fixes

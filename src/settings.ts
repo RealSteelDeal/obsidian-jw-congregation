@@ -58,6 +58,17 @@ export interface JwPluginSettings {
 	 *  it only fires on the song wording followed by a number, and only for
 	 *  songs the songbook table actually knows. */
 	songSuggest: boolean;
+	/** Whether the plugin's own links — scripture references, songs, source
+	 *  citations — keep Obsidian's usual underline. Off leaves them coloured
+	 *  only, underlined on hover, which reads more calmly in a note full of
+	 *  references. ON by default: the underline is what Obsidian does, and a
+	 *  plugin should not quietly restyle a vault.
+	 *
+	 *  Reading view only, and deliberately so: in editing view Obsidian renders
+	 *  links as decoration spans with no target in the DOM, so there is no way
+	 *  to tell this plugin's links from any other. Covering that case would
+	 *  mean restyling every link in the vault. */
+	underlineLinks: boolean;
 	/** Write the Speaker field as an empty wiki link (`**Redner:** [[]]`) in
 	 *  newly generated notes, so clicking between the brackets opens Obsidian's
 	 *  own completion and the same brother ends up spelled the same way every
@@ -108,6 +119,7 @@ export const DEFAULT_SETTINGS: JwPluginSettings = {
 	bibleFilePopupEnabled: true,
 	bookNameSuggest: true,
 	songSuggest: true,
+	underlineLinks: true,
 	speakerLink: false,
 	mwbTargetFolder: '',
 	mwbScriptureLinks: true,
@@ -234,6 +246,24 @@ export class JwSettingTab extends PluginSettingTab {
 						name: t.setSongSuggest,
 						desc: t.setSongSuggestDesc,
 						control: { type: 'toggle', key: 'songSuggest' },
+					},
+					{
+						name: t.setUnderlineLinks,
+						desc: t.setUnderlineLinksDesc,
+						// Not a plain toggle binding: the class on <body> has to
+						// follow immediately, or the change would only show after
+						// a restart.
+						render: setting => {
+							setting.addToggle(toggle =>
+								toggle
+									.setValue(this.plugin.settings.underlineLinks)
+									.onChange(async value => {
+										this.plugin.settings.underlineLinks = value;
+										await this.plugin.saveSettings();
+										this.plugin.applyLinkUnderlineStyle();
+									}),
+							);
+						},
 					},
 				],
 			},
@@ -559,6 +589,19 @@ export class JwSettingTab extends PluginSettingTab {
 					.onChange(async value => {
 						this.plugin.settings.songSuggest = value;
 						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t.setUnderlineLinks)
+			.setDesc(t.setUnderlineLinksDesc)
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.underlineLinks)
+					.onChange(async value => {
+						this.plugin.settings.underlineLinks = value;
+						await this.plugin.saveSettings();
+						this.plugin.applyLinkUnderlineStyle();
 					}),
 			);
 

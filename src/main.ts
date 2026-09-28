@@ -32,6 +32,10 @@ import sqlWasmBinary from 'sql.js/dist/sql-wasm.wasm';
 
 const BIBLE_FILE_NAME = 'bible-cache.jwpub';
 
+/** On <body> while scripture/song/publication links should NOT be underlined —
+ *  see styles.css and settings.underlineLinks. */
+const LINK_UNDERLINE_CLASS = 'jw-no-link-underline';
+
 /** One convention to reconcile in an update run: an already-parsed programme
  *  and the existing folder it belongs to. `label` is what the summary notice
  *  names if this one convention fails — the file the user picked. */
@@ -237,9 +241,23 @@ export default class JwCongregationPlugin extends Plugin {
 		this.registerDomEvent(activeWindow, 'touchstart', this.onDocumentTouchStart.bind(this), true);
 		this.registerDomEvent(activeWindow, 'touchend', this.onDocumentTouchEnd.bind(this), true);
 		this.registerDomEvent(activeWindow, 'click', this.onDocumentClick.bind(this), true);
+
+		this.applyLinkUnderlineStyle();
 	}
 
-	onunload() {}
+	onunload() {
+		// The class lives on <body>, outside anything Obsidian tears down for
+		// us, so a disabled plugin would otherwise leave its styling behind.
+		document.body.removeClass(LINK_UNDERLINE_CLASS);
+	}
+
+	/** Reflects settings.underlineLinks onto <body>, which is what styles.css
+	 *  keys off. A class rather than injected CSS: the rule itself stays in the
+	 *  stylesheet where it can be read, and switching the setting is then just
+	 *  a class toggle. Called on load and whenever the setting changes. */
+	applyLinkUnderlineStyle(): void {
+		document.body.toggleClass(LINK_UNDERLINE_CLASS, !this.settings.underlineLinks);
+	}
 
 	private touchStart: { x: number; y: number; time: number } | null = null;
 	// Set whenever a touchend was handled (intercepted OR hint-counted) — the

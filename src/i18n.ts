@@ -265,6 +265,8 @@ export interface Strings extends NoteStrings {
 	removeLinkCommand: string;
 	noticeNoLinkAtCursor: string;
 	setSongSuggest: string;
+	setUnderlineLinks: string;
+	setUnderlineLinksDesc: string;
 	setSongSuggestDesc: string;
 	songSuggestLink: string;
 	suggestRemoveLink: string;
@@ -589,7 +591,9 @@ export const L: Record<SupportedLang, Strings> = {
 
 		removeLinkCommand: 'Verlinkung unter dem Cursor entfernen',
 		noticeNoLinkAtCursor: 'An dieser Stelle steht keine Verlinkung dieses Plugins.',
-				setSongSuggest: 'Lieder verlinken',
+						setUnderlineLinks: 'Verlinkungen unterstreichen',
+		setUnderlineLinksDesc: 'Betrifft nur die Verlinkungen dieses Plugins – Bibelstellen, Lieder und Quellenangaben. Ausgeschaltet bleiben sie farbig, aber ohne Unterstreichung und werden erst beim Überfahren unterstrichen; das liest sich in einer Notiz voller Bibelstellen ruhiger. Wirkt in der Leseansicht: im Bearbeitungsmodus stellt Obsidian Links ohne Ziel dar, dort sind unsere Verlinkungen nicht von anderen unterscheidbar.',
+setSongSuggest: 'Lieder verlinken',
 		setSongSuggestDesc: 'Wenn du eine Liednummer als Text tippst („Lied 45"), wird angeboten, sie mit JW Library zu verlinken – wie bei einer getippten Bibelstelle. Die Zieladresse stammt aus dem offiziellen Liederbuch, nicht aus einer Formel; Lieder, die dort nicht vorkommen, werden bewusst nicht angeboten.',
 		songSuggestLink: 'Lied verlinken',
 suggestRemoveLink: 'Verlinkung löschen',
@@ -877,7 +881,9 @@ suggestRemoveLink: 'Verlinkung löschen',
 
 		removeLinkCommand: 'Remove the link under the cursor',
 		noticeNoLinkAtCursor: 'There is no link of this plugin at this position.',
-				setSongSuggest: 'Link songs',
+						setUnderlineLinks: 'Underline links',
+		setUnderlineLinksDesc: 'Applies only to this plugin’s own links — scripture references, songs and source citations. Switched off they stay coloured but lose the underline, which returns on hover; in a note full of references that reads more calmly. Reading view only: in editing view Obsidian draws links without a target, so ours cannot be told apart from any other.',
+setSongSuggest: 'Link songs',
 		setSongSuggestDesc: 'Typing a song number as plain text ("Song 45") offers to link it to JW Library, the same way a typed scripture reference is offered. The target comes from the official songbook rather than a formula; songs it does not contain are deliberately not offered.',
 		songSuggestLink: 'Link song',
 suggestRemoveLink: 'Delete link',
@@ -1133,7 +1139,9 @@ suggestRemoveLink: 'Delete link',
 
 		removeLinkCommand: 'Supprimer le lien sous le curseur',
 		noticeNoLinkAtCursor: 'Aucun lien de ce plugin à cet endroit.',
-				setSongSuggest: 'Lier les cantiques',
+						setUnderlineLinks: 'Souligner les liens',
+		setUnderlineLinksDesc: 'Ne concerne que les liens de ce plugin : textes bibliques, cantiques et références. Désactivé, ils restent colorés mais sans soulignement, qui réapparaît au survol ; dans une note pleine de références, la lecture est plus calme. En mode lecture uniquement : en mode édition, Obsidian affiche les liens sans cible, les nôtres y sont donc indiscernables des autres.',
+setSongSuggest: 'Lier les cantiques',
 		setSongSuggestDesc: 'Si vous tapez un numéro de cantique en texte (« Cantique 45 »), il vous est proposé de le lier à JW Library, comme pour un texte biblique saisi. L’adresse provient du recueil de cantiques officiel et non d’une formule ; les cantiques qui n’y figurent pas ne sont volontairement pas proposés.',
 		songSuggestLink: 'Lier le cantique',
 suggestRemoveLink: 'Supprimer le lien',
@@ -1389,7 +1397,9 @@ suggestRemoveLink: 'Supprimer le lien',
 
 		removeLinkCommand: 'Rimuovi il collegamento sotto il cursore',
 		noticeNoLinkAtCursor: 'In questa posizione non c’è alcun collegamento di questo plugin.',
-				setSongSuggest: 'Collega i cantici',
+						setUnderlineLinks: 'Sottolinea i collegamenti',
+		setUnderlineLinksDesc: 'Riguarda solo i collegamenti di questo plugin: riferimenti biblici, cantici e citazioni delle fonti. Disattivato restano colorati ma senza sottolineatura, che ricompare al passaggio del mouse; in una nota piena di riferimenti si legge in modo più tranquillo. Solo in modalità lettura: in modifica Obsidian disegna i collegamenti senza destinazione, quindi i nostri non sono distinguibili dagli altri.',
+setSongSuggest: 'Collega i cantici',
 		setSongSuggestDesc: 'Se scrivi il numero di un cantico come testo («Cantico 45»), ti viene proposto di collegarlo a JW Library, come per un riferimento biblico digitato. L’indirizzo proviene dal cantico ufficiale e non da una formula; i cantici che non vi compaiono non vengono proposti di proposito.',
 		songSuggestLink: 'Collega il cantico',
 suggestRemoveLink: 'Elimina il collegamento',
@@ -1645,7 +1655,9 @@ suggestRemoveLink: 'Elimina il collegamento',
 
 		removeLinkCommand: 'Remover o link sob o cursor',
 		noticeNoLinkAtCursor: 'Não há nenhum link deste plugin nesta posição.',
-				setSongSuggest: 'Vincular cânticos',
+						setUnderlineLinks: 'Sublinhar os links',
+		setUnderlineLinksDesc: 'Aplica-se apenas aos links deste plugin: textos bíblicos, cânticos e citações de fontes. Desativado, eles permanecem coloridos mas sem sublinhado, que volta ao passar o mouse; numa nota cheia de referências a leitura fica mais tranquila. Somente no modo de leitura: na edição o Obsidian desenha os links sem destino, de modo que os nossos não se distinguem dos demais.',
+setSongSuggest: 'Vincular cânticos',
 		setSongSuggestDesc: 'Ao digitar o número de um cântico como texto (“Cântico 45”), é oferecido vinculá-lo ao JW Library, como acontece com um texto bíblico digitado. O endereço vem do cancioneiro oficial e não de uma fórmula; cânticos que não constam dele não são oferecidos, de propósito.',
 		songSuggestLink: 'Vincular cântico',
 suggestRemoveLink: 'Excluir o link',
@@ -1901,7 +1913,9 @@ suggestRemoveLink: 'Excluir o link',
 
 		removeLinkCommand: 'Удалить ссылку под курсором',
 		noticeNoLinkAtCursor: 'В этом месте нет ссылки этого плагина.',
-				setSongSuggest: 'Связывать песни',
+						setUnderlineLinks: 'Подчёркивать ссылки',
+		setUnderlineLinksDesc: 'Касается только ссылок этого плагина — библейских стихов, песен и указаний на источники. Если выключить, они останутся цветными, но без подчёркивания, которое появится при наведении; в заметке, полной ссылок, это читается спокойнее. Только в режиме чтения: в режиме правки Obsidian рисует ссылки без адреса, и наши там неотличимы от прочих.',
+setSongSuggest: 'Связывать песни',
 		setSongSuggestDesc: 'Если набрать номер песни текстом («Песня 45»), будет предложено связать её с JW Library — так же, как с набранным библейским стихом. Адрес берётся из официального сборника песен, а не из формулы; песни, которых там нет, намеренно не предлагаются.',
 		songSuggestLink: 'Связать песню',
 suggestRemoveLink: 'Удалить ссылку',
@@ -2157,7 +2171,9 @@ suggestRemoveLink: 'Удалить ссылку',
 
 		removeLinkCommand: 'Quitar el enlace bajo el cursor',
 		noticeNoLinkAtCursor: 'No hay ningún enlace de este plugin en esta posición.',
-				setSongSuggest: 'Enlazar canciones',
+						setUnderlineLinks: 'Subrayar los enlaces',
+		setUnderlineLinksDesc: 'Afecta solo a los enlaces de este plugin: textos bíblicos, canciones y citas de fuentes. Desactivado siguen coloreados pero sin subrayado, que reaparece al pasar el ratón; en una nota llena de referencias se lee con más calma. Solo en el modo lectura: en edición Obsidian dibuja los enlaces sin destino, así que los nuestros no se distinguen de los demás.',
+setSongSuggest: 'Enlazar canciones',
 		setSongSuggestDesc: 'Al escribir el número de una canción como texto («Canción 45»), se ofrece enlazarla con JW Library, igual que con un texto bíblico escrito. La dirección procede del cancionero oficial y no de una fórmula; las canciones que no figuran en él no se ofrecen, a propósito.',
 		songSuggestLink: 'Enlazar canción',
 suggestRemoveLink: 'Eliminar el enlace',

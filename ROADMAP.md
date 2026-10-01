@@ -15,9 +15,19 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
     method was validated first against a German file, which reports the `2` already recorded
     here;
   - the 66 book names — extracted from that file's `BibleBook` table
-    (`scripts/dump-book-names.mjs`). **Their citation form is unconfirmed**: the column they
-    come from holds the formal title in German, not the short form, so the choice is proven
-    per language and Korean's could not be checked the same way.
+    (`scripts/dump-book-names.mjs`).
+
+  **Confirmed by the reporter on 01.10.2026**, closing both questions that were left open:
+  - the extracted names really are the citation form, spacing included — `디모데 전서`, not
+    `디모데전서`. This could not be settled from the file alone, because the column they come
+    from holds the *formal* title in German and the short one in Korean, so the choice is
+    proven per language and never carried across;
+  - Korean abbreviations are literal prefixes of the full name: a gospel is shortened by
+    dropping `복음` (`마태복음` → `마태`), other books are typed out in full. The existing
+    prefix rule therefore carries Korean as it stands, and no abbreviation table is needed;
+  - eight note labels — `날짜` (Day), `시간` (Time), `성구` (Scriptures), `연사` (Speaker),
+    `다음 프로:` (Next), `개요` (overview note), `복습 질문` (review note), `표지 이미지`
+    (cover image).
 
   **What still blocks it, and it is larger than those three facts.** `SupportedLang` and
   `CongressLang` are one and the same set, so adding `'ko'` makes the compiler demand a
@@ -25,18 +35,37 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   grows from 49 to 64 entries because every existing language also needs its name in Korean.
   There is no intermediate state where only the three data points are present.
 
-  Six of those keys are not translation at all but **parser anchors** — `caFallbackDay`,
-  `defaultSession`, `reviewQuestionsSession`, `questionsTitle`, `bibleDramaFallback`,
-  `song(n)` — matched against the real file's own HTML. Invented values compile cleanly and
-  break the import silently, which is the worst possible failure mode here. They have to be
-  read off a real Korean **convention programme**; the Bible file used above does not contain
-  them.
+  **Where the parser anchors actually are — this entry named the wrong ones.** It used to
+  say that six keys of `src/i18n.ts` (`caFallbackDay`, `defaultSession`,
+  `reviewQuestionsSession`, `questionsTitle`, `bibleDramaFallback`, `song(n)`) are matched
+  against the file's own HTML. Re-read on 01.10.2026, none of them is: every one is only
+  ever *written*. `questionsTitle` is assigned as a note's title and later compared against
+  that same assignment — a round trip, not a detection. Left on the English fallback these
+  six produce visibly English words in a Korean note, which is a translation gap, not a
+  silent failure.
 
-  **A realistic path**, should the full localisation be too much to ask of a reporter: build
-  `ko` as `{ ...L.en, <the Korean values that are known> }`, so untranslated interface text
-  falls back to English instead of blocking the feature. That reduces the genuine ask to the
-  six parser anchors plus roughly ten note labels (Day, Time, Scriptures, Speaker, "Next:",
-  the overview/review/cover-image names) — and the anchors still need a real programme file.
+  The real anchors are regular expressions that never went through `i18n.ts`, and there are
+  more of them than six:
+
+  | Anchor | What a missing Korean alternative costs |
+  |---|---|
+  | weekday in the day heading (`JwpubParser.extractDayName`) | **breaks a three-day convention** — no day is recognised, so the one-day fallback names all three alike |
+  | `dayOrder` | days come out unsorted |
+  | item-type markers: bible drama / talk series / baptism (`detectItemType`) | those items parse as ordinary talks |
+  | `QUESTIONS_RE` | the printed review-questions note is missing entirely |
+  | `MUSIC_VIDEO_RE`, `PAUSE_RE` | music and break lines each get a note of their own |
+  | `NoteBuilder.splitSongTitle` | the song link's label swallows the whole paragraph |
+
+  This is worse than the old description in one way and much better in another. Worse: the
+  weekday anchor fails loudly and wrongly rather than merely leaving a gap. Better: every
+  anchor is **printed in the programme itself** and can simply be read off in JW Library —
+  no terminal, no clone of this repository, which is exactly what the reporter said they
+  could not do. The earlier ask was shaped around a script run and need not have been.
+
+  **The path, then:** build `ko` as `{ ...L.en, <the known Korean values> }`, so untranslated
+  interface text falls back to English instead of blocking the feature, and add Korean
+  alternatives to the six anchor patterns above. The note labels are no longer part of the
+  ask — they arrived on 01.10.2026.
 
   **The groundwork for that path is in place.** `LANG_DISPLAY_NAMES` rows are now partial
   with an English fallback (`displayName()`), so a new language brings its own row instead of

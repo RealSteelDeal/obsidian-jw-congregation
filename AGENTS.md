@@ -802,6 +802,27 @@ MEPS-Symbol für `wtlocale=` (die Medien-API von jw.org antwortet auf
 `Publication.MepsLanguageIndex` (erste Zeile von `dump-structure.mjs`) und die 66 Buchnamen
 (`dump-book-names.mjs`, liest die `BibleBook`-Tabelle einer `nwt`/`nwtsty`-Datei).
 
+⚠️ **Diese drei Angaben reichen nicht — sie beschaffen nur die Bibel-Seite.** Eine Sprache
+funktioniert erst, wenn auch die **Erkennungsmuster** sie kennen, und die stehen bewusst
+**nicht** in `i18n.ts`, sondern als sprachübergreifend kombinierte Regexe im Parser (siehe
+Abschnitt „Sprachen" oben). Wer `i18n.ts` als die Liste der Anker liest, liegt falsch: die
+dortigen `caFallbackDay`/`defaultSession`/`reviewQuestionsSession`/`questionsTitle`/
+`bibleDramaFallback`/`song()` werden ausschließlich **geschrieben**, nie gegen eine Datei
+gematcht (`questionsTitle` wird gesetzt und später gegen die eigene Setzung verglichen —
+ein Rundlauf, keine Erkennung). Die echten Anker, alle gegen echten Dateitext:
+
+| Anker | Folge, wenn die Sprache fehlt |
+|---|---|
+| Wochentag in `JwpubParser.extractDayName` + `dayOrder` | **dreitägiger Kongress bricht** — kein Tag erkannt, der CA-Fallback benennt alle gleich |
+| `detectItemType` (Bibeldrama/Vortragsreihe/Taufe) | diese Punkte werden normale Vorträge |
+| `QUESTIONS_RE` | Wiederholungsfragen-Notiz fehlt ganz |
+| `MUSIC_VIDEO_RE`, `PAUSE_RE` | Musik-/Pausenzeilen bekommen eigene Notizen |
+| `NoteBuilder.splitSongTitle` | das Link-Label schluckt den ganzen Absatz |
+
+Sie alle stehen **sichtbar im Programm** und lassen sich in JW Library ablesen — ein
+Melder braucht dafür weder ein Terminal noch einen Klon dieses Repos. Bei Issue #1 wurde
+zuerst nach einem Skriptlauf gefragt, was den Melder unnötig blockiert hat (01.10.2026).
+
 **Abkürzungen** (`BOOK_ABBREVIATIONS` in `bookNames.ts`) kommen aus
 `dump-book-abbreviations.mjs`. Es liest in jeder Zitat-Verlinkung einer Publikation den
 **sichtbaren Text** zusammen mit der Buchnummer aus deren eigenem `jwpub://b/NWTR/`-Href —

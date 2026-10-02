@@ -2,7 +2,8 @@ import { Mwb, MwbSection, MwbSong, MwbTextSegment, MwbWeek } from '../models/mwb
 import { Scripture } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 import { songFinderUrl } from '../normalizer/songDocIds';
-import { NL } from '../i18n';
+import { NL, NoteStrings } from '../i18n';
+import { CongressLang } from '../normalizer/bookNames';
 import { pushMarked } from '../util/noteMerge';
 
 export interface MwbBuilderOptions {
@@ -35,8 +36,6 @@ export interface MwbBuildResult {
 	attachments: GeneratedMwbAttachment[];
 }
 
-const GERMAN_MONTH_ABBR = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
-
 /**
  * Turns a parsed `Mwb` (see models/mwb.ts, MwbParser) into one Markdown note
  * per week — NOT one note per programme item, unlike NoteBuilder's congress
@@ -51,13 +50,20 @@ const GERMAN_MONTH_ABBR = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Au
  * to yield the same NUMBER of items in the same order, exactly like the
  * existing `part-N` precedent.
  *
- * German-only for v1 (Mwb.lang is typed 'de' — see MwbParser's class doc
- * comment), so this class hardcodes NL.de instead of switching on a `lang`
- * field the way NoteBuilder does for congress's 7 supported languages.
+ * Writes in the workbook's own language (Mwb.lang — German or Korean, see
+ * MwbParser), the way NoteBuilder does for convention programmes. Every text
+ * it adds itself comes from NoteStrings; the German values are exactly the
+ * ones this class used to hardcode, so German notes are unchanged.
  */
 export class MwbNoteBuilder {
 
-	private readonly t = NL.de;
+	// Set from the workbook at the start of buildNotes()/issueFolderName();
+	// 'de' is only the placeholder before the first call.
+	private lang: CongressLang = 'de';
+
+	private get t(): NoteStrings {
+		return NL[this.lang];
+	}
 
 	constructor(private readonly opts: MwbBuilderOptions) {}
 
@@ -68,20 +74,30 @@ export class MwbNoteBuilder {
 	}
 
 	issueFolderName(mwb: Mwb): string {
-		return this.sanitizeName(`Leben und Dienst ${this.issueLabel(mwb)}`);
+		this.lang = mwb.lang;
+		const m = /^(\d{4})(\d{2})\d{2}$/.exec(mwb.issueTagNumber);
+		const month = m ? Number(m[2]) : undefined;
+		const valid = month !== undefined && month >= 1 && month <= 12 ? month : undefined;
+		return this.sanitizeName(this.text.mwbFolder(mwb.year, valid));
 	}
 
-	private issueLabel(mwb: Mwb): string {
-		const m = /^(\d{4})(\d{2})\d{2}$/.exec(mwb.issueTagNumber);
-		if (!m) return String(mwb.year);
-		const monthIndex = Number(m[2]) - 1;
-		const first = GERMAN_MONTH_ABBR[monthIndex];
-		if (monthIndex < 0 || monthIndex > 11 || !first) return String(mwb.year);
-		const second = GERMAN_MONTH_ABBR[(monthIndex + 1) % 12];
-		return `${mwb.year} ${first}/${second}`;
+	/** The workbook strings of this language. Only languages that carry them
+	 *  get this far — MwbParser refuses every other one. */
+	private get text(): Required<Pick<NoteStrings, 'mwbFolder' | 'mwbDuration' | 'mwbSong' | 'mwbPrayer' | 'mwbIntroWords' | 'mwbClosingWords'>> {
+		const t = this.t;
+		const de = NL.de;
+		return {
+			mwbFolder: t.mwbFolder ?? de.mwbFolder!,
+			mwbDuration: t.mwbDuration ?? de.mwbDuration!,
+			mwbSong: t.mwbSong ?? de.mwbSong!,
+			mwbPrayer: t.mwbPrayer ?? de.mwbPrayer!,
+			mwbIntroWords: t.mwbIntroWords ?? de.mwbIntroWords!,
+			mwbClosingWords: t.mwbClosingWords ?? de.mwbClosingWords!,
+		};
 	}
 
 	buildNotes(mwb: Mwb): MwbBuildResult {
+		this.lang = mwb.lang;
 		const notes: GeneratedMwbNote[] = [];
 		const attachments: GeneratedMwbAttachment[] = [];
 
@@ -171,7 +187,7 @@ export class MwbNoteBuilder {
 				pushMarked(lines, markerId, () => {
 					lines.push(`### ${item.number}. ${item.title}`);
 					if (this.opts.showDurationField && item.durationMin) {
-						lines.push(`**${this.t.durationLabel}:** ${item.durationMin} Min.`);
+						lines.push(`**${this.t.durationLabel}:** ${this.text.mwbDuration(item.durationMin)}`);
 					}
 					for (const paragraph of item.paragraphs) {
 						const text = this.renderSegments(paragraph);
@@ -186,7 +202,7 @@ export class MwbNoteBuilder {
 		}
 
 		pushMarked(lines, 'footer', () => {
-			lines.push(`**Schlussworte** | ${this.songLine(week.closingSong)}`);
+			lines.push(`**${this.text.mwbClosingWords}** | ${this.songLine(week.closingSong)}`);
 		});
 		lines.push('');
 
@@ -236,14 +252,14 @@ export class MwbNoteBuilder {
 			if (seg.type === 'scripture') return this.scriptureText(seg.scripture);
 			// citation
 			if (!this.opts.showSourceCitationField || seg.docid === undefined) return seg.label;
-			const url = `https://www.jw.org/finder?srcid=jwlshare&wtlocale=${ScriptureNormalizer.wtlocale('de')}&prefer=lang&docid=${seg.docid}`;
+			const url = `https://www.jw.org/finder?srcid=jwlshare&wtlocale=${ScriptureNormalizer.wtlocale(this.lang)}&prefer=lang&docid=${seg.docid}`;
 			return `[${seg.label}](${url})`;
 		}).join('');
 	}
 
 	private scriptureText(s: Scripture): string {
-		if (this.opts.scriptureLinks) return ScriptureNormalizer.toMarkdownLink(s, 'de');
-		return ScriptureNormalizer.format(s, 'de');
+		if (this.opts.scriptureLinks) return ScriptureNormalizer.toMarkdownLink(s, this.lang);
+		return ScriptureNormalizer.format(s, this.lang);
 	}
 
 	private scriptureListText(scriptures: Scripture[]): string {
@@ -256,10 +272,12 @@ export class MwbNoteBuilder {
 	// SONG_DOC_IDS for why the id is read rather than computed. A song in
 	// neither stays unlinked here too.
 	private songLine(song: MwbSong): string {
-		const url = songFinderUrl(song.songNumber, 'de', song.songDocid);
-		const link = url === undefined ? `Lied ${song.songNumber}` : `[Lied ${song.songNumber}](${url})`;
+		const { mwbSong, mwbPrayer, mwbIntroWords } = this.text;
+		const url = songFinderUrl(song.songNumber, this.lang, song.songDocid);
+		const label = mwbSong(song.songNumber);
+		const link = url === undefined ? label : `[${label}](${url})`;
 		const suffix = [
-			song.includesIntroWords ? 'und Gebet | Einleitende Worte' : song.includesPrayer ? 'und Gebet' : undefined,
+			song.includesIntroWords ? `${mwbPrayer} | ${mwbIntroWords}` : song.includesPrayer ? mwbPrayer : undefined,
 		].filter(Boolean).join(' ');
 		return suffix ? `${link} ${suffix}` : link;
 	}

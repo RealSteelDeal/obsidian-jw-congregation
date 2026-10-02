@@ -5,7 +5,7 @@ import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 import { CongressLang } from '../normalizer/bookNames';
 import { NL, NoteStrings } from '../i18n';
 import { DbRow, decryptBlob, deriveKey, openJwpubDatabase, readPublication } from '../util/jwpubCrypto';
-import { assertPlatformSupport, BIBLE_HREF_RE, MEPS_LANGUAGE_INDEX, SONG_DOCID_HREF_RE, SONG_HREF_SELECTOR } from '../util/jwpubLinks';
+import { assertPlatformSupport, BIBLE_HREF_RE, MEPS_LANGUAGE_INDEX, SONG_DOCID_HREF_RE, SONG_HREF_SELECTOR, englishSymbol, stripZeroWidthSpace } from '../util/jwpubLinks';
 
 // Time at start of paragraph text — same "H:MM" shape in German (24h) and
 // English (12h without am/pm) programme files; French uses a period instead
@@ -20,14 +20,14 @@ const TIME_RE = /^\s*(\d{1,2})[:.](\d{2})/;
 // the hyphen may be a non-breaking variant, hence the class), "Musique"/"Vidéo
 // musicale" (French), "Musica"/"Video musicale" (Italian), "Música"/"Vídeo
 // musical" (Portuguese), "Музыка"/"Музыкальное видео" (Russian), "Música"/
-// "Video musical" (Spanish).
-const MUSIC_VIDEO_RE = /^(Musik(?:video)?|Music(?:[\s‐-―-]?Video)?(?:\s?Presentation)?|Vidéo musicale|Musique|Video musicale|Musica|Vídeo musical|Música|Video musical|Музыкальное видео|Музыка)$/iu;
+// "Video musical" (Spanish), "음악"/"음악 영상" (Korean).
+const MUSIC_VIDEO_RE = /^(Musik(?:video)?|Music(?:[\s‐-―-]?Video)?(?:\s?Presentation)?|Vidéo musicale|Musique|Video musicale|Musica|Vídeo musical|Música|Video musical|Музыкальное видео|Музыка|음악 영상|음악)$/iu;
 // Standalone break line, optionally with a duration, e.g. "Pause" or
 // "Pause (15 Min.)" / "Intermission" — same treatment: overview-only, no note.
 // No standalone equivalent observed in the real French/Italian/Portuguese/
-// Russian/Spanish programme files (their breaks are always folded into the
-// preceding song line, e.g. "Cantico 14 e intervallo") — nothing to add here
-// until a real file shows one.
+// Russian/Spanish/Korean programme files (their breaks are always folded into
+// the preceding song line, e.g. "Cantico 14 e intervallo", "노래 14번 및
+// 휴회") — nothing to add here until a real file shows one.
 const PAUSE_RE = /^((?:Pause|Intermission)\b.*)$/i;
 // Printed review-questions blocks/documents. Real h1s (colon stripped for
 // display, see NL[lang].questionsTitle): German "Beantworte die folgenden
@@ -35,9 +35,11 @@ const PAUSE_RE = /^((?:Pause|Intermission)\b.*)$/i;
 // attentifs aux réponses à ces questions :", Italian "Rispondete a queste
 // domande:", Portuguese "Esteja atento às respostas para as seguintes
 // perguntas:", Russian "Узнайте ответы на эти вопросы:", Spanish "Anota las
-// respuestas a las siguientes preguntas:". "Answer the following questions"
-// kept as a defensive extra variant.
-const QUESTIONS_RE = /^(Beantworte die folgenden Fragen|Find answers to these questions|Answer the following questions|Soyez attentifs aux réponses à ces questions|Rispondete a queste domande|Esteja atento às respostas para as seguintes perguntas|Узнайте ответы на эти вопросы|Anota las respuestas a las siguientes preguntas)/iu;
+// respuestas a las siguientes preguntas:", Korean "아래 질문에 대한 답을 찾아
+// 보십시오" (no colon; matched after JwpubParser.clean() has removed the two
+// U+200B the file puts inside it). "Answer the following questions" kept as a
+// defensive extra variant.
+const QUESTIONS_RE = /^(Beantworte die folgenden Fragen|Find answers to these questions|Answer the following questions|Soyez attentifs aux réponses à ces questions|Rispondete a queste domande|Esteja atento às respostas para as seguintes perguntas|Узнайте ответы на эти вопросы|Anota las respuestas a las siguientes preguntas|아래 질문에 대한 답을 찾아 보십시오)/iu;
 
 export class JwpubParser {
 
@@ -59,6 +61,15 @@ export class JwpubParser {
 
 	private get t(): NoteStrings {
 		return NL[this.lang];
+	}
+
+	/** Text straight out of the file, made safe to match and to name things
+	 *  after — in every language since 02.10.2026, not only Korean. English
+	 *  programmes carry a few zero-width spaces too, two of them in item
+	 *  titles and so in file names; util/legacyNames.ts lets an update or a
+	 *  re-import find the notes an earlier version named with them. */
+	private clean(text: string): string {
+		return stripZeroWidthSpace(text);
 	}
 
 	async parse(fileBuffer: Uint8Array): Promise<Congress> {
@@ -111,7 +122,7 @@ export class JwpubParser {
 		db: Database,
 		innerZip: Unzipped,
 	): Promise<Congress> {
-		const symbol = String(pub['Symbol']);
+		const symbol = englishSymbol(pub);
 		const year   = Number(pub['Year']);
 		const type   = this.detectType(symbol);
 		// sql.js may return numeric columns as strings — always cast (same caveat
@@ -122,9 +133,9 @@ export class JwpubParser {
 		// For CA the cover doc title is the publication name; the actual congress
 		// motto is the title of document 1 (the program document).
 		const coverMeta  = meta.get(0);
-		const rawTheme   = coverMeta?.get('MEPS:Title') ?? '';
+		const rawTheme   = this.clean(coverMeta?.get('MEPS:Title') ?? '');
 		const isCA       = type === 'CA-copgm' || type === 'CA-brpgm';
-		const theme      = isCA ? (meta.get(1)?.get('MEPS:Title') ?? rawTheme) : rawTheme;
+		const theme      = isCA ? this.clean(meta.get(1)?.get('MEPS:Title') ?? rawTheme) : rawTheme;
 
 		const days: Day[] = [];
 		let themeScripture: Scripture | undefined;
@@ -139,7 +150,7 @@ export class JwpubParser {
 
 			let html: string;
 			try {
-				html = await decryptBlob(raw, keyIv.key, keyIv.iv);
+				html = this.clean(await decryptBlob(raw, keyIv.key, keyIv.iv));
 			} catch {
 				continue;
 			}
@@ -213,8 +224,26 @@ export class JwpubParser {
 		const fullText = (p.textContent ?? '').trim();
 		if (!fullText || fullText === linkText) return { themeScripture };
 
-		const theme = this.stripScriptureCitation(fullText) || undefined;
+		const theme = this.stripDashedCitation(this.stripScriptureCitation(fullText), linkText) || undefined;
 		return { theme, themeScripture };
+	}
+
+	/**
+	 * English, Portuguese and Korean put a day theme's citation after a dash
+	 * rather than in parentheses — "…need”—Matthew 5:3", "…espiritual.” —
+	 * Mateus 5:3.", "…행복합니다”—마태복음 5:3" — which stripScriptureCitation()
+	 * does not touch, so until 02.10.2026 the overview printed the reference
+	 * twice: once in the theme, once as the link after it. Cut only when the
+	 * text ends with exactly the link's own visible text AND a dash precedes it,
+	 * so a sentence that merely ends in a reference is left alone.
+	 */
+	private stripDashedCitation(text: string, citation: string): string {
+		if (!citation) return text;
+		const body = text.replace(/\.$/, '');
+		if (!body.endsWith(citation)) return text;
+		const before = body.slice(0, body.length - citation.length);
+		const dash = /[\s\u200B]*[—–-][\s\u200B]*$/.exec(before);
+		return dash ? before.slice(0, dash.index).trim() : text;
 	}
 
 	private extractThemeScripture(dom: Document): Scripture | undefined {
@@ -267,8 +296,19 @@ export class JwpubParser {
 		const text = h1.textContent?.trim() ?? '';
 
 		// CO: explicit weekday in h1, verbatim per language (German, English,
-		// French, Italian, Portuguese, Russian, Spanish programme files).
-		const match = /\b(Freitag|Samstag|Sonntag|Friday|Saturday|Sunday|Vendredi|Samedi|Dimanche|Venerdì|Sabato|Domenica|Sexta-feira|Sábado|Domingo|Пятница|Суббота|Воскресенье|Viernes)\b/iu.exec(text);
+		// French, Italian, Portuguese, Russian, Spanish, Korean programme files).
+		//
+		// NOT \b: in JavaScript it is ASCII-only even with the u flag, so it
+		// finds no boundary next to "ì", Cyrillic or Hangul. Until 02.10.2026
+		// that silently broke Italian Friday ("Venerdì") and all three Russian
+		// days: they fell through to the one-day fallback below, so an Italian
+		// convention had two "Sabato" days and a Russian one three "Суббота"
+		// days — sharing one folder, where each day's overview overwrote the
+		// last. The item counts still matched, which is why it went unseen.
+		// Lookbehind would say this more directly, but it is a syntax error on
+		// iOS before 16.4 and would stop the whole plugin loading there; the
+		// \p{…} classes are already relied on by bookNames.normalizeBookKey.
+		const match = /(?:^|[^\p{L}\p{N}])(Freitag|Samstag|Sonntag|Friday|Saturday|Sunday|Vendredi|Samedi|Dimanche|Venerdì|Sabato|Domenica|Sexta-feira|Sábado|Domingo|Пятница|Суббота|Воскресенье|Viernes|금요일|토요일|일요일)(?![\p{L}\p{N}])/iu.exec(text);
 		if (match) return match[1] ?? null;
 
 		// CA: one-day congress — h1 has theme, not weekday.
@@ -511,12 +551,21 @@ export class JwpubParser {
 		// РЕЧЕЙ:", "РЕЧЬ О КРЕЩЕНИИ:", "…РЕЧЬ:" (baptism checked first so its
 		// own "РЕЧЬ" doesn't fall through to the generic talk match below);
 		// Spanish: "PRODUCCIÓN AUDIOVISUAL:", "SERIE DE DISCURSOS:", "DISCURSO
-		// DE BAUTISMO:", "DISCURSO …:".
-		if (/BIBELDRAMA|BIBLE\s*DRAMA|\bFILM\b|VIDEORACCONTO|\bVÍDEO\b|ВИДЕОПОСТАНОВКА|PRODUCCIÓN AUDIOVISUAL/u.test(marker)) return ['bible-drama', true];
-		if (/VORTRAGSREIHE|SYMPOSIUM|EXPOSÉ.*PARTIES|SIMPOSIO|SERIE DI DISCORSI|SIMPÓSIO|СЕРИЯ РЕЧЕЙ|SERIE DE DISCURSOS/u.test(marker)) return ['talk-series', true];
-		if (/TAUFE|BAPTISM|BAPTÊME|BATTESIMO|BATISMO|КРЕЩЕНИИ|BAUTISMO/u.test(marker)) return ['baptism', true];
+		// DE BAUTISMO:", "DISCURSO …:"; Korean: "성경 드라마:", "심포지엄:",
+		// "침례 연설:", "사회자 연설:" (chairman), "성경 공개 강연:" (public
+		// discourse) — the baptism one carries the generic "연설", like Russian
+		// above, and is caught first for the same reason.
+		//
+		// The last line matters more than it looks: it is what sets
+		// hasTypeMarker for an ordinary talk, and only then does extractTitle()
+		// strip the marker. A language missing there still parses every talk
+		// as a talk — but with "사회자 연설:" left at the front of its title and
+		// file name.
+		if (/BIBELDRAMA|BIBLE\s*DRAMA|\bFILM\b|VIDEORACCONTO|\bVÍDEO\b|ВИДЕОПОСТАНОВКА|PRODUCCIÓN AUDIOVISUAL|성경 드라마/u.test(marker)) return ['bible-drama', true];
+		if (/VORTRAGSREIHE|SYMPOSIUM|EXPOSÉ.*PARTIES|SIMPOSIO|SERIE DI DISCORSI|SIMPÓSIO|СЕРИЯ РЕЧЕЙ|SERIE DE DISCURSOS|심포지엄/u.test(marker)) return ['talk-series', true];
+		if (/TAUFE|BAPTISM|BAPTÊME|BATTESIMO|BATISMO|КРЕЩЕНИИ|BAUTISMO|침례/u.test(marker)) return ['baptism', true];
 		if (/INTERVIEW/.test(marker))                      return ['interview', true];
-		if (/VORTRAG|TALK|REDE|CHAIRMAN|ADDRESS|DISCOURSE|DISCOURS|DISCORSO|DISCURSO|РЕЧЬ/u.test(marker)) return ['talk', true];
+		if (/VORTRAG|TALK|REDE|CHAIRMAN|ADDRESS|DISCOURSE|DISCOURS|DISCORSO|DISCURSO|РЕЧЬ|연설|강연/u.test(marker)) return ['talk', true];
 
 		return ['talk', false];
 	}
@@ -591,6 +640,7 @@ export class JwpubParser {
 			'Sexta-feira': 0, Sábado: 1, Domingo: 2,
 			Пятница: 0, Суббота: 1, Воскресенье: 2,
 			Viernes: 0,
+			금요일: 0, 토요일: 1, 일요일: 2,
 		};
 		return order[weekday] ?? 99;
 	}

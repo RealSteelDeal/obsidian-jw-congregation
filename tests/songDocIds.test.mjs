@@ -102,3 +102,32 @@ test('the recognised span covers only the reference, not the text before it', ()
 	assert.equal(text.slice(hit.start, hit.end), 'Lied 120');
 	assert.equal(hit.songNumber, 120);
 });
+
+test('a Korean song is recognised with its counter suffix', () => {
+	// "노래 120번" — the programmes' own form. The suffix belongs to the link.
+	const text = '다음은 노래 120번';
+	const hit = findSongNumberAtEnd(text);
+	assert.equal(hit.songNumber, 120);
+	assert.equal(text.slice(hit.start, hit.end), '노래 120번');
+});
+
+test('a Korean song is offered before its suffix, with the suffix in the label', () => {
+	// 번 is composed through the input method and stays uncommitted until the
+	// next key, so waiting for it would be unreliable; the digits are not.
+	const hit = findSongNumberAtEnd('노래 120');
+	assert.equal(hit.songNumber, 120);
+	assert.equal(hit.label, '노래 120번');
+	assert.equal(findSongNumberAtEnd('노래 120번').label, '노래 120번');
+});
+
+test('every other language keeps the typed wording as the label', () => {
+	assert.equal(findSongNumberAtEnd('Wir singen Lied 45').label, 'Lied 45');
+	assert.equal(findSongNumberAtEnd('Song No. 45').label, 'Song No. 45');
+});
+
+test('a Korean song link opens JW Library in Korean', () => {
+	// Song 160 is the one the old docid formula missed by 6000.
+	const url = songFinderUrl(160, 'ko');
+	assert.match(url, /wtlocale=KO&/);
+	assert.match(url, /docid=1102022960$/);
+});

@@ -13,8 +13,14 @@
  */
 
 export class TFile {
-	constructor(path) { this.path = path; }
+	constructor(path) {
+		this.path = path;
+		// As on the real TFile: the last path segment, extension included.
+		this.name = path.split('/').pop() ?? '';
+	}
 }
+
+export class TAbstractFile {}
 
 export class TFolder {
 	constructor(path) {
@@ -112,3 +118,8 @@ export class EditorSuggest {
 export function setIcon() {}
 
 export function requireApiVersion() { return true; }
+
+// Obsidian sets the moment locale to its own language at start-up; a test
+// changes it through `moment.locale(code)` to stand for a differently set app.
+let momentLocale = 'en';
+export const moment = { locale(code) { if (code !== undefined) momentLocale = code; return momentLocale; } };

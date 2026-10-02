@@ -1,4 +1,5 @@
 import { App, TFolder } from 'obsidian';
+import { sameUnderLegacySpelling } from './legacyNames';
 
 /** Every folder in the vault except the root itself, sorted by path — shared
  *  by every "pick a target folder" modal (ImportModal, UpdateNotesModal,
@@ -21,7 +22,13 @@ export function listAllFolders(app: App): TFolder[] {
  *  import created. Matching on the name rather than the path is what makes it
  *  work for a vault that keeps its conventions in a subfolder; several matches
  *  are a real possibility (the same name under two parents), which is why the
- *  caller gets the whole list and lets the user settle it. */
+ *  caller gets the whole list and lets the user settle it.
+ *
+ *  Only when no folder has the name exactly, a folder carrying it in an
+ *  earlier spelling counts (util/legacyNames.ts) — so a convention imported
+ *  before a naming correction is still found. */
 export function findFoldersByName(app: App, name: string): TFolder[] {
-	return listAllFolders(app).filter(folder => folder.name === name);
+	const folders = listAllFolders(app);
+	const exact = folders.filter(folder => folder.name === name);
+	return exact.length > 0 ? exact : folders.filter(folder => sameUnderLegacySpelling(folder.name, name));
 }

@@ -113,3 +113,16 @@ test('does not mistake another field, or prose, for the Speaker line', () => {
 	assert.equal(speakerLineValue('Der Redner: Bruder Sieberer', 'Redner'), null);
 	assert.equal(speakerLineValue('**Redner:** Br. Sieberer', 'Uhrzeit'), null);
 });
+
+test('a Korean form of address after the name is not part of it', () => {
+	// Korean puts "brother" after the name; the order never mattered here.
+	assert.deepEqual([...nameTokens('김철수 형제')], ['김철수']);
+	assert.deepEqual([...nameTokens('김철수 형제님')], ['김철수']);
+	const groups = groupSpeakerVariants([...occ('김철수 형제', 2), ...occ('김철수')]);
+	assert.equal(groups.length, 1);
+	assert.equal(groups[0].suggested, '김철수 형제');
+});
+
+test('the Korean speaker label is read like any other', () => {
+	assert.equal(speakerLineValue('**연사:** 김철수 형제', '연사'), '김철수 형제');
+});

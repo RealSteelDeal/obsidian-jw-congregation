@@ -248,3 +248,47 @@ test('merge returns null (needs full reimport) when the number of items changes 
 
 	assert.equal(mergeNoteContent(original, fresh), null);
 });
+
+// ── Korean workbooks ────────────────────────────────────────────────────────
+
+function koreanMwb() {
+	return mwb({
+		lang: 'ko',
+		weeks: [week({
+			dateRangeLabel: '1월 5-11일',
+			openingSong: song({ songNumber: 153, songDocid: 1102022953, includesPrayer: true, includesIntroWords: true }),
+			closingSong: song({ songNumber: 73, songDocid: 1102016873, includesPrayer: true }),
+			items: [
+				item({ number: 1, section: 'treasures', title: '예시 제목', durationMin: 10 }),
+				item({ number: 2, section: 'living', title: '회중 성서 연구', durationMin: 30, isCongregationBibleStudy: true }),
+			],
+		})],
+	});
+}
+
+test('a Korean issue folder uses the publication\u2019s own short title and month wording', () => {
+	// "생활과 봉사" is the publication's short title, "2026년 1-2월" its cover's.
+	assert.equal(builder().issueFolderName(koreanMwb()), '생활과 봉사 2026년 1-2월');
+	assert.equal(builder().issueFolderName(mwb({ lang: 'ko', issueTagNumber: '20261100' })), '생활과 봉사 2026년 11-12월');
+	assert.equal(builder().issueFolderName(mwb({ lang: 'ko', issueTagNumber: 'x' })), '생활과 봉사 2026년');
+});
+
+test('a Korean week note is written in Korean throughout', () => {
+	const note = builder().buildNotes(koreanMwb()).notes[0].content;
+	assert.match(note, /## 성경에 담긴 보물/);
+	assert.match(note, /## 그리스도인 생활/);
+	assert.match(note, /\*\*소요 시간:\*\* 10분/);
+	assert.match(note, /\*\*이번 주 성경 읽기:\*\* /);
+	// The workbook prints a song without the 번 the convention programmes use.
+	assert.match(note, /\[노래 153\]\(https:\/\/www\.jw\.org\/finder\?[^)]*wtlocale=KO[^)]*\) 및 기도 \| 소개말/);
+	assert.match(note, /\*\*맺음말\*\* \| \[노래 73\]/);
+	assert.match(note, /jwlibrary:[^)]*wtlocale=KO/);
+	assert.doesNotMatch(note, /Lied|Gebet|Schlussworte|Min\.|Wochenlesung|Dauer/);
+});
+
+test('a German week note is written exactly as before', () => {
+	const note = builder().buildNotes(mwb()).notes[0].content;
+	assert.match(note, /\*\*Dauer:\*\* 10 Min\./);
+	assert.match(note, /\[Lied 1\]\(https:\/\/www\.jw\.org\/finder\?[^)]*wtlocale=X/);
+	assert.match(note, /\*\*Schlussworte\*\* \| \[Lied 3\]/);
+});

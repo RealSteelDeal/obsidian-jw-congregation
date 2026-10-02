@@ -2,6 +2,21 @@ import { CongressLang, SupportedLang } from './normalizer/bookNames';
 import { CongressType } from './models/congress';
 import { ParseErrorCode } from './util/parseErrors';
 
+/** Singular or plural wording for a count, in the languages that inflect for
+ *  it: German, English, Italian, Portuguese and Spanish take the singular for
+ *  exactly 1. Until 02.10.2026 every notice used the plural throughout —
+ *  "1 notes would change", "1 Notizen", "1 nouvelles" — or hedged with
+ *  "Kongress(e)". Russian strings put the count after a colon and Korean has
+ *  no plural, so neither needs this. */
+function one(count: number, singular: string, plural: string): string {
+	return count === 1 ? singular : plural;
+}
+
+/** French takes the singular for 0 as well (« 0 note mise à jour »). */
+function oneFr(count: number, singular: string, plural: string): string {
+	return count < 2 ? singular : plural;
+}
+
 /**
  * Strings needed to generate notes from an imported programme file — driven by
  * Congress.lang (detected from the file's own `MepsLanguageIndex`, see
@@ -40,12 +55,13 @@ export interface NoteStrings {
 	folderCAco: (season: string, theme: string) => string;
 	folderCAbr: (season: string, theme: string) => string;
 
-	// ── Meeting workbook parser/notes (Congress.lang) — v1 is German-only, so
-	// these are optional: only NL.de fills them, MwbParser refuses any other
+	// ── Meeting workbook parser/notes (Congress.lang) — German and Korean
+	// so far, so these are optional: only NL.de and NL.ko fill them, and
+	// MwbParser refuses any other
 	// detected language rather than matching unverified section-heading text
 	// against them (see util/parseErrors.ts's 'mwbLanguageNotSupported'). The
 	// heading labels double as parser detection anchors, so they must match
-	// the real jwpub text exactly, not just read naturally in German. //
+	// the real jwpub text exactly, not just read naturally in the language. //
 	/** Exact text of the "SCHÄTZE AUS GOTTES WORT" section heading. */
 	treasuresLabel?: string;
 	/** Exact text of the "UNS IM DIENST VERBESSERN" section heading. */
@@ -56,6 +72,17 @@ export interface NoteStrings {
 	cbsLabel?: string;
 	weeklyBibleReadingLabel?: string;
 	durationLabel?: string;
+	/** The issue folder, from the year and the issue's first month (1-12;
+	 *  undefined when the issue tag cannot be read). */
+	mwbFolder?: (year: number, month?: number) => string;
+	/** A duration as the workbook writes it — "10 Min." / "10분". */
+	mwbDuration?: (minutes: number) => string;
+	/** A song as the workbook writes it. Korean differs from the convention
+	 *  programmes here: the workbook prints "노래 153", without 번. */
+	mwbSong?: (n: number) => string;
+	mwbPrayer?: string;
+	mwbIntroWords?: string;
+	mwbClosingWords?: string;
 }
 
 /**
@@ -74,7 +101,9 @@ export interface Strings extends NoteStrings {
 	popupFootnotes: string;
 	popupCrossRefs: string;
 	popupStudyNotes: string;
-	popupVersePrefix: string;
+	/** "Vers 12" — a function rather than a word, because the unit does not
+	 *  come first everywhere: Korean writes "12절". */
+	popupVerseLabel: (verse: string) => string;
 	popupNoText: string;
 	popupBack: string;
 	popupVerseBefore: string;
@@ -132,6 +161,7 @@ export interface Strings extends NoteStrings {
 	noticeImportFailed: (err: string) => string;
 	noticeRtfFallback: string;
 	noticeImportProgress: (done: number, total: number) => string;
+	noticeUpdateProgress: (done: number, total: number) => string;
 	noticeImportResult: (folder: string, created: number, updated: number, skipped: number) => string;
 	noticeImportRolledBack: (err: string) => string;
 	noticePickFileFirst: string;
@@ -166,6 +196,12 @@ export interface Strings extends NoteStrings {
 	setShowSpeaker: string;
 	setExtraFields: string;
 	setExtraFieldsDesc: string;
+	/** Example in the empty extra-fields box — one field in this language. */
+	setExtraFieldsPlaceholder: string;
+	/** Name of the explanation at the top of a settings group. Obsidian 1.13's
+	 *  declarative settings drop an item whose name is empty, which is how
+	 *  the explanations disappeared there; this gives them one. */
+	setExplanationName: string;
 	setFrontmatter: string;
 	setFrontmatterDesc: string;
 	setBibleFile: string;
@@ -244,6 +280,8 @@ export interface Strings extends NoteStrings {
 	previewSectionCreated: string;
 	previewSectionNeedsReimport: string;
 	previewRegenerated: string;
+	/** A note found under an earlier spelling of its name (util/legacyNames.ts). */
+	previewRenamed: string;
 	previewMarkerOnly: string;
 
 	// ── Speaker names → wiki links (settings.lang) ──────────────────────────
@@ -279,33 +317,40 @@ export interface Strings extends NoteStrings {
 	noticeLegacyApplied: (count: number, failed: number) => string;
 	btnApply: string;
 
-	// ── Meeting workbook import/update (settings.lang) — v1 is German-only,
-	// so these are optional, same rationale as the NoteStrings additions above.
-	headImportMwb?: string;
-	headImportMwbDesc?: string;
-	setImportMwbActionDesc?: string;
-	importMwbCommand?: string;
-	importMwbTitle?: string;
-	importMwbFileDesc?: string;
-	updateMwbCommand?: string;
-	updateMwbTitle?: string;
-	updateMwbExplanation?: string;
-	setMwbTargetFolder?: string;
-	setMwbTargetFolderDesc?: string;
-	noticeImportMwbResult?: (folder: string, created: number, updated: number, skipped: number) => string;
-	noticeUpdateMwbResult?: (merged: number, created: number, needsReimport: number, unchanged: number) => string;
-	rowWeeks?: string;
-	headNoteFieldsMwb?: string;
-	setShowMwbDuration?: string;
-	setShowMwbSourceCitation?: string;
-	setMwbFrontmatterDesc?: string;
+	// ── Meeting workbook import/update (settings.lang) — required in every
+	// interface language, unlike the NoteStrings anchors above: anyone can
+	// import a German or Korean workbook whatever language the plugin speaks.
+	// Until 02.10.2026 only German and Korean filled them, so in the other six
+	// languages the workbook commands, ribbon icon and settings had no name.
+	headImportMwb: string;
+	headImportMwbDesc: string;
+	setImportMwbActionDesc: string;
+	importMwbCommand: string;
+	importMwbTitle: string;
+	importMwbFileDesc: string;
+	updateMwbCommand: string;
+	updateMwbTitle: string;
+	updateMwbExplanation: string;
+	setMwbTargetFolder: string;
+	setMwbTargetFolderDesc: string;
+	/** The import dialog's folder description — importTargetDesc speaks of
+	 *  "the convention", which is wrong in this dialog. */
+	importMwbTargetDesc: string;
+	noticeImportMwbResult: (folder: string, created: number, updated: number, skipped: number) => string;
+	noticeUpdateMwbResult: (merged: number, created: number, needsReimport: number, unchanged: number) => string;
+	rowWeeks: string;
+	headNoteFieldsMwb: string;
+	setShowMwbDuration: string;
+	setShowMwbSourceCitation: string;
+	setMwbFrontmatterDesc: string;
 }
 
 /** One programme-file language's name, in each UI language that has its own
  *  wording for it. English is required as the fallback (see displayName) —
  *  every other UI language is optional, so a newly added language only has to
  *  bring its own row instead of being written into all the existing ones
- *  first. Every row is complete today; nothing falls back yet. */
+ *  first. The Korean names in every row are jw.org's own, from its Korean
+ *  language list (www.jw.org/ko/languages/, 02.10.2026). */
 type LanguageDisplayNames = Partial<Record<SupportedLang, string>> & { en: string };
 
 /** Display name of every detectable programme-file language, in every UI
@@ -313,35 +358,56 @@ type LanguageDisplayNames = Partial<Record<SupportedLang, string>> & { en: strin
  *  `langDisplay` in each `L.<lang>`. Indexed [program-file language][UI
  *  language]; e.g. LANG_DISPLAY_NAMES.fr.es is Spanish for "French". */
 const LANG_DISPLAY_NAMES: Record<CongressLang, LanguageDisplayNames> = {
-	de: { de: 'Deutsch', en: 'German', fr: 'Allemand', it: 'Tedesco', pt: 'Alemão', ru: 'Немецкий', es: 'Alemán' },
-	en: { de: 'Englisch', en: 'English', fr: 'Anglais', it: 'Inglese', pt: 'Inglês', ru: 'Английский', es: 'Inglés' },
-	fr: { de: 'Französisch', en: 'French', fr: 'Français', it: 'Francese', pt: 'Francês', ru: 'Французский', es: 'Francés' },
-	it: { de: 'Italienisch', en: 'Italian', fr: 'Italien', it: 'Italiano', pt: 'Italiano', ru: 'Итальянский', es: 'Italiano' },
-	pt: { de: 'Portugiesisch', en: 'Portuguese', fr: 'Portugais', it: 'Portoghese', pt: 'Português', ru: 'Португальский', es: 'Portugués' },
-	ru: { de: 'Russisch', en: 'Russian', fr: 'Russe', it: 'Russo', pt: 'Russo', ru: 'Русский', es: 'Ruso' },
-	es: { de: 'Spanisch', en: 'Spanish', fr: 'Espagnol', it: 'Spagnolo', pt: 'Espanhol', ru: 'Испанский', es: 'Español' },
+	de: { de: 'Deutsch', en: 'German', fr: 'Allemand', it: 'Tedesco', pt: 'Alemão', ru: 'Немецкий', es: 'Alemán', ko: '독일어' },
+	en: { de: 'Englisch', en: 'English', fr: 'Anglais', it: 'Inglese', pt: 'Inglês', ru: 'Английский', es: 'Inglés', ko: '영어' },
+	fr: { de: 'Französisch', en: 'French', fr: 'Français', it: 'Francese', pt: 'Francês', ru: 'Французский', es: 'Francés', ko: '프랑스어' },
+	it: { de: 'Italienisch', en: 'Italian', fr: 'Italien', it: 'Italiano', pt: 'Italiano', ru: 'Итальянский', es: 'Italiano', ko: '이탈리아어' },
+	pt: { de: 'Portugiesisch', en: 'Portuguese', fr: 'Portugais', it: 'Portoghese', pt: 'Português', ru: 'Португальский', es: 'Portugués', ko: '포르투갈어' },
+	ru: { de: 'Russisch', en: 'Russian', fr: 'Russe', it: 'Russo', pt: 'Russo', ru: 'Русский', es: 'Ruso', ko: '러시아어' },
+	es: { de: 'Spanisch', en: 'Spanish', fr: 'Espagnol', it: 'Spagnolo', pt: 'Espanhol', ru: 'Испанский', es: 'Español', ko: '스페인어' },
+	// 한국어 is jw.org's own name for KO (its media API, langwritten=KO).
+	ko: { de: 'Koreanisch', en: 'Korean', fr: 'Coréen', it: 'Coreano', pt: 'Coreano', ru: 'Корейский', es: 'Coreano', ko: '한국어' },
 };
 
 /** A programme language's name as the given UI language writes it, falling
  *  back to English where that UI language has no wording of its own. */
+/**
+ * This plugin's interface language for Obsidian's own language code, if the
+ * plugin speaks it — "ko" → "ko", "pt-BR" → "pt", "en-GB" → "en". Used once,
+ * on a first start, so the plugin opens in the language Obsidian is already
+ * set to instead of German for everybody. `undefined` for a language this
+ * plugin does not have, where the default stays as it was.
+ */
+export function interfaceLangFor(obsidianLang: string | undefined): SupportedLang | undefined {
+	const base = obsidianLang?.toLowerCase().split('-')[0];
+	return base && base in L ? (base as SupportedLang) : undefined;
+}
+
 export function displayName(lang: CongressLang, ui: SupportedLang): string {
 	return LANG_DISPLAY_NAMES[lang][ui] ?? LANG_DISPLAY_NAMES[lang].en;
 }
 
 /**
- * Every string, per language.
+ * Every string, in every language — all eight complete, so the compiler
+ * refuses a key missing anywhere instead of it falling back silently.
  *
- * **Adding a language that is only partly translated** — the realistic case
- * when the wording has to come from a native speaker (see ROADMAP, Korean):
- * pull the complete literal below into a `BASE` constant and write the new
- * language as `{ ...BASE.en, ...<what is known> }`, so untranslated interface
- * text reads English instead of blocking the language entirely. Note that six
- * keys are NOT interface text and must not be left on the English fallback
- * silently: `caFallbackDay`, `defaultSession`, `reviewQuestionsSession`,
- * `questionsTitle`, `bibleDramaFallback` and `song()` belong to the parser,
- * and `questionsTitle` is matched against the programme file's own heading —
- * an English value there simply fails to find the printed-questions document
- * in a file written in another language.
+ * **Adding a language that can only be partly translated** — when part of
+ * the wording has to come from a native speaker who is not there yet: define
+ * `L` first and then add the language as `{ ...L.en, ...<what is known> }`,
+ * so untranslated interface text reads English instead of blocking the
+ * language entirely. Korean started that way and was then translated in full.
+ *
+ * What this file does NOT hold is the parser's detection anchors. The six
+ * keys `caFallbackDay`, `defaultSession`, `reviewQuestionsSession`,
+ * `questionsTitle`, `bibleDramaFallback` and `song()` are only ever written
+ * — `questionsTitle` is assigned as a note's title and later compared with
+ * that same assignment, which is a round trip, not a detection. On the
+ * English fallback they produce English words in the note; they do not stop
+ * anything being found. The anchors themselves are regular expressions in
+ * JwpubParser (weekdays, `dayOrder`, item-type markers, QUESTIONS_RE,
+ * MUSIC_VIDEO_RE, PAUSE_RE) and NoteBuilder.splitSongTitle — a new language
+ * that is missing from those breaks loudly; see AGENTS.md, "Eine Sprache
+ * hinzufügen".
  */
 export const L: Record<SupportedLang, Strings> = {
 	de: {
@@ -378,6 +444,15 @@ export const L: Record<SupportedLang, Strings> = {
 		cbsLabel: 'Versammlungsbibelstudium',
 		weeklyBibleReadingLabel: 'Wochenlesung',
 		durationLabel: 'Dauer',
+		mwbFolder: (year, month) => {
+			const abbr = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+			return month ? `Leben und Dienst ${year} ${abbr[month - 1]}/${abbr[month % 12]}` : `Leben und Dienst ${year}`;
+		},
+		mwbDuration: minutes => `${minutes} Min.`,
+		mwbSong: n => `Lied ${n}`,
+		mwbPrayer: 'und Gebet',
+		mwbIntroWords: 'Einleitende Worte',
+		mwbClosingWords: 'Schlussworte',
 
 		popupLoading: 'Lade Bibeltext …',
 		popupMissing: 'Kein Vers-Text verfügbar (diese Stelle ist in der geladenen Bibel-Datei nicht indiziert).',
@@ -386,7 +461,7 @@ export const L: Record<SupportedLang, Strings> = {
 		popupFootnotes: 'Fußnoten',
 		popupCrossRefs: 'Querverweise',
 		popupStudyNotes: 'Studienanmerkungen',
-		popupVersePrefix: 'Vers',
+		popupVerseLabel: verse => `Vers ${verse}`,
 		popupNoText: '(kein Text verfügbar)',
 		popupBack: 'Zurück zur vorherigen Stelle',
 		popupVerseBefore: '◀ Vers davor',
@@ -426,7 +501,7 @@ export const L: Record<SupportedLang, Strings> = {
 				case 'fileTooLarge': return `Die Datei ist mit ${detail} ungewöhnlich groß und wurde sicherheitshalber abgelehnt.`;
 				case 'decompressedTooLarge': return `Der entpackte Inhalt ist mit ${detail} ungewöhnlich groß und wurde sicherheitshalber abgelehnt.`;
 				case 'notMwbPublication': return `Diese Datei ist kein Leben-und-Dienst-Arbeitsheft: „${detail}".`;
-				case 'mwbLanguageNotSupported': return 'Der Import von Arbeitsheftern wird bisher nur für deutsche Dateien unterstützt.';
+				case 'mwbLanguageNotSupported': return 'Der Import von Arbeitsheftern wird bisher nur für deutsche und koreanische Dateien unterstützt.';
 				case 'mwbNoWeekDocuments': return 'In dieser Datei wurden keine Wochenprogramme gefunden.';
 			}
 		},
@@ -434,6 +509,7 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeImportFailed: err => `Import fehlgeschlagen: ${err}`,
 		noticeRtfFallback: 'Jwpub-Parsing fehlgeschlagen – RTF-Fallback verwendet.',
 		noticeImportProgress: (done, total) => `Import läuft … ${done}/${total}`,
+		noticeUpdateProgress: (done, total) => `Aktualisierung läuft … ${done}/${total}`,
 		noticeImportResult: (folder, created, updated, skipped) => {
 			const parts = [`${created} neu`];
 			if (updated > 0) parts.push(`${updated} aktualisiert`);
@@ -472,6 +548,8 @@ export const L: Record<SupportedLang, Strings> = {
 		setShowSpeaker: 'Feld "Redner" anzeigen',
 		setExtraFields: 'Zusätzliche Felder',
 		setExtraFieldsDesc: 'Jede Zeile wird als eigenes Feld mit eigenem Schreibplatz an jede Programmpunkt-Notiz angehängt (z. B. "**Notizen:**").',
+		setExtraFieldsPlaceholder: '**Notizen:**',
+		setExplanationName: 'So funktioniert es',
 		setFrontmatter: 'Frontmatter (Eigenschaften) hinzufügen',
 		setFrontmatterDesc: 'Fügt jeder erzeugten Notiz YAML-Frontmatter mit stabilen englischen Schlüsseln hinzu (convention, type, day, time) – z. B. für Dataview-Abfragen. Die Schlüssel sind bewusst sprachunabhängig.',
 		setBibleFile: 'Bibel-Datei',
@@ -527,7 +605,7 @@ export const L: Record<SupportedLang, Strings> = {
 			const parts = [`${merged} aktualisiert`];
 			if (created > 0) parts.push(`${created} neu angelegt`);
 			if (unchanged > 0) parts.push(`${unchanged} bereits aktuell`);
-			if (needsReimport > 0) parts.push(`${needsReimport} benötigen einen vollständigen Reimport (älteres Format)`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'benötigt', 'benötigen')} einen vollständigen Reimport (älteres Format)`);
 			return `Aktualisierung abgeschlossen: ${parts.join(', ')}.`;
 		},
 
@@ -545,11 +623,11 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeBulkUpdateNothingSelected: 'Für keine Datei wurde ein Zielordner ausgewählt.',
 		noticeBulkUpdateDuplicateFolder: path => `Der Ordner „${path}" ist mehrfach zugeordnet – bitte je Ordner nur eine Datei.`,
 		noticeBulkUpdateResult: (folders, merged, created, needsReimport, unchanged, failed) => {
-			const parts = [`${merged} Notizen aktualisiert`];
+			const parts = [`${merged} ${one(merged, 'Notiz', 'Notizen')} aktualisiert`];
 			if (created > 0) parts.push(`${created} neu angelegt`);
 			if (unchanged > 0) parts.push(`${unchanged} bereits aktuell`);
-			if (needsReimport > 0) parts.push(`${needsReimport} benötigen einen vollständigen Reimport (älteres Format)`);
-			const summary = `${folders} Kongress(e) aktualisiert: ${parts.join(', ')}.`;
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'benötigt', 'benötigen')} einen vollständigen Reimport (älteres Format)`);
+			const summary = `${folders} ${one(folders, 'Kongress', 'Kongresse')} aktualisiert: ${parts.join(', ')}.`;
 			return failed.length > 0 ? `${summary}\nFehlgeschlagen: ${failed.join(', ')}.` : summary;
 		},
 
@@ -559,16 +637,17 @@ export const L: Record<SupportedLang, Strings> = {
 		btnShowChanges: 'Änderungen anzeigen',
 		previewNoChanges: 'Keine Änderungen – alle Notizen sind bereits auf dem aktuellen Stand.',
 		previewSummary: (changed, created, unchanged, needsReimport) => {
-			const parts = [`${changed} Notizen würden geändert`];
+			const parts = [`${changed} ${one(changed, 'Notiz würde', 'Notizen würden')} geändert`];
 			if (created > 0) parts.push(`${created} neu angelegt`);
-			if (unchanged > 0) parts.push(`${unchanged} bleiben unverändert`);
-			if (needsReimport > 0) parts.push(`${needsReimport} benötigen einen vollständigen Reimport (älteres Format)`);
+			if (unchanged > 0) parts.push(`${unchanged} ${one(unchanged, 'bleibt', 'bleiben')} unverändert`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'benötigt', 'benötigen')} einen vollständigen Reimport (älteres Format)`);
 			return `${parts.join(', ')}.`;
 		},
 		previewSectionChanged: 'Wird geändert',
 		previewSectionCreated: 'Wird neu angelegt',
 		previewSectionNeedsReimport: 'Bleibt unangetastet (älteres Format)',
 		previewRegenerated: 'Wird vollständig neu erzeugt (rein automatisch erstellte Datei).',
+		previewRenamed: 'Der Dateiname wird an die aktuelle Schreibweise angeglichen.',
 		previewMarkerOnly: 'Nur unsichtbare Marker werden aufgefrischt – am sichtbaren Text ändert sich nichts.',
 
 		setSpeakerLink: 'Redner als Link vorbereiten',
@@ -584,7 +663,7 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeSpeakerLinkNothingFound: 'Keine von Hand eingetragenen Rednernamen gefunden.',
 		noticeSpeakerLinkNothingSelected: 'Keine Gruppe zum Umwandeln ausgewählt.',
 		noticeSpeakerLinksApplied: (converted, skipped) => {
-			const parts = [`${converted} Rednernamen verlinkt`];
+			const parts = [`${converted} ${one(converted, 'Rednername', 'Rednernamen')} verlinkt`];
 			if (skipped > 0) parts.push(`${skipped} übersprungen (Notiz zwischenzeitlich geändert)`);
 			return `${parts.join(', ')}.`;
 		},
@@ -601,16 +680,16 @@ suggestRemoveLink: 'Verlinkung löschen',
 
 		legacyModalTitle: 'Mögliche Korrekturen für alte Notizen',
 		legacyModalDesc: 'Diese Notizen wurden mit einer Plugin-Version vor 1.9.0 erstellt und haben keine unsichtbaren Marker – deshalb werden hier nur Zeilen vorgeschlagen, die eindeutig einem bekannten Feld zugeordnet werden können. Nur Notizen mit aktiviertem Schalter werden beim Klick auf „Übernehmen" geändert; alles andere in jeder Notiz bleibt unangetastet.',
-		noticeLegacyCorrectionsFound: count => `${count} alte Notiz(en) mit möglichen Korrekturen gefunden. (Klicken zum Prüfen)`,
+		noticeLegacyCorrectionsFound: count => `${count} ${one(count, 'alte Notiz', 'alte Notizen')} mit möglichen Korrekturen gefunden. (Klicken zum Prüfen)`,
 		noticeLegacyApplied: (count, failed) => {
-			const parts = [`${count} Notiz(en) aktualisiert`];
+			const parts = [`${count} ${one(count, 'Notiz', 'Notizen')} aktualisiert`];
 			if (failed > 0) parts.push(`${failed} fehlgeschlagen`);
 			return `${parts.join(', ')}.`;
 		},
 		btnApply: 'Übernehmen',
 
 		headImportMwb: 'Leben und Dienst importieren & aktualisieren',
-		headImportMwbDesc: 'Importiert Arbeitshefter-Dateien (.jwpub) als Wochennotizen für die Zusammenkunft „Leben und Dienst als Christ" – eine Notiz pro Woche mit den drei festen Programmabschnitten. „Leben-und-Dienst-Notizen importieren" legt einen neuen Ordner an; „Leben-und-Dienst-Notizen aktualisieren" gleicht einen bereits importierten Ordner Feld für Feld ab, ohne eigene Einträge zu verlieren – wie beim Kongressprogramm. Bisher nur für deutsche Arbeitshefter-Dateien unterstützt.',
+		headImportMwbDesc: 'Importiert Arbeitshefter-Dateien (.jwpub) als Wochennotizen für die Zusammenkunft „Leben und Dienst als Christ" – eine Notiz pro Woche mit den drei festen Programmabschnitten. „Leben-und-Dienst-Notizen importieren" legt einen neuen Ordner an; „Leben-und-Dienst-Notizen aktualisieren" gleicht einen bereits importierten Ordner Feld für Feld ab, ohne eigene Einträge zu verlieren – wie beim Kongressprogramm. Unterstützt deutsche und koreanische Arbeitshefter-Dateien.',
 		setImportMwbActionDesc: 'Wählt eine Arbeitshefter-Datei und legt daraus Wochennotizen an.',
 		importMwbCommand: 'Leben-und-Dienst-Notizen importieren',
 		importMwbTitle: 'Leben-und-Dienst-Notizen importieren',
@@ -620,6 +699,7 @@ suggestRemoveLink: 'Verlinkung löschen',
 		updateMwbExplanation: 'Wählt dieselbe Arbeitshefter-Datei erneut aus und gleicht einen bereits importierten Ordner damit ab – bereits geschriebener Text bleibt dabei unangetastet, nur die automatisch erzeugten Felder werden aufgefrischt.',
 		setMwbTargetFolder: 'Zielordner für Leben-und-Dienst-Notizen',
 		setMwbTargetFolderDesc: 'Übergeordneter Ordner, in dem der Ausgaben-Ordner angelegt wird. Leer lassen, damit jede Ausgabe direkt als eigener Ordner in der Vault-Wurzel entsteht.',
+		importMwbTargetDesc: 'Standard: Vault-Wurzel – die Ausgabe wird direkt als eigener Ordner angelegt, ohne Wrapper-Ordner. Alternativ einen bestehenden Ordner wählen oder einen neuen anlegen.',
 		noticeImportMwbResult: (folder, created, updated, skipped) => {
 			const parts = [`${created} neu`];
 			if (updated > 0) parts.push(`${updated} aktualisiert`);
@@ -630,7 +710,7 @@ suggestRemoveLink: 'Verlinkung löschen',
 			const parts = [`${merged} aktualisiert`];
 			if (created > 0) parts.push(`${created} neu angelegt`);
 			if (unchanged > 0) parts.push(`${unchanged} bereits aktuell`);
-			if (needsReimport > 0) parts.push(`${needsReimport} benötigen einen vollständigen Reimport`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'benötigt', 'benötigen')} einen vollständigen Reimport`);
 			return `Aktualisierung abgeschlossen: ${parts.join(', ')}.`;
 		},
 		rowWeeks: 'Wochen',
@@ -676,7 +756,7 @@ suggestRemoveLink: 'Verlinkung löschen',
 		popupFootnotes: 'Footnotes',
 		popupCrossRefs: 'Cross-references',
 		popupStudyNotes: 'Study notes',
-		popupVersePrefix: 'Verse',
+		popupVerseLabel: verse => `Verse ${verse}`,
 		popupNoText: '(no text available)',
 		popupBack: 'Back to the previous passage',
 		popupVerseBefore: '◀ Verse before',
@@ -716,7 +796,7 @@ suggestRemoveLink: 'Verlinkung löschen',
 				case 'fileTooLarge': return `The file is unusually large (${detail}) and was rejected as a precaution.`;
 				case 'decompressedTooLarge': return `The unpacked content is unusually large (${detail}) and was rejected as a precaution.`;
 				case 'notMwbPublication': return `This file is not a Meeting Workbook: "${detail}".`;
-				case 'mwbLanguageNotSupported': return 'Importing Meeting Workbooks is currently only supported for German files.';
+				case 'mwbLanguageNotSupported': return 'Importing Meeting Workbooks is currently only supported for German and Korean files.';
 				case 'mwbNoWeekDocuments': return 'No week programs were found in this file.';
 			}
 		},
@@ -724,6 +804,7 @@ suggestRemoveLink: 'Verlinkung löschen',
 		noticeImportFailed: err => `Import failed: ${err}`,
 		noticeRtfFallback: 'jwpub parsing failed – RTF fallback used.',
 		noticeImportProgress: (done, total) => `Importing … ${done}/${total}`,
+		noticeUpdateProgress: (done, total) => `Updating … ${done}/${total}`,
 		noticeImportResult: (folder, created, updated, skipped) => {
 			const parts = [`${created} new`];
 			if (updated > 0) parts.push(`${updated} updated`);
@@ -762,6 +843,8 @@ suggestRemoveLink: 'Verlinkung löschen',
 		setShowSpeaker: 'Show "Speaker" field',
 		setExtraFields: 'Extra fields',
 		setExtraFieldsDesc: 'Each line is appended to every program-item note as its own field with its own writing space (e.g. "**Notes:**").',
+		setExtraFieldsPlaceholder: '**Notes:**',
+		setExplanationName: 'How it works',
 		setFrontmatter: 'Add frontmatter (properties)',
 		setFrontmatterDesc: 'Adds YAML frontmatter with stable English keys (convention, type, day, time) to every generated note – e.g. for Dataview queries. Keys are deliberately language-independent.',
 		setBibleFile: 'Bible file',
@@ -817,7 +900,7 @@ suggestRemoveLink: 'Verlinkung löschen',
 			const parts = [`${merged} updated`];
 			if (created > 0) parts.push(`${created} newly created`);
 			if (unchanged > 0) parts.push(`${unchanged} already up to date`);
-			if (needsReimport > 0) parts.push(`${needsReimport} need a full re-import (older format)`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'needs', 'need')} a full re-import (older format)`);
 			return `Update complete: ${parts.join(', ')}.`;
 		},
 
@@ -835,11 +918,11 @@ suggestRemoveLink: 'Verlinkung löschen',
 		noticeBulkUpdateNothingSelected: 'No target folder was picked for any file.',
 		noticeBulkUpdateDuplicateFolder: path => `Folder "${path}" is assigned more than once — only one file per folder.`,
 		noticeBulkUpdateResult: (folders, merged, created, needsReimport, unchanged, failed) => {
-			const parts = [`${merged} notes updated`];
+			const parts = [`${merged} ${one(merged, 'note', 'notes')} updated`];
 			if (created > 0) parts.push(`${created} newly created`);
 			if (unchanged > 0) parts.push(`${unchanged} already up to date`);
-			if (needsReimport > 0) parts.push(`${needsReimport} need a full re-import (older format)`);
-			const summary = `${folders} convention(s) updated: ${parts.join(', ')}.`;
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'needs', 'need')} a full re-import (older format)`);
+			const summary = `${folders} ${one(folders, 'convention', 'conventions')} updated: ${parts.join(', ')}.`;
 			return failed.length > 0 ? `${summary}\nFailed: ${failed.join(', ')}.` : summary;
 		},
 
@@ -849,16 +932,17 @@ suggestRemoveLink: 'Verlinkung löschen',
 		btnShowChanges: 'Show changes',
 		previewNoChanges: 'No changes — every note is already up to date.',
 		previewSummary: (changed, created, unchanged, needsReimport) => {
-			const parts = [`${changed} notes would change`];
+			const parts = [`${changed} ${one(changed, 'note', 'notes')} would change`];
 			if (created > 0) parts.push(`${created} newly created`);
-			if (unchanged > 0) parts.push(`${unchanged} stay unchanged`);
-			if (needsReimport > 0) parts.push(`${needsReimport} need a full re-import (older format)`);
+			if (unchanged > 0) parts.push(`${unchanged} ${one(unchanged, 'stays', 'stay')} unchanged`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'needs', 'need')} a full re-import (older format)`);
 			return `${parts.join(', ')}.`;
 		},
 		previewSectionChanged: 'Will change',
 		previewSectionCreated: 'Will be created',
 		previewSectionNeedsReimport: 'Left untouched (older format)',
 		previewRegenerated: 'Will be regenerated in full (a purely derived file).',
+		previewRenamed: 'The file name is brought in line with the current spelling.',
 		previewMarkerOnly: 'Only invisible markers are refreshed — nothing in the visible text changes.',
 
 		setSpeakerLink: 'Prepare the Speaker field as a link',
@@ -874,7 +958,7 @@ suggestRemoveLink: 'Verlinkung löschen',
 		noticeSpeakerLinkNothingFound: 'No hand-typed speaker names found.',
 		noticeSpeakerLinkNothingSelected: 'No group selected for conversion.',
 		noticeSpeakerLinksApplied: (converted, skipped) => {
-			const parts = [`${converted} speaker names linked`];
+			const parts = [`${converted} speaker ${one(converted, 'name', 'names')} linked`];
 			if (skipped > 0) parts.push(`${skipped} skipped (note changed in the meantime)`);
 			return `${parts.join(', ')}.`;
 		},
@@ -891,13 +975,43 @@ suggestRemoveLink: 'Delete link',
 
 		legacyModalTitle: 'Possible corrections for old notes',
 		legacyModalDesc: 'These notes were created with a plugin version before 1.9.0 and have no invisible markers — so only lines that can be unambiguously matched to a known field are proposed here. Only notes with the toggle enabled are changed when clicking "Apply"; everything else in every note is left untouched.',
-		noticeLegacyCorrectionsFound: count => `${count} old note(s) with possible corrections found. (Click to review)`,
+		noticeLegacyCorrectionsFound: count => `${count} old ${one(count, 'note', 'notes')} with possible corrections found. (Click to review)`,
 		noticeLegacyApplied: (count, failed) => {
-			const parts = [`${count} note(s) updated`];
+			const parts = [`${count} ${one(count, 'note', 'notes')} updated`];
 			if (failed > 0) parts.push(`${failed} failed`);
 			return `${parts.join(', ')}.`;
 		},
 		btnApply: 'Apply',
+		headImportMwb: 'Import & update Life and Ministry',
+		headImportMwbDesc: 'Imports Meeting Workbook files (.jwpub) as weekly notes for the "Our Christian Life and Ministry" meeting – one note per week with the three fixed sections of the meeting. "Import Life and Ministry notes" creates a new folder; "Update Life and Ministry notes" reconciles an already-imported folder field by field without losing anything you typed – just like the convention program. German and Korean workbook files are supported.',
+		setImportMwbActionDesc: 'Pick a workbook file and create weekly notes from it.',
+		importMwbCommand: 'Import Life and Ministry notes',
+		importMwbTitle: 'Import Life and Ministry notes',
+		importMwbFileDesc: 'Pick a Meeting Workbook .jwpub file.',
+		updateMwbCommand: 'Update Life and Ministry notes',
+		updateMwbTitle: 'Update Life and Ministry notes',
+		updateMwbExplanation: 'Pick the same workbook file again and reconcile it against an already-imported folder – text you already typed is left untouched; only the automatically generated fields are refreshed.',
+		setMwbTargetFolder: 'Target folder for Life and Ministry notes',
+		setMwbTargetFolderDesc: 'Parent folder in which the folder for each issue is created. Leave empty so each issue becomes its own folder in the vault root.',
+		importMwbTargetDesc: 'Default: vault root – the issue is created directly as its own folder, without a wrapper folder. Alternatively pick an existing folder or create a new one.',
+		noticeImportMwbResult: (folder, created, updated, skipped) => {
+			const parts = [`${created} new`];
+			if (updated > 0) parts.push(`${updated} updated`);
+			if (skipped > 0) parts.push(`${skipped} skipped (already present)`);
+			return `“${folder}”: ${parts.join(', ')}.`;
+		},
+		noticeUpdateMwbResult: (merged, created, needsReimport, unchanged) => {
+			const parts = [`${merged} updated`];
+			if (created > 0) parts.push(`${created} newly created`);
+			if (unchanged > 0) parts.push(`${unchanged} already up to date`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'needs', 'need')} a full re-import`);
+			return `Update complete: ${parts.join(', ')}.`;
+		},
+		rowWeeks: 'Weeks',
+		headNoteFieldsMwb: 'Life and Ministry note fields',
+		setShowMwbDuration: 'Show "Duration" field',
+		setShowMwbSourceCitation: 'Show "Source" field',
+		setMwbFrontmatterDesc: 'Adds YAML frontmatter with stable English keys (mwb, week, year) to every generated weekly note.',
 	},
 	fr: {
 		caFallbackDay: 'Samedi',
@@ -934,7 +1048,7 @@ suggestRemoveLink: 'Delete link',
 		popupFootnotes: 'Notes',
 		popupCrossRefs: 'Références croisées',
 		popupStudyNotes: 'Notes d’étude',
-		popupVersePrefix: 'Verset',
+		popupVerseLabel: verse => `Verset ${verse}`,
 		popupNoText: '(aucun texte disponible)',
 		popupBack: 'Retour au passage précédent',
 		popupVerseBefore: '◀ Verset précédent',
@@ -974,7 +1088,7 @@ suggestRemoveLink: 'Delete link',
 				case 'fileTooLarge': return `Le fichier est inhabituellement volumineux (${detail}) et a été rejeté par précaution.`;
 				case 'decompressedTooLarge': return `Le contenu décompressé est inhabituellement volumineux (${detail}) et a été rejeté par précaution.`;
 				case 'notMwbPublication': return `Ce fichier n'est pas un cahier « Vie et ministère » : « ${detail} ».`;
-				case 'mwbLanguageNotSupported': return 'L’importation des cahiers « Vie et ministère » n’est actuellement prise en charge que pour les fichiers en allemand.';
+				case 'mwbLanguageNotSupported': return 'L’importation des cahiers « Vie et ministère » n’est actuellement prise en charge que pour les fichiers en allemand et en coréen.';
 				case 'mwbNoWeekDocuments': return 'Aucun programme hebdomadaire n’a été trouvé dans ce fichier.';
 			}
 		},
@@ -982,10 +1096,11 @@ suggestRemoveLink: 'Delete link',
 		noticeImportFailed: err => `Échec de l’importation : ${err}`,
 		noticeRtfFallback: 'Échec de l’analyse du fichier jwpub – recours au RTF.',
 		noticeImportProgress: (done, total) => `Importation en cours … ${done}/${total}`,
+		noticeUpdateProgress: (done, total) => `Mise à jour en cours … ${done}/${total}`,
 		noticeImportResult: (folder, created, updated, skipped) => {
-			const parts = [`${created} nouvelles`];
-			if (updated > 0) parts.push(`${updated} mises à jour`);
-			if (skipped > 0) parts.push(`${skipped} ignorées (déjà présentes)`);
+			const parts = [`${created} ${oneFr(created, 'nouvelle', 'nouvelles')}`];
+			if (updated > 0) parts.push(`${updated} ${oneFr(updated, 'mise à jour', 'mises à jour')}`);
+			if (skipped > 0) parts.push(`${skipped} ${oneFr(skipped, 'ignorée (déjà présente)', 'ignorées (déjà présentes)')}`);
 			return `« ${folder} » : ${parts.join(', ')}.`;
 		},
 		noticeImportRolledBack: err => `Échec de l’importation ; les fichiers déjà créés ont été annulés : ${err}`,
@@ -1020,6 +1135,8 @@ suggestRemoveLink: 'Delete link',
 		setShowSpeaker: 'Afficher le champ « Orateur »',
 		setExtraFields: 'Champs supplémentaires',
 		setExtraFieldsDesc: 'Chaque ligne est ajoutée à chaque note de point de programme comme champ à part entière, avec son propre espace d’écriture (par ex. « **Notes :** »).',
+		setExtraFieldsPlaceholder: '**Notes:**',
+		setExplanationName: 'Fonctionnement',
 		setFrontmatter: 'Ajouter le frontmatter (propriétés)',
 		setFrontmatterDesc: 'Ajoute à chaque note générée un frontmatter YAML avec des clés anglaises stables (convention, type, day, time) – par ex. pour les requêtes Dataview. Les clés sont volontairement indépendantes de la langue.',
 		setBibleFile: 'Fichier biblique',
@@ -1072,10 +1189,10 @@ suggestRemoveLink: 'Delete link',
 		btnUpdate: 'Mettre à jour',
 		noticeUpdateFolderNotFound: path => `Le dossier « ${path} » est introuvable.`,
 		noticeUpdateResult: (merged, created, needsReimport, unchanged) => {
-			const parts = [`${merged} mises à jour`];
-			if (created > 0) parts.push(`${created} nouvellement créées`);
+			const parts = [`${merged} ${oneFr(merged, 'mise à jour', 'mises à jour')}`];
+			if (created > 0) parts.push(`${created} ${oneFr(created, 'nouvellement créée', 'nouvellement créées')}`);
 			if (unchanged > 0) parts.push(`${unchanged} déjà à jour`);
-			if (needsReimport > 0) parts.push(`${needsReimport} nécessitent une réimportation complète (ancien format)`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${oneFr(needsReimport, 'nécessite', 'nécessitent')} une réimportation complète (ancien format)`);
 			return `Mise à jour terminée : ${parts.join(', ')}.`;
 		},
 
@@ -1093,11 +1210,11 @@ suggestRemoveLink: 'Delete link',
 		noticeBulkUpdateNothingSelected: 'Aucun dossier cible n’a été choisi pour un fichier.',
 		noticeBulkUpdateDuplicateFolder: path => `Le dossier « ${path} » est associé plusieurs fois — un seul fichier par dossier.`,
 		noticeBulkUpdateResult: (folders, merged, created, needsReimport, unchanged, failed) => {
-			const parts = [`${merged} notes mises à jour`];
-			if (created > 0) parts.push(`${created} nouvellement créées`);
+			const parts = [`${merged} ${oneFr(merged, 'note mise à jour', 'notes mises à jour')}`];
+			if (created > 0) parts.push(`${created} ${oneFr(created, 'nouvellement créée', 'nouvellement créées')}`);
 			if (unchanged > 0) parts.push(`${unchanged} déjà à jour`);
-			if (needsReimport > 0) parts.push(`${needsReimport} nécessitent une réimportation complète (ancien format)`);
-			const summary = `${folders} assemblée(s) mise(s) à jour : ${parts.join(', ')}.`;
+			if (needsReimport > 0) parts.push(`${needsReimport} ${oneFr(needsReimport, 'nécessite', 'nécessitent')} une réimportation complète (ancien format)`);
+			const summary = `${folders} ${oneFr(folders, 'assemblée mise à jour', 'assemblées mises à jour')} : ${parts.join(', ')}.`;
 			return failed.length > 0 ? `${summary}\nÉchec : ${failed.join(', ')}.` : summary;
 		},
 
@@ -1107,16 +1224,17 @@ suggestRemoveLink: 'Delete link',
 		btnShowChanges: 'Afficher les modifications',
 		previewNoChanges: 'Aucune modification — toutes les notes sont déjà à jour.',
 		previewSummary: (changed, created, unchanged, needsReimport) => {
-			const parts = [`${changed} notes seraient modifiées`];
-			if (created > 0) parts.push(`${created} nouvellement créées`);
-			if (unchanged > 0) parts.push(`${unchanged} restent inchangées`);
-			if (needsReimport > 0) parts.push(`${needsReimport} nécessitent une réimportation complète (ancien format)`);
+			const parts = [`${changed} ${oneFr(changed, 'note serait modifiée', 'notes seraient modifiées')}`];
+			if (created > 0) parts.push(`${created} ${oneFr(created, 'nouvellement créée', 'nouvellement créées')}`);
+			if (unchanged > 0) parts.push(`${unchanged} ${oneFr(unchanged, 'reste inchangée', 'restent inchangées')}`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${oneFr(needsReimport, 'nécessite', 'nécessitent')} une réimportation complète (ancien format)`);
 			return `${parts.join(', ')}.`;
 		},
 		previewSectionChanged: 'Sera modifié',
 		previewSectionCreated: 'Sera créé',
 		previewSectionNeedsReimport: 'Laissé intact (ancien format)',
 		previewRegenerated: 'Sera entièrement régénéré (fichier purement dérivé).',
+		previewRenamed: 'Le nom du fichier est aligné sur l’orthographe actuelle.',
 		previewMarkerOnly: 'Seuls des marqueurs invisibles sont rafraîchis — le texte visible ne change pas.',
 
 		setSpeakerLink: 'Préparer le champ Orateur comme lien',
@@ -1132,8 +1250,8 @@ suggestRemoveLink: 'Delete link',
 		noticeSpeakerLinkNothingFound: 'Aucun nom d’orateur saisi à la main n’a été trouvé.',
 		noticeSpeakerLinkNothingSelected: 'Aucun groupe sélectionné pour la conversion.',
 		noticeSpeakerLinksApplied: (converted, skipped) => {
-			const parts = [`${converted} noms d’orateurs liés`];
-			if (skipped > 0) parts.push(`${skipped} ignorés (note modifiée entre-temps)`);
+			const parts = [`${converted} ${oneFr(converted, 'nom d’orateur lié', 'noms d’orateurs liés')}`];
+			if (skipped > 0) parts.push(`${skipped} ${oneFr(skipped, 'ignoré', 'ignorés')} (note modifiée entre-temps)`);
 			return `${parts.join(', ')}.`;
 		},
 
@@ -1149,13 +1267,43 @@ suggestRemoveLink: 'Supprimer le lien',
 
 		legacyModalTitle: 'Corrections possibles pour les anciennes notes',
 		legacyModalDesc: 'Ces notes ont été créées avec une version du plugin antérieure à la 1.9.0 et ne contiennent aucun marqueur invisible — seules les lignes pouvant être associées sans ambiguïté à un champ connu sont donc proposées ici. Seules les notes dont l’interrupteur est activé sont modifiées en cliquant sur « Appliquer » ; tout le reste de chaque note reste inchangé.',
-		noticeLegacyCorrectionsFound: count => `${count} ancienne(s) note(s) avec des corrections possibles trouvée(s). (Cliquer pour vérifier)`,
+		noticeLegacyCorrectionsFound: count => `${count} ${oneFr(count, 'ancienne note avec des corrections possibles trouvée', 'anciennes notes avec des corrections possibles trouvées')}. (Cliquer pour vérifier)`,
 		noticeLegacyApplied: (count, failed) => {
-			const parts = [`${count} note(s) mise(s) à jour`];
-			if (failed > 0) parts.push(`${failed} échec(s)`);
+			const parts = [`${count} ${oneFr(count, 'note mise à jour', 'notes mises à jour')}`];
+			if (failed > 0) parts.push(`${failed} ${oneFr(failed, 'échec', 'échecs')}`);
 			return `${parts.join(', ')}.`;
 		},
 		btnApply: 'Appliquer',
+		headImportMwb: 'Importer et mettre à jour Vie chrétienne et ministère',
+		headImportMwbDesc: 'Importe les fichiers du cahier pour la réunion (.jwpub) sous forme de notes hebdomadaires pour la réunion Vie chrétienne et ministère – une note par semaine avec les trois parties fixes de la réunion. « Importer les notes Vie chrétienne et ministère » crée un nouveau dossier ; « Mettre à jour les notes Vie chrétienne et ministère » réconcilie un dossier déjà importé champ par champ, sans perdre ce que vous y avez saisi – comme pour le programme d’assemblée. Les cahiers en allemand et en coréen sont pris en charge.',
+		setImportMwbActionDesc: 'Choisit un fichier du cahier et crée des notes hebdomadaires à partir de celui-ci.',
+		importMwbCommand: 'Importer les notes Vie chrétienne et ministère',
+		importMwbTitle: 'Importer les notes Vie chrétienne et ministère',
+		importMwbFileDesc: 'Choisissez un fichier .jwpub du cahier pour la réunion.',
+		updateMwbCommand: 'Mettre à jour les notes Vie chrétienne et ministère',
+		updateMwbTitle: 'Mettre à jour les notes Vie chrétienne et ministère',
+		updateMwbExplanation: 'Choisissez à nouveau le même fichier du cahier et comparez-le à un dossier déjà importé – le texte déjà saisi reste intact ; seuls les champs générés automatiquement sont actualisés.',
+		setMwbTargetFolder: 'Dossier cible des notes Vie chrétienne et ministère',
+		setMwbTargetFolderDesc: 'Dossier parent dans lequel le dossier de chaque cahier est créé. Laissez vide pour que chaque cahier devienne son propre dossier à la racine du coffre.',
+		importMwbTargetDesc: 'Par défaut : racine du coffre – le cahier est créé directement comme son propre dossier, sans dossier englobant. Vous pouvez aussi choisir un dossier existant ou en créer un nouveau.',
+		noticeImportMwbResult: (folder, created, updated, skipped) => {
+			const parts = [`${created} ${oneFr(created, 'nouvelle', 'nouvelles')}`];
+			if (updated > 0) parts.push(`${updated} ${oneFr(updated, 'mise à jour', 'mises à jour')}`);
+			if (skipped > 0) parts.push(`${skipped} ${oneFr(skipped, 'ignorée (déjà présente)', 'ignorées (déjà présentes)')}`);
+			return `« ${folder} » : ${parts.join(', ')}.`;
+		},
+		noticeUpdateMwbResult: (merged, created, needsReimport, unchanged) => {
+			const parts = [`${merged} ${oneFr(merged, 'mise à jour', 'mises à jour')}`];
+			if (created > 0) parts.push(`${created} ${oneFr(created, 'nouvellement créée', 'nouvellement créées')}`);
+			if (unchanged > 0) parts.push(`${unchanged} déjà à jour`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${oneFr(needsReimport, 'nécessite', 'nécessitent')} une réimportation complète`);
+			return `Mise à jour terminée : ${parts.join(', ')}.`;
+		},
+		rowWeeks: 'Semaines',
+		headNoteFieldsMwb: 'Champs des notes Vie chrétienne et ministère',
+		setShowMwbDuration: 'Afficher le champ « Durée »',
+		setShowMwbSourceCitation: 'Afficher le champ « Source »',
+		setMwbFrontmatterDesc: 'Ajoute à chaque note hebdomadaire générée un frontmatter YAML avec des clés anglaises stables (mwb, week, year).',
 	},
 	it: {
 		caFallbackDay: 'Sabato',
@@ -1182,8 +1330,8 @@ suggestRemoveLink: 'Supprimer le lien',
 		reviewHintCO: 'Nota: Per il ripasso del congresso, il fratello mostrerà il video con gli estratti del programma del congresso.',
 		reviewHintCA: link => `Nota: Il presidente dell’adunanza tratterà anche le domande di ripasso stampate: ${link}`,
 		folderCO: (year, theme) => `Congresso regionale ${year} – ${theme}`,
-		folderCAco: (season, theme) => `Programma dell’assemblea di circoscrizione ${season} – con il sorvegliante di circoscrizione – "${theme}"`,
-		folderCAbr: (season, theme) => `Programma dell’assemblea di circoscrizione ${season} – con il rappresentante della filiale – "${theme}"`,
+		folderCAco: (season, theme) => `Programma dell’assemblea di circoscrizione ${season} – con il sorvegliante di circoscrizione – “${theme}”`,
+		folderCAbr: (season, theme) => `Programma dell’assemblea di circoscrizione ${season} – con il rappresentante della filiale – “${theme}”`,
 
 		popupLoading: 'Caricamento del testo biblico …',
 		popupMissing: 'Nessun testo del versetto disponibile (questo passo non è indicizzato nel file della Bibbia caricato).',
@@ -1192,7 +1340,7 @@ suggestRemoveLink: 'Supprimer le lien',
 		popupFootnotes: 'Note in calce',
 		popupCrossRefs: 'Riferimenti incrociati',
 		popupStudyNotes: 'Approfondimenti',
-		popupVersePrefix: 'Versetto',
+		popupVerseLabel: verse => `Versetto ${verse}`,
 		popupNoText: '(nessun testo disponibile)',
 		popupBack: 'Torna al passo precedente',
 		popupVerseBefore: '◀ Versetto precedente',
@@ -1232,7 +1380,7 @@ suggestRemoveLink: 'Supprimer le lien',
 				case 'fileTooLarge': return `Il file è insolitamente grande (${detail}) ed è stato rifiutato per precauzione.`;
 				case 'decompressedTooLarge': return `Il contenuto estratto è insolitamente grande (${detail}) ed è stato rifiutato per precauzione.`;
 				case 'notMwbPublication': return `Questo file non è un opuscolo "Vita e ministero": "${detail}".`;
-				case 'mwbLanguageNotSupported': return 'L’importazione degli opuscoli "Vita e ministero" è al momento supportata solo per i file in tedesco.';
+				case 'mwbLanguageNotSupported': return 'L’importazione degli opuscoli "Vita e ministero" è al momento supportata solo per i file in tedesco e in coreano.';
 				case 'mwbNoWeekDocuments': return 'In questo file non è stato trovato alcun programma settimanale.';
 			}
 		},
@@ -1240,10 +1388,11 @@ suggestRemoveLink: 'Supprimer le lien',
 		noticeImportFailed: err => `Importazione non riuscita: ${err}`,
 		noticeRtfFallback: 'Analisi del file jwpub non riuscita – utilizzato il fallback RTF.',
 		noticeImportProgress: (done, total) => `Importazione in corso … ${done}/${total}`,
+		noticeUpdateProgress: (done, total) => `Aggiornamento in corso … ${done}/${total}`,
 		noticeImportResult: (folder, created, updated, skipped) => {
-			const parts = [`${created} nuovi`];
-			if (updated > 0) parts.push(`${updated} aggiornati`);
-			if (skipped > 0) parts.push(`${skipped} saltati (già presenti)`);
+			const parts = [`${created} ${one(created, 'nuovo', 'nuovi')}`];
+			if (updated > 0) parts.push(`${updated} ${one(updated, 'aggiornato', 'aggiornati')}`);
+			if (skipped > 0) parts.push(`${skipped} ${one(skipped, 'saltato (già presente)', 'saltati (già presenti)')}`);
 			return `"${folder}": ${parts.join(', ')}.`;
 		},
 		noticeImportRolledBack: err => `Importazione non riuscita; i file creati finora sono stati annullati: ${err}`,
@@ -1278,6 +1427,8 @@ suggestRemoveLink: 'Supprimer le lien',
 		setShowSpeaker: 'Mostra il campo "Oratore"',
 		setExtraFields: 'Campi aggiuntivi',
 		setExtraFieldsDesc: 'Ogni riga viene aggiunta a ogni nota di un punto del programma come campo a sé, con il proprio spazio per scrivere (ad es. "**Note:**").',
+		setExtraFieldsPlaceholder: '**Note:**',
+		setExplanationName: 'Come funziona',
 		setFrontmatter: 'Aggiungi il frontmatter (proprietà)',
 		setFrontmatterDesc: 'Aggiunge a ogni nota generata un frontmatter YAML con chiavi inglesi stabili (convention, type, day, time) – ad es. per le query di Dataview. Le chiavi sono volutamente indipendenti dalla lingua.',
 		setBibleFile: 'File della Bibbia',
@@ -1330,10 +1481,10 @@ suggestRemoveLink: 'Supprimer le lien',
 		btnUpdate: 'Aggiorna',
 		noticeUpdateFolderNotFound: path => `La cartella "${path}" non è stata trovata.`,
 		noticeUpdateResult: (merged, created, needsReimport, unchanged) => {
-			const parts = [`${merged} aggiornate`];
-			if (created > 0) parts.push(`${created} create`);
-			if (unchanged > 0) parts.push(`${unchanged} già aggiornate`);
-			if (needsReimport > 0) parts.push(`${needsReimport} richiedono una reimportazione completa (formato più vecchio)`);
+			const parts = [`${merged} ${one(merged, 'aggiornata', 'aggiornate')}`];
+			if (created > 0) parts.push(`${created} ${one(created, 'creata', 'create')}`);
+			if (unchanged > 0) parts.push(`${unchanged} ${one(unchanged, 'già aggiornata', 'già aggiornate')}`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'richiede', 'richiedono')} una reimportazione completa (formato più vecchio)`);
 			return `Aggiornamento completato: ${parts.join(', ')}.`;
 		},
 
@@ -1351,11 +1502,11 @@ suggestRemoveLink: 'Supprimer le lien',
 		noticeBulkUpdateNothingSelected: 'Non è stata selezionata nessuna cartella di destinazione per alcun file.',
 		noticeBulkUpdateDuplicateFolder: path => `La cartella «${path}» è assegnata più volte — un solo file per cartella.`,
 		noticeBulkUpdateResult: (folders, merged, created, needsReimport, unchanged, failed) => {
-			const parts = [`${merged} note aggiornate`];
-			if (created > 0) parts.push(`${created} create`);
-			if (unchanged > 0) parts.push(`${unchanged} già aggiornate`);
-			if (needsReimport > 0) parts.push(`${needsReimport} richiedono una reimportazione completa (formato più vecchio)`);
-			const summary = `${folders} congresso/i aggiornato/i: ${parts.join(', ')}.`;
+			const parts = [`${merged} ${one(merged, 'nota aggiornata', 'note aggiornate')}`];
+			if (created > 0) parts.push(`${created} ${one(created, 'creata', 'create')}`);
+			if (unchanged > 0) parts.push(`${unchanged} ${one(unchanged, 'già aggiornata', 'già aggiornate')}`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'richiede', 'richiedono')} una reimportazione completa (formato più vecchio)`);
+			const summary = `${folders} ${one(folders, 'congresso aggiornato', 'congressi aggiornati')}: ${parts.join(', ')}.`;
 			return failed.length > 0 ? `${summary}\nNon riuscito: ${failed.join(', ')}.` : summary;
 		},
 
@@ -1365,16 +1516,17 @@ suggestRemoveLink: 'Supprimer le lien',
 		btnShowChanges: 'Mostra le modifiche',
 		previewNoChanges: 'Nessuna modifica — tutte le note sono già aggiornate.',
 		previewSummary: (changed, created, unchanged, needsReimport) => {
-			const parts = [`${changed} note verrebbero modificate`];
-			if (created > 0) parts.push(`${created} create`);
-			if (unchanged > 0) parts.push(`${unchanged} restano invariate`);
-			if (needsReimport > 0) parts.push(`${needsReimport} richiedono una reimportazione completa (formato più vecchio)`);
+			const parts = [`${changed} ${one(changed, 'nota verrebbe modificata', 'note verrebbero modificate')}`];
+			if (created > 0) parts.push(`${created} ${one(created, 'creata', 'create')}`);
+			if (unchanged > 0) parts.push(`${unchanged} ${one(unchanged, 'resta invariata', 'restano invariate')}`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'richiede', 'richiedono')} una reimportazione completa (formato più vecchio)`);
 			return `${parts.join(', ')}.`;
 		},
 		previewSectionChanged: 'Verrà modificato',
 		previewSectionCreated: 'Verrà creato',
 		previewSectionNeedsReimport: 'Lasciato intatto (formato più vecchio)',
 		previewRegenerated: 'Verrà rigenerato per intero (file puramente derivato).',
+		previewRenamed: 'Il nome del file viene allineato alla grafia attuale.',
 		previewMarkerOnly: 'Vengono aggiornati solo marcatori invisibili — il testo visibile non cambia.',
 
 		setSpeakerLink: 'Prepara il campo Oratore come collegamento',
@@ -1390,8 +1542,8 @@ suggestRemoveLink: 'Supprimer le lien',
 		noticeSpeakerLinkNothingFound: 'Nessun nome di oratore scritto a mano trovato.',
 		noticeSpeakerLinkNothingSelected: 'Nessun gruppo selezionato per la conversione.',
 		noticeSpeakerLinksApplied: (converted, skipped) => {
-			const parts = [`${converted} nomi di oratori collegati`];
-			if (skipped > 0) parts.push(`${skipped} saltati (nota modificata nel frattempo)`);
+			const parts = [`${converted} ${one(converted, 'nome di oratore collegato', 'nomi di oratori collegati')}`];
+			if (skipped > 0) parts.push(`${skipped} ${one(skipped, 'saltato', 'saltati')} (nota modificata nel frattempo)`);
 			return `${parts.join(', ')}.`;
 		},
 
@@ -1407,13 +1559,43 @@ suggestRemoveLink: 'Elimina il collegamento',
 
 		legacyModalTitle: 'Possibili correzioni per le note vecchie',
 		legacyModalDesc: 'Queste note sono state create con una versione del plugin precedente alla 1.9.0 e non contengono marcatori invisibili — vengono quindi proposte solo le righe che possono essere associate senza ambiguità a un campo noto. Vengono modificate solo le note con l’interruttore attivo, cliccando su "Applica"; tutto il resto di ogni nota resta invariato.',
-		noticeLegacyCorrectionsFound: count => `Trovate ${count} nota/e vecchia/e con possibili correzioni. (Clicca per controllare)`,
+		noticeLegacyCorrectionsFound: count => `${one(count, 'Trovata', 'Trovate')} ${count} ${one(count, 'nota vecchia', 'note vecchie')} con possibili correzioni. (Clicca per controllare)`,
 		noticeLegacyApplied: (count, failed) => {
-			const parts = [`${count} nota/e aggiornata/e`];
-			if (failed > 0) parts.push(`${failed} non riuscita/e`);
+			const parts = [`${count} ${one(count, 'nota aggiornata', 'note aggiornate')}`];
+			if (failed > 0) parts.push(`${failed} ${one(failed, 'non riuscita', 'non riuscite')}`);
 			return `${parts.join(', ')}.`;
 		},
 		btnApply: 'Applica',
+		headImportMwb: 'Importa e aggiorna Vita cristiana e ministero',
+		headImportMwbDesc: 'Importa i file della Guida alle attività (.jwpub) come note settimanali per l’adunanza Vita cristiana e ministero – una nota per settimana con le tre parti fisse dell’adunanza. "Importa le note Vita cristiana e ministero" crea una nuova cartella; "Aggiorna le note Vita cristiana e ministero" riconcilia campo per campo una cartella già importata, senza perdere nulla di quanto scritto – come per il programma del congresso. Sono supportati i file in tedesco e in coreano.',
+		setImportMwbActionDesc: 'Seleziona un file della Guida alle attività e crea a partire da esso le note settimanali.',
+		importMwbCommand: 'Importa le note Vita cristiana e ministero',
+		importMwbTitle: 'Importa le note Vita cristiana e ministero',
+		importMwbFileDesc: 'Seleziona un file .jwpub della Guida alle attività.',
+		updateMwbCommand: 'Aggiorna le note Vita cristiana e ministero',
+		updateMwbTitle: 'Aggiorna le note Vita cristiana e ministero',
+		updateMwbExplanation: 'Seleziona di nuovo lo stesso file della Guida alle attività e confrontalo con una cartella già importata – il testo già scritto resta intatto; vengono aggiornati solo i campi generati automaticamente.',
+		setMwbTargetFolder: 'Cartella di destinazione per le note Vita cristiana e ministero',
+		setMwbTargetFolderDesc: 'Cartella principale in cui viene creata la cartella di ogni fascicolo. Lascia vuoto in modo che ogni fascicolo diventi una propria cartella nella radice del vault.',
+		importMwbTargetDesc: 'Predefinito: radice del vault – il fascicolo viene creato direttamente come propria cartella, senza cartella contenitore. In alternativa, seleziona una cartella esistente o creane una nuova.',
+		noticeImportMwbResult: (folder, created, updated, skipped) => {
+			const parts = [`${created} ${one(created, 'nuovo', 'nuovi')}`];
+			if (updated > 0) parts.push(`${updated} ${one(updated, 'aggiornato', 'aggiornati')}`);
+			if (skipped > 0) parts.push(`${skipped} ${one(skipped, 'saltato (già presente)', 'saltati (già presenti)')}`);
+			return `"${folder}": ${parts.join(', ')}.`;
+		},
+		noticeUpdateMwbResult: (merged, created, needsReimport, unchanged) => {
+			const parts = [`${merged} ${one(merged, 'aggiornata', 'aggiornate')}`];
+			if (created > 0) parts.push(`${created} ${one(created, 'creata', 'create')}`);
+			if (unchanged > 0) parts.push(`${unchanged} ${one(unchanged, 'già aggiornata', 'già aggiornate')}`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'richiede', 'richiedono')} una reimportazione completa`);
+			return `Aggiornamento completato: ${parts.join(', ')}.`;
+		},
+		rowWeeks: 'Settimane',
+		headNoteFieldsMwb: 'Campi delle note Vita cristiana e ministero',
+		setShowMwbDuration: 'Mostra il campo "Durata"',
+		setShowMwbSourceCitation: 'Mostra il campo "Fonte"',
+		setMwbFrontmatterDesc: 'Aggiunge a ogni nota settimanale generata un frontmatter YAML con chiavi inglesi stabili (mwb, week, year).',
 	},
 	pt: {
 		caFallbackDay: 'Sábado',
@@ -1440,8 +1622,8 @@ suggestRemoveLink: 'Elimina il collegamento',
 		reviewHintCO: 'Nota: Na revisão do congresso, o irmão vai passar o vídeo com trechos do programa do congresso.',
 		reviewHintCA: link => `Nota: O presidente da reunião também vai considerar as perguntas de revisão impressas: ${link}`,
 		folderCO: (year, theme) => `Congresso regional ${year} – ${theme}`,
-		folderCAco: (season, theme) => `Assembleia de Circuito ${season} – com o Superintendente de Circuito – "${theme}"`,
-		folderCAbr: (season, theme) => `Assembleia de Circuito ${season} – com o Representante da Filial – "${theme}"`,
+		folderCAco: (season, theme) => `Assembleia de Circuito ${season} – com o Superintendente de Circuito – “${theme}”`,
+		folderCAbr: (season, theme) => `Assembleia de Circuito ${season} – com o Representante da Filial – “${theme}”`,
 
 		popupLoading: 'Carregando o texto bíblico …',
 		popupMissing: 'Nenhum texto do versículo disponível (esta passagem não está indexada no arquivo da Bíblia carregado).',
@@ -1450,7 +1632,7 @@ suggestRemoveLink: 'Elimina il collegamento',
 		popupFootnotes: 'Notas de rodapé',
 		popupCrossRefs: 'Referências cruzadas',
 		popupStudyNotes: 'Notas de estudo',
-		popupVersePrefix: 'Versículo',
+		popupVerseLabel: verse => `Versículo ${verse}`,
 		popupNoText: '(nenhum texto disponível)',
 		popupBack: 'Voltar à passagem anterior',
 		popupVerseBefore: '◀ Versículo anterior',
@@ -1490,7 +1672,7 @@ suggestRemoveLink: 'Elimina il collegamento',
 				case 'fileTooLarge': return `O arquivo é incomumente grande (${detail}) e foi rejeitado por precaução.`;
 				case 'decompressedTooLarge': return `O conteúdo descompactado é incomumente grande (${detail}) e foi rejeitado por precaução.`;
 				case 'notMwbPublication': return `Este arquivo não é uma apostila "Vida e Ministério": "${detail}".`;
-				case 'mwbLanguageNotSupported': return 'A importação de apostilas "Vida e Ministério" atualmente só é compatível com arquivos em alemão.';
+				case 'mwbLanguageNotSupported': return 'A importação de apostilas "Vida e Ministério" atualmente só é compatível com arquivos em alemão e coreano.';
 				case 'mwbNoWeekDocuments': return 'Nenhum programa semanal foi encontrado neste arquivo.';
 			}
 		},
@@ -1498,10 +1680,11 @@ suggestRemoveLink: 'Elimina il collegamento',
 		noticeImportFailed: err => `Falha na importação: ${err}`,
 		noticeRtfFallback: 'Falha ao analisar o arquivo jwpub – usado o fallback RTF.',
 		noticeImportProgress: (done, total) => `Importando … ${done}/${total}`,
+		noticeUpdateProgress: (done, total) => `Atualizando … ${done}/${total}`,
 		noticeImportResult: (folder, created, updated, skipped) => {
-			const parts = [`${created} novos`];
-			if (updated > 0) parts.push(`${updated} atualizados`);
-			if (skipped > 0) parts.push(`${skipped} ignorados (já existentes)`);
+			const parts = [`${created} ${one(created, 'novo', 'novos')}`];
+			if (updated > 0) parts.push(`${updated} ${one(updated, 'atualizado', 'atualizados')}`);
+			if (skipped > 0) parts.push(`${skipped} ${one(skipped, 'ignorado (já existente)', 'ignorados (já existentes)')}`);
 			return `"${folder}": ${parts.join(', ')}.`;
 		},
 		noticeImportRolledBack: err => `Falha na importação; os arquivos criados até agora foram desfeitos: ${err}`,
@@ -1536,6 +1719,8 @@ suggestRemoveLink: 'Elimina il collegamento',
 		setShowSpeaker: 'Mostrar campo "Orador"',
 		setExtraFields: 'Campos adicionais',
 		setExtraFieldsDesc: 'Cada linha é adicionada a toda nota de um ponto do programa como um campo próprio, com seu próprio espaço para escrever (por ex. "**Notas:**").',
+		setExtraFieldsPlaceholder: '**Notas:**',
+		setExplanationName: 'Como funciona',
 		setFrontmatter: 'Adicionar frontmatter (propriedades)',
 		setFrontmatterDesc: 'Adiciona a cada nota gerada um frontmatter YAML com chaves fixas em inglês (convention, type, day, time) – por ex. para consultas do Dataview. As chaves são propositalmente independentes do idioma.',
 		setBibleFile: 'Arquivo da Bíblia',
@@ -1588,10 +1773,10 @@ suggestRemoveLink: 'Elimina il collegamento',
 		btnUpdate: 'Atualizar',
 		noticeUpdateFolderNotFound: path => `A pasta "${path}" não foi encontrada.`,
 		noticeUpdateResult: (merged, created, needsReimport, unchanged) => {
-			const parts = [`${merged} atualizadas`];
-			if (created > 0) parts.push(`${created} criadas`);
-			if (unchanged > 0) parts.push(`${unchanged} já atualizadas`);
-			if (needsReimport > 0) parts.push(`${needsReimport} exigem uma reimportação completa (formato mais antigo)`);
+			const parts = [`${merged} ${one(merged, 'atualizada', 'atualizadas')}`];
+			if (created > 0) parts.push(`${created} ${one(created, 'criada', 'criadas')}`);
+			if (unchanged > 0) parts.push(`${unchanged} ${one(unchanged, 'já atualizada', 'já atualizadas')}`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'exige', 'exigem')} uma reimportação completa (formato mais antigo)`);
 			return `Atualização concluída: ${parts.join(', ')}.`;
 		},
 
@@ -1609,11 +1794,11 @@ suggestRemoveLink: 'Elimina il collegamento',
 		noticeBulkUpdateNothingSelected: 'Nenhuma pasta de destino foi selecionada para nenhum arquivo.',
 		noticeBulkUpdateDuplicateFolder: path => `A pasta “${path}” está associada mais de uma vez — apenas um arquivo por pasta.`,
 		noticeBulkUpdateResult: (folders, merged, created, needsReimport, unchanged, failed) => {
-			const parts = [`${merged} notas atualizadas`];
-			if (created > 0) parts.push(`${created} criadas`);
-			if (unchanged > 0) parts.push(`${unchanged} já atualizadas`);
-			if (needsReimport > 0) parts.push(`${needsReimport} exigem uma reimportação completa (formato mais antigo)`);
-			const summary = `${folders} congresso(s) atualizado(s): ${parts.join(', ')}.`;
+			const parts = [`${merged} ${one(merged, 'nota atualizada', 'notas atualizadas')}`];
+			if (created > 0) parts.push(`${created} ${one(created, 'criada', 'criadas')}`);
+			if (unchanged > 0) parts.push(`${unchanged} ${one(unchanged, 'já atualizada', 'já atualizadas')}`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'exige', 'exigem')} uma reimportação completa (formato mais antigo)`);
+			const summary = `${folders} ${one(folders, 'congresso atualizado', 'congressos atualizados')}: ${parts.join(', ')}.`;
 			return failed.length > 0 ? `${summary}\nFalhou: ${failed.join(', ')}.` : summary;
 		},
 
@@ -1623,16 +1808,17 @@ suggestRemoveLink: 'Elimina il collegamento',
 		btnShowChanges: 'Mostrar as alterações',
 		previewNoChanges: 'Nenhuma alteração — todas as notas já estão atualizadas.',
 		previewSummary: (changed, created, unchanged, needsReimport) => {
-			const parts = [`${changed} notas seriam alteradas`];
-			if (created > 0) parts.push(`${created} criadas`);
-			if (unchanged > 0) parts.push(`${unchanged} permanecem inalteradas`);
-			if (needsReimport > 0) parts.push(`${needsReimport} exigem uma reimportação completa (formato mais antigo)`);
+			const parts = [`${changed} ${one(changed, 'nota seria alterada', 'notas seriam alteradas')}`];
+			if (created > 0) parts.push(`${created} ${one(created, 'criada', 'criadas')}`);
+			if (unchanged > 0) parts.push(`${unchanged} ${one(unchanged, 'permanece inalterada', 'permanecem inalteradas')}`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'exige', 'exigem')} uma reimportação completa (formato mais antigo)`);
 			return `${parts.join(', ')}.`;
 		},
 		previewSectionChanged: 'Será alterado',
 		previewSectionCreated: 'Será criado',
 		previewSectionNeedsReimport: 'Permanece intacto (formato mais antigo)',
 		previewRegenerated: 'Será gerado novamente por completo (arquivo puramente derivado).',
+		previewRenamed: 'O nome do arquivo é ajustado à grafia atual.',
 		previewMarkerOnly: 'Apenas marcadores invisíveis são atualizados — o texto visível não muda.',
 
 		setSpeakerLink: 'Preparar o campo Orador como link',
@@ -1648,8 +1834,8 @@ suggestRemoveLink: 'Elimina il collegamento',
 		noticeSpeakerLinkNothingFound: 'Nenhum nome de orador digitado à mão foi encontrado.',
 		noticeSpeakerLinkNothingSelected: 'Nenhum grupo selecionado para conversão.',
 		noticeSpeakerLinksApplied: (converted, skipped) => {
-			const parts = [`${converted} nomes de oradores vinculados`];
-			if (skipped > 0) parts.push(`${skipped} ignorados (nota alterada nesse meio-tempo)`);
+			const parts = [`${converted} ${one(converted, 'nome de orador vinculado', 'nomes de oradores vinculados')}`];
+			if (skipped > 0) parts.push(`${skipped} ${one(skipped, 'ignorado', 'ignorados')} (nota alterada nesse meio-tempo)`);
 			return `${parts.join(', ')}.`;
 		},
 
@@ -1665,13 +1851,43 @@ suggestRemoveLink: 'Excluir o link',
 
 		legacyModalTitle: 'Possíveis correções para notas antigas',
 		legacyModalDesc: 'Estas notas foram criadas com uma versão do plugin anterior à 1.9.0 e não têm marcadores invisíveis — por isso, só são propostas aqui linhas que possam ser associadas sem ambiguidade a um campo conhecido. Apenas as notas com a chave ativada são alteradas ao clicar em "Aplicar"; todo o resto de cada nota permanece intocado.',
-		noticeLegacyCorrectionsFound: count => `${count} nota(s) antiga(s) com possíveis correções encontrada(s). (Clique para revisar)`,
+		noticeLegacyCorrectionsFound: count => `${count} ${one(count, 'nota antiga com possíveis correções encontrada', 'notas antigas com possíveis correções encontradas')}. (Clique para revisar)`,
 		noticeLegacyApplied: (count, failed) => {
-			const parts = [`${count} nota(s) atualizada(s)`];
+			const parts = [`${count} ${one(count, 'nota atualizada', 'notas atualizadas')}`];
 			if (failed > 0) parts.push(`${failed} com falha`);
 			return `${parts.join(', ')}.`;
 		},
 		btnApply: 'Aplicar',
+		headImportMwb: 'Importar e atualizar Vida e Ministério Cristãos',
+		headImportMwbDesc: 'Importa os arquivos do Manual de Atividades (.jwpub) como notas semanais para a reunião Vida e Ministério Cristãos – uma nota por semana com as três partes fixas da reunião. "Importar notas Vida e Ministério Cristãos" cria uma nova pasta; "Atualizar notas Vida e Ministério Cristãos" reconcilia campo por campo uma pasta já importada, sem perder nada do que foi escrito – tal como no programa do congresso. São suportados arquivos em alemão e em coreano.',
+		setImportMwbActionDesc: 'Selecione um arquivo do Manual de Atividades e crie notas semanais a partir dele.',
+		importMwbCommand: 'Importar notas Vida e Ministério Cristãos',
+		importMwbTitle: 'Importar notas Vida e Ministério Cristãos',
+		importMwbFileDesc: 'Selecione um arquivo .jwpub do Manual de Atividades.',
+		updateMwbCommand: 'Atualizar notas Vida e Ministério Cristãos',
+		updateMwbTitle: 'Atualizar notas Vida e Ministério Cristãos',
+		updateMwbExplanation: 'Selecione novamente o mesmo arquivo do Manual de Atividades e compare-o com uma pasta já importada – o texto já escrito permanece intacto; apenas os campos gerados automaticamente são atualizados.',
+		setMwbTargetFolder: 'Pasta de destino das notas Vida e Ministério Cristãos',
+		setMwbTargetFolderDesc: 'Pasta principal onde a pasta de cada edição é criada. Deixe em branco para que cada edição se torne sua própria pasta na raiz do vault.',
+		importMwbTargetDesc: 'Padrão: raiz do vault – a edição é criada diretamente como sua própria pasta, sem pasta contentora. Como alternativa, selecione uma pasta existente ou crie uma nova.',
+		noticeImportMwbResult: (folder, created, updated, skipped) => {
+			const parts = [`${created} ${one(created, 'novo', 'novos')}`];
+			if (updated > 0) parts.push(`${updated} ${one(updated, 'atualizado', 'atualizados')}`);
+			if (skipped > 0) parts.push(`${skipped} ${one(skipped, 'ignorado (já existente)', 'ignorados (já existentes)')}`);
+			return `"${folder}": ${parts.join(', ')}.`;
+		},
+		noticeUpdateMwbResult: (merged, created, needsReimport, unchanged) => {
+			const parts = [`${merged} ${one(merged, 'atualizada', 'atualizadas')}`];
+			if (created > 0) parts.push(`${created} ${one(created, 'criada', 'criadas')}`);
+			if (unchanged > 0) parts.push(`${unchanged} ${one(unchanged, 'já atualizada', 'já atualizadas')}`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'exige', 'exigem')} uma reimportação completa`);
+			return `Atualização concluída: ${parts.join(', ')}.`;
+		},
+		rowWeeks: 'Semanas',
+		headNoteFieldsMwb: 'Campos das notas Vida e Ministério Cristãos',
+		setShowMwbDuration: 'Mostrar campo "Duração"',
+		setShowMwbSourceCitation: 'Mostrar campo "Fonte"',
+		setMwbFrontmatterDesc: 'Adiciona a cada nota semanal gerada um frontmatter YAML com chaves fixas em inglês (mwb, week, year).',
 	},
 	ru: {
 		caFallbackDay: 'Суббота',
@@ -1708,7 +1924,7 @@ suggestRemoveLink: 'Excluir o link',
 		popupFootnotes: 'Сноски',
 		popupCrossRefs: 'Перекрёстные ссылки',
 		popupStudyNotes: 'Учебные примечания',
-		popupVersePrefix: 'Стих',
+		popupVerseLabel: verse => `Стих ${verse}`,
 		popupNoText: '(текст недоступен)',
 		popupBack: 'Вернуться к предыдущему отрывку',
 		popupVerseBefore: '◀ Предыдущий стих',
@@ -1748,7 +1964,7 @@ suggestRemoveLink: 'Excluir o link',
 				case 'fileTooLarge': return `Файл необычно большой (${detail}) и был отклонён из соображений безопасности.`;
 				case 'decompressedTooLarge': return `Распакованное содержимое необычно велико (${detail}) и было отклонено из соображений безопасности.`;
 				case 'notMwbPublication': return `Этот файл не является тетрадью «Наша жизнь и служение»: «${detail}».`;
-				case 'mwbLanguageNotSupported': return 'Импорт тетрадей «Наша жизнь и служение» пока поддерживается только для файлов на немецком языке.';
+				case 'mwbLanguageNotSupported': return 'Импорт тетрадей «Наша жизнь и служение» пока поддерживается только для файлов на немецком и корейском языках.';
 				case 'mwbNoWeekDocuments': return 'В этом файле не найдено ни одной программы на неделю.';
 			}
 		},
@@ -1756,6 +1972,7 @@ suggestRemoveLink: 'Excluir o link',
 		noticeImportFailed: err => `Не удалось выполнить импорт: ${err}`,
 		noticeRtfFallback: 'Не удалось обработать файл jwpub — использован резервный вариант RTF.',
 		noticeImportProgress: (done, total) => `Импорт… ${done}/${total}`,
+		noticeUpdateProgress: (done, total) => `Обновление… ${done}/${total}`,
 		noticeImportResult: (folder, created, updated, skipped) => {
 			const parts = [`новых: ${created}`];
 			if (updated > 0) parts.push(`обновлено: ${updated}`);
@@ -1794,6 +2011,8 @@ suggestRemoveLink: 'Excluir o link',
 		setShowSpeaker: 'Показывать поле «Докладчик»',
 		setExtraFields: 'Дополнительные поля',
 		setExtraFieldsDesc: 'Каждая строка добавляется в заметку каждого пункта программы как отдельное поле со своим местом для записей (например, «**Заметки:**»).',
+		setExtraFieldsPlaceholder: '**Заметки:**',
+		setExplanationName: 'Как это работает',
 		setFrontmatter: 'Добавлять фронтматтер (свойства)',
 		setFrontmatterDesc: 'Добавляет YAML-фронтматтер с неизменными английскими ключами (convention, type, day, time) в каждую создаваемую заметку — например, для запросов Dataview. Ключи намеренно не зависят от языка.',
 		setBibleFile: 'Файл Библии',
@@ -1891,6 +2110,7 @@ suggestRemoveLink: 'Excluir o link',
 		previewSectionCreated: 'Будет создано',
 		previewSectionNeedsReimport: 'Останется нетронутым (устаревший формат)',
 		previewRegenerated: 'Будет создан заново целиком (полностью производный файл).',
+		previewRenamed: 'Имя файла приводится к текущему написанию.',
 		previewMarkerOnly: 'Обновляются только невидимые маркеры — видимый текст не меняется.',
 
 		setSpeakerLink: 'Готовить поле «Докладчик» как ссылку',
@@ -1930,6 +2150,36 @@ suggestRemoveLink: 'Удалить ссылку',
 			return `${parts.join(', ')}.`;
 		},
 		btnApply: 'Применить',
+		headImportMwb: 'Импорт и обновление рабочей тетради',
+		headImportMwbDesc: 'Импортирует файлы рабочей тетради (.jwpub) как еженедельные заметки для встречи «Наша христианская жизнь и служение» — одна заметка на неделю с тремя постоянными частями встречи. Команда «Импортировать заметки рабочей тетради» создаёт новую папку; команда «Обновить заметки рабочей тетради» сверяет уже импортированную папку поле за полем, ничего из вписанного не теряется, — так же, как для программы конгресса. Поддерживаются файлы на немецком и корейском языках.',
+		setImportMwbActionDesc: 'Выберите файл рабочей тетради и создайте на его основе еженедельные заметки.',
+		importMwbCommand: 'Импортировать заметки рабочей тетради',
+		importMwbTitle: 'Импортировать заметки рабочей тетради',
+		importMwbFileDesc: 'Выберите файл рабочей тетради в формате .jwpub.',
+		updateMwbCommand: 'Обновить заметки рабочей тетради',
+		updateMwbTitle: 'Обновить заметки рабочей тетради',
+		updateMwbExplanation: 'Выберите тот же файл рабочей тетради ещё раз и сверьте его с уже импортированной папкой — уже написанный текст остаётся нетронутым, обновляются только автоматически создаваемые поля.',
+		setMwbTargetFolder: 'Целевая папка для заметок рабочей тетради',
+		setMwbTargetFolderDesc: 'Родительская папка, в которой создаётся папка каждого выпуска. Оставьте поле пустым, чтобы каждый выпуск становился отдельной папкой в корне хранилища.',
+		importMwbTargetDesc: 'По умолчанию: корень хранилища — выпуск создаётся сразу как отдельная папка, без папки-обёртки. Можно также выбрать существующую папку или создать новую.',
+		noticeImportMwbResult: (folder, created, updated, skipped) => {
+			const parts = [`новых: ${created}`];
+			if (updated > 0) parts.push(`обновлено: ${updated}`);
+			if (skipped > 0) parts.push(`пропущено (уже есть): ${skipped}`);
+			return `«${folder}»: ${parts.join(', ')}.`;
+		},
+		noticeUpdateMwbResult: (merged, created, needsReimport, unchanged) => {
+			const parts = [`обновлено: ${merged}`];
+			if (created > 0) parts.push(`создано заново: ${created}`);
+			if (unchanged > 0) parts.push(`уже актуально: ${unchanged}`);
+			if (needsReimport > 0) parts.push(`требуют полного повторного импорта: ${needsReimport}`);
+			return `Обновление завершено: ${parts.join(', ')}.`;
+		},
+		rowWeeks: 'Недели',
+		headNoteFieldsMwb: 'Поля заметок рабочей тетради',
+		setShowMwbDuration: 'Показывать поле «Продолжительность»',
+		setShowMwbSourceCitation: 'Показывать поле «Источник»',
+		setMwbFrontmatterDesc: 'Добавляет YAML-фронтматтер с неизменными английскими ключами (mwb, week, year) в каждую создаваемую еженедельную заметку.',
 	},
 	es: {
 		caFallbackDay: 'Sábado',
@@ -1956,8 +2206,8 @@ suggestRemoveLink: 'Удалить ссылку',
 		reviewHintCO: 'Nota: En el repaso del congreso, el hermano pondrá el video con extractos del programa del congreso.',
 		reviewHintCA: link => `Nota: El presidente de la reunión también considerará las preguntas de repaso impresas: ${link}`,
 		folderCO: (year, theme) => `Asamblea regional ${year} – ${theme}`,
-		folderCAco: (season, theme) => `Programa de la asamblea de circuito ${season} – con el superintendente de circuito – "${theme}"`,
-		folderCAbr: (season, theme) => `Programa de la asamblea de circuito ${season} – con representante de la sucursal – "${theme}"`,
+		folderCAco: (season, theme) => `Programa de la asamblea de circuito ${season} – con el superintendente de circuito – “${theme}”`,
+		folderCAbr: (season, theme) => `Programa de la asamblea de circuito ${season} – con representante de la sucursal – “${theme}”`,
 
 		popupLoading: 'Cargando el texto bíblico…',
 		popupMissing: 'No hay texto disponible para este versículo (este pasaje no está indexado en el archivo de la Biblia cargado).',
@@ -1966,7 +2216,7 @@ suggestRemoveLink: 'Удалить ссылку',
 		popupFootnotes: 'Notas',
 		popupCrossRefs: 'Referencias',
 		popupStudyNotes: 'Notas de estudio',
-		popupVersePrefix: 'Versículo',
+		popupVerseLabel: verse => `Versículo ${verse}`,
 		popupNoText: '(texto no disponible)',
 		popupBack: 'Volver al pasaje anterior',
 		popupVerseBefore: '◀ Versículo anterior',
@@ -2006,7 +2256,7 @@ suggestRemoveLink: 'Удалить ссылку',
 				case 'fileTooLarge': return `El archivo es inusualmente grande (${detail}) y fue rechazado por precaución.`;
 				case 'decompressedTooLarge': return `El contenido descomprimido es inusualmente grande (${detail}) y fue rechazado por precaución.`;
 				case 'notMwbPublication': return `Este archivo no es un folleto "Nuestra vida y ministerio": "${detail}".`;
-				case 'mwbLanguageNotSupported': return 'La importación de folletos "Nuestra vida y ministerio" actualmente solo es compatible con archivos en alemán.';
+				case 'mwbLanguageNotSupported': return 'La importación de folletos "Nuestra vida y ministerio" actualmente solo es compatible con archivos en alemán y coreano.';
 				case 'mwbNoWeekDocuments': return 'No se encontró ningún programa semanal en este archivo.';
 			}
 		},
@@ -2014,10 +2264,11 @@ suggestRemoveLink: 'Удалить ссылку',
 		noticeImportFailed: err => `Error al importar: ${err}`,
 		noticeRtfFallback: 'Error al procesar el archivo jwpub; se usó el método alternativo RTF.',
 		noticeImportProgress: (done, total) => `Importando… ${done}/${total}`,
+		noticeUpdateProgress: (done, total) => `Actualizando… ${done}/${total}`,
 		noticeImportResult: (folder, created, updated, skipped) => {
-			const parts = [`${created} nuevas`];
-			if (updated > 0) parts.push(`${updated} actualizadas`);
-			if (skipped > 0) parts.push(`${skipped} omitidas (ya existían)`);
+			const parts = [`${created} ${one(created, 'nueva', 'nuevas')}`];
+			if (updated > 0) parts.push(`${updated} ${one(updated, 'actualizada', 'actualizadas')}`);
+			if (skipped > 0) parts.push(`${skipped} ${one(skipped, 'omitida (ya existía)', 'omitidas (ya existían)')}`);
 			return `"${folder}": ${parts.join(', ')}.`;
 		},
 		noticeImportRolledBack: err => `Error al importar; se revirtieron los archivos creados hasta el momento: ${err}`,
@@ -2052,6 +2303,8 @@ suggestRemoveLink: 'Удалить ссылку',
 		setShowSpeaker: 'Mostrar el campo "Orador"',
 		setExtraFields: 'Campos adicionales',
 		setExtraFieldsDesc: 'Cada línea se agrega a cada nota de punto del programa como un campo propio con su propio espacio para escribir (por ejemplo, "**Notas:**").',
+		setExtraFieldsPlaceholder: '**Notas:**',
+		setExplanationName: 'Cómo funciona',
 		setFrontmatter: 'Agregar frontmatter (propiedades)',
 		setFrontmatterDesc: 'Agrega frontmatter YAML con claves estables en inglés (convention, type, day, time) a cada nota generada, por ejemplo, para consultas de Dataview. Las claves son intencionalmente independientes del idioma.',
 		setBibleFile: 'Archivo de la Biblia',
@@ -2104,10 +2357,10 @@ suggestRemoveLink: 'Удалить ссылку',
 		btnUpdate: 'Actualizar',
 		noticeUpdateFolderNotFound: path => `No se encontró la carpeta "${path}".`,
 		noticeUpdateResult: (merged, created, needsReimport, unchanged) => {
-			const parts = [`${merged} actualizadas`];
-			if (created > 0) parts.push(`${created} nuevas`);
+			const parts = [`${merged} ${one(merged, 'actualizada', 'actualizadas')}`];
+			if (created > 0) parts.push(`${created} ${one(created, 'nueva', 'nuevas')}`);
 			if (unchanged > 0) parts.push(`${unchanged} sin cambios`);
-			if (needsReimport > 0) parts.push(`${needsReimport} requieren una reimportación completa (formato antiguo)`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'requiere', 'requieren')} una reimportación completa (formato antiguo)`);
 			return `Actualización completa: ${parts.join(', ')}.`;
 		},
 
@@ -2125,11 +2378,11 @@ suggestRemoveLink: 'Удалить ссылку',
 		noticeBulkUpdateNothingSelected: 'No se seleccionó ninguna carpeta de destino para ningún archivo.',
 		noticeBulkUpdateDuplicateFolder: path => `La carpeta "${path}" está asignada más de una vez: solo un archivo por carpeta.`,
 		noticeBulkUpdateResult: (folders, merged, created, needsReimport, unchanged, failed) => {
-			const parts = [`${merged} notas actualizadas`];
-			if (created > 0) parts.push(`${created} nuevas`);
+			const parts = [`${merged} ${one(merged, 'nota actualizada', 'notas actualizadas')}`];
+			if (created > 0) parts.push(`${created} ${one(created, 'nueva', 'nuevas')}`);
 			if (unchanged > 0) parts.push(`${unchanged} sin cambios`);
-			if (needsReimport > 0) parts.push(`${needsReimport} requieren una reimportación completa (formato antiguo)`);
-			const summary = `${folders} congreso(s) actualizado(s): ${parts.join(', ')}.`;
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'requiere', 'requieren')} una reimportación completa (formato antiguo)`);
+			const summary = `${folders} ${one(folders, 'congreso actualizado', 'congresos actualizados')}: ${parts.join(', ')}.`;
 			return failed.length > 0 ? `${summary}\nFallaron: ${failed.join(', ')}.` : summary;
 		},
 
@@ -2139,16 +2392,17 @@ suggestRemoveLink: 'Удалить ссылку',
 		btnShowChanges: 'Mostrar los cambios',
 		previewNoChanges: 'Sin cambios: todas las notas ya están actualizadas.',
 		previewSummary: (changed, created, unchanged, needsReimport) => {
-			const parts = [`${changed} notas cambiarían`];
-			if (created > 0) parts.push(`${created} nuevas`);
-			if (unchanged > 0) parts.push(`${unchanged} quedan sin cambios`);
-			if (needsReimport > 0) parts.push(`${needsReimport} requieren una reimportación completa (formato antiguo)`);
+			const parts = [`${changed} ${one(changed, 'nota cambiaría', 'notas cambiarían')}`];
+			if (created > 0) parts.push(`${created} ${one(created, 'nueva', 'nuevas')}`);
+			if (unchanged > 0) parts.push(`${unchanged} ${one(unchanged, 'queda sin cambios', 'quedan sin cambios')}`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'requiere', 'requieren')} una reimportación completa (formato antiguo)`);
 			return `${parts.join(', ')}.`;
 		},
 		previewSectionChanged: 'Se cambiará',
 		previewSectionCreated: 'Se creará',
 		previewSectionNeedsReimport: 'Queda intacto (formato antiguo)',
 		previewRegenerated: 'Se regenerará por completo (archivo puramente derivado).',
+		previewRenamed: 'El nombre del archivo se ajusta a la grafía actual.',
 		previewMarkerOnly: 'Solo se actualizan marcadores invisibles: el texto visible no cambia.',
 
 		setSpeakerLink: 'Preparar el campo Orador como enlace',
@@ -2164,8 +2418,8 @@ suggestRemoveLink: 'Удалить ссылку',
 		noticeSpeakerLinkNothingFound: 'No se encontró ningún nombre de orador escrito a mano.',
 		noticeSpeakerLinkNothingSelected: 'No se seleccionó ningún grupo para convertir.',
 		noticeSpeakerLinksApplied: (converted, skipped) => {
-			const parts = [`${converted} nombres de oradores enlazados`];
-			if (skipped > 0) parts.push(`${skipped} omitidos (la nota cambió mientras tanto)`);
+			const parts = [`${converted} ${one(converted, 'nombre de orador enlazado', 'nombres de oradores enlazados')}`];
+			if (skipped > 0) parts.push(`${skipped} ${one(skipped, 'omitido', 'omitidos')} (la nota cambió mientras tanto)`);
 			return `${parts.join(', ')}.`;
 		},
 
@@ -2181,15 +2435,374 @@ suggestRemoveLink: 'Eliminar el enlace',
 
 		legacyModalTitle: 'Posibles correcciones para notas antiguas',
 		legacyModalDesc: 'Estas notas se crearon con una versión del plugin anterior a la 1.9.0 y no tienen marcadores invisibles — por eso aquí solo se proponen líneas que se puedan asociar sin ambigüedad a un campo conocido. Solo se modifican las notas con el interruptor activado al hacer clic en "Aplicar"; el resto de cada nota permanece intacto.',
-		noticeLegacyCorrectionsFound: count => `Se encontraron ${count} nota(s) antigua(s) con posibles correcciones. (Haga clic para revisar)`,
+		noticeLegacyCorrectionsFound: count => `${one(count, 'Se encontró', 'Se encontraron')} ${count} ${one(count, 'nota antigua', 'notas antiguas')} con posibles correcciones. (Haga clic para revisar)`,
 		noticeLegacyApplied: (count, failed) => {
-			const parts = [`${count} nota(s) actualizada(s)`];
-			if (failed > 0) parts.push(`${failed} fallida(s)`);
+			const parts = [`${count} ${one(count, 'nota actualizada', 'notas actualizadas')}`];
+			if (failed > 0) parts.push(`${failed} ${one(failed, 'fallida', 'fallidas')}`);
 			return `${parts.join(', ')}.`;
 		},
 		btnApply: 'Aplicar',
+		headImportMwb: 'Importar y actualizar Vida y Ministerio Cristianos',
+		headImportMwbDesc: 'Importa los archivos de la Guía de actividades (.jwpub) como notas semanales para la reunión Vida y Ministerio Cristianos: una nota por semana con las tres secciones fijas de la reunión. "Importar notas de Vida y Ministerio Cristianos" crea una carpeta nueva; "Actualizar notas de Vida y Ministerio Cristianos" concilia campo por campo una carpeta ya importada sin perder nada de lo escrito, igual que con el programa de congreso. Se admiten archivos en alemán y en coreano.',
+		setImportMwbActionDesc: 'Seleccione un archivo de la Guía de actividades y cree notas semanales a partir de él.',
+		importMwbCommand: 'Importar notas de Vida y Ministerio Cristianos',
+		importMwbTitle: 'Importar notas de Vida y Ministerio Cristianos',
+		importMwbFileDesc: 'Seleccione un archivo .jwpub de la Guía de actividades.',
+		updateMwbCommand: 'Actualizar notas de Vida y Ministerio Cristianos',
+		updateMwbTitle: 'Actualizar notas de Vida y Ministerio Cristianos',
+		updateMwbExplanation: 'Seleccione de nuevo el mismo archivo de la Guía de actividades y compárelo con una carpeta ya importada; el texto ya escrito no se modifica y solo se actualizan los campos generados automáticamente.',
+		setMwbTargetFolder: 'Carpeta de destino para las notas de Vida y Ministerio Cristianos',
+		setMwbTargetFolderDesc: 'Carpeta principal en la que se crea la carpeta de cada número. Déjela vacía para que cada número se convierta en su propia carpeta en la raíz del vault.',
+		importMwbTargetDesc: 'Predeterminado: raíz del vault; el número se crea directamente como su propia carpeta, sin carpeta contenedora. También puede elegir una carpeta existente o crear una nueva.',
+		noticeImportMwbResult: (folder, created, updated, skipped) => {
+			const parts = [`${created} ${one(created, 'nueva', 'nuevas')}`];
+			if (updated > 0) parts.push(`${updated} ${one(updated, 'actualizada', 'actualizadas')}`);
+			if (skipped > 0) parts.push(`${skipped} ${one(skipped, 'omitida (ya existía)', 'omitidas (ya existían)')}`);
+			return `"${folder}": ${parts.join(', ')}.`;
+		},
+		noticeUpdateMwbResult: (merged, created, needsReimport, unchanged) => {
+			const parts = [`${merged} ${one(merged, 'actualizada', 'actualizadas')}`];
+			if (created > 0) parts.push(`${created} ${one(created, 'nueva', 'nuevas')}`);
+			if (unchanged > 0) parts.push(`${unchanged} sin cambios`);
+			if (needsReimport > 0) parts.push(`${needsReimport} ${one(needsReimport, 'requiere', 'requieren')} una reimportación completa`);
+			return `Actualización completa: ${parts.join(', ')}.`;
+		},
+		rowWeeks: 'Semanas',
+		headNoteFieldsMwb: 'Campos de las notas de Vida y Ministerio Cristianos',
+		setShowMwbDuration: 'Mostrar el campo "Duración"',
+		setShowMwbSourceCitation: 'Mostrar el campo "Fuente"',
+		setMwbFrontmatterDesc: 'Agrega frontmatter YAML con claves estables en inglés (mwb, week, year) a cada nota semanal generada.',
+	},
+	// Korean (issue #1). Terms come from three sources, not from memory:
+	// Obsidian's own Korean translation for everything Obsidian names
+	// (보관함, 노트, 명령어 팔레트, 읽기 화면, 편집, 백링크, 속성, 인용, 콜아웃, …);
+	// the Korean programme and Bible files, wol.jw.org and the jw.org media
+	// API for everything the publications name (대회, 순회 대회, 성구, 연설,
+	// 각주, 상호 참조 성구, 연구 노트, 영상, 「기쁨으로 여호와께 노래하라」,
+	// JW 라이브러리); and a native speaker for the note labels (01.10.2026).
+	// Written in the 합니다 style both Obsidian and the publications use.
+	// Not yet reviewed as a whole by a native speaker — see ROADMAP.
+	ko: {
+		// Read off the Korean convention programmes (02.10.2026), without the
+		// U+200B those files put inside words.
+		caFallbackDay: '토요일',
+		defaultSession: '오전',
+		reviewQuestionsSession: '복습 질문',
+		questionsTitle: '아래 질문에 대한 답을 찾아 보십시오',
+		bibleDramaFallback: '성경 드라마',
+		// The number carries a counter suffix — "노래 89번".
+		song: n => `노래 ${n}번`,
+
+		// From the native speaker unless noted; nextLabel without the colon
+		// supplied with it, which the renderer adds itself.
+		overviewBase: '00. 개요',
+		backToOverview: '↩ 개요로 돌아가기',
+		dayLabel: '날짜',
+		timeLabel: '시간',
+		scripturesLabel: '성구',
+		speakerLabel: '연사',
+		nextLabel: '다음 프로',
+		coverImageBase: '표지 이미지',
+		reviewNoteBase: '복습 질문',
+		reviewQuestions: [
+			'어떤 생각이 여호와께 더 가까이 가도록 도와주었습니까?',
+			'어떤 생각을 봉사에 적용할 수 있습니까?',
+			'어떤 생각을 개인 생활에 적용할 수 있습니까?',
+		],
+		reviewHintCO: '참고: 대회 복습 시간에는 형제가 대회 프로그램의 일부 장면을 담은 영상을 보여 줍니다.',
+		reviewHintCA: link => `참고: 사회자는 인쇄된 복습 질문도 함께 다룹니다: ${link}`,
+		// The publication titles as the files print them, theme appended.
+		folderCO: (year, theme) => `${year} 대회 프로그램 – ${theme}`,
+		folderCAco: (season, theme) => `순회 감독자와 함께하는 ${season} 순회 대회 프로그램 – “${theme}”`,
+		folderCAbr: (season, theme) => `지부 대표자와 함께하는 ${season} 순회 대회 프로그램 – “${theme}”`,
+
+		popupLoading: '성경 본문을 불러오는 중 …',
+		popupMissing: '이 구절의 본문이 없습니다(불러온 성경 파일에 색인되지 않은 구절입니다).',
+		popupLoadFailed: '성경 파일을 불러올 수 없습니다. 아래 버튼을 누르면 이 구절을 JW 라이브러리에서 엽니다.',
+		popupOpenJwLibrary: 'JW 라이브러리에서 열기',
+		popupFootnotes: '각주',
+		popupCrossRefs: '상호 참조 성구',
+		popupStudyNotes: '연구 노트',
+		popupVerseLabel: verse => `${verse}절`,
+		popupNoText: '(본문 없음)',
+		popupBack: '이전 구절로 돌아가기',
+		popupVerseBefore: '◀ 앞 절',
+		popupVerseAfter: '다음 절 ▶',
+		popupWholeChapter: '장 전체',
+		btnInsertAsQuote: '인용으로 삽입',
+		noticeVerseInserted: '구절을 인용으로 삽입했습니다.',
+		noticeNoActiveNote: '삽입할 노트가 열려 있지 않습니다. 먼저 노트를 여십시오.',
+		btnRemoveQuote: '인용 삭제',
+		noticeQuoteRemoved: '인용을 삭제했습니다.',
+		noticeQuoteRemoveNotFound: '인용을 찾을 수 없습니다. 그사이에 수정되거나 삭제되었습니까?',
+		btnAlignReference: '성구 범위 넓히기',
+		alignReplace: '성구 바꾸기',
+		alignAdd: '옆에 추가',
+		noticeReferenceAligned: '노트의 성구를 업데이트했습니다.',
+		noticeReferenceNotFound: '노트에서 성구를 찾을 수 없습니다. 그사이에 수정되었습니까?',
+		scriptureSuggestLink: '링크',
+		scriptureSuggestLinkAndOpen: '링크하고 JW 라이브러리에서 열기',
+		scriptureSuggestQuoteKeepLink: '인용으로 삽입하고 링크 유지',
+
+		noticeUpdated: version => `JW Convention Program이 버전 ${version}(으)로 업데이트되었습니다.\n\n노트 서식 개선 사항은 이미 가져온 대회에 자동으로 반영되지 않습니다. 같은 프로그램 파일로 “대회 노트 업데이트”(명령어 팔레트)를 실행하면 반영됩니다. 이미 입력한 내용(연사, 메모)은 그대로 유지됩니다. 아주 오래된 플러그인 버전에서 만든 노트만은 이 방법으로 고칠 수 없으므로, 대회 폴더를 삭제하고 다시 가져오십시오.\n\n(클릭하면 닫힙니다)`,
+		noticeBibleSaved: '성경 파일을 저장했습니다.',
+		noticeBibleSaveFailed: err => `성경 파일을 저장할 수 없습니다: ${err}`,
+		noticeBibleRemoveFailed: err => `성경 파일을 삭제할 수 없습니다: ${err}`,
+		noticeBibleMissingOnDevice: '이 기기에 성경 파일이 없습니다(설정은 기기 간에 동기화되지만 파일 자체는 동기화되지 않습니다). 플러그인 설정의 “성경 파일”에서 다시 선택하십시오.',
+		noticeBibleLoadFailed: err => `성경 파일을 불러올 수 없습니다: ${err}`,
+		noticeQuoteNeedsBibleFile: '불러온 성경 파일이 없어 성구를 링크로만 만들었습니다. 인용을 바로 삽입하려면 플러그인 설정에서 성경 파일을 추가하십시오.',
+		describeParseError: (code, detail) => {
+			switch (code) {
+				case 'unknownFormat': return `알 수 없는 파일 형식입니다: “${detail}”. .jwpub 또는 .rtf/.zip 파일을 선택하십시오.`;
+				case 'noWebCrypto': return '이 기기는 jwpub 복호화에 필요한 Web Crypto API(crypto.subtle)를 지원하지 않습니다. Obsidian을 업데이트하거나 RTF-ZIP 가져오기를 사용하십시오.';
+				case 'noWebAssembly': return '이 기기는 jwpub 데이터베이스를 읽는 데 필요한 WebAssembly를 지원하지 않습니다. Obsidian을 업데이트하거나 RTF-ZIP 가져오기를 사용하십시오.';
+				case 'rtfNoFiles': return 'RTF ZIP에 .rtf 파일이 없습니다.';
+				case 'jwpubMissingContents': return 'jwpub 파일이 손상되었거나 불완전합니다. “contents” 항목이 없습니다.';
+				case 'jwpubNoDatabase': return 'jwpub 파일이 손상되었거나 불완전합니다. 데이터베이스 파일을 찾을 수 없습니다.';
+				case 'jwpubEmptyPublication': return 'jwpub 파일이 손상되었습니다. Publication 테이블이 비어 있습니다.';
+				case 'fileTooLarge': return `파일이 비정상적으로 커서(${detail}) 안전을 위해 거부했습니다.`;
+				case 'decompressedTooLarge': return `압축을 푼 내용이 비정상적으로 커서(${detail}) 안전을 위해 거부했습니다.`;
+				case 'notMwbPublication': return `이 파일은 집회 교재가 아닙니다: “${detail}”.`;
+				case 'mwbLanguageNotSupported': return '「그리스도인 생활과 봉사—집회 교재」 가져오기는 현재 독일어와 한국어 파일만 지원합니다.';
+				case 'mwbNoWeekDocuments': return '이 파일에서 주별 프로그램을 찾을 수 없습니다.';
+			}
+		},
+		noticeBibleHint: '도움말: 플러그인 설정에서 성경 jwpub 파일(예: jw.org의 연구용 성경)을 추가하면, 성구를 클릭할 때 상호 참조 성구와 연구 노트가 포함된 본문이 Obsidian 안에서 팝업으로 바로 열립니다. (클릭하면 설정이 열립니다)',
+		noticeImportFailed: err => `가져오기에 실패했습니다: ${err}`,
+		noticeRtfFallback: 'jwpub 분석에 실패하여 RTF 대체 방식을 사용했습니다.',
+		noticeImportProgress: (done, total) => `가져오는 중 … ${done}/${total}`,
+		noticeUpdateProgress: (done, total) => `업데이트하는 중 … ${done}/${total}`,
+		noticeImportResult: (folder, created, updated, skipped) => {
+			const parts = [`새로 만듦 ${created}개`];
+			if (updated > 0) parts.push(`업데이트 ${updated}개`);
+			if (skipped > 0) parts.push(`건너뜀 ${skipped}개(이미 있음)`);
+			return `“${folder}”: ${parts.join(', ')}.`;
+		},
+		noticeImportRolledBack: err => `가져오기에 실패하여 지금까지 만든 파일을 되돌렸습니다: ${err}`,
+		noticePickFileFirst: '먼저 파일을 선택하십시오.',
+		noticeOpenOverviewHint: '(클릭하면 개요가 열립니다)',
+		noticeNotAFolder: path => `“${path}”은(는) 폴더가 아닙니다.`,
+
+		headImport: '대회 프로그램 가져오기 및 업데이트',
+		headImportDesc: '대회 프로그램을 들여오는 방법은 두 가지입니다. “대회 프로그램 가져오기”는 새 대회 폴더를 만듭니다. 같은 폴더로 다시 가져오면 자동으로만 생성되는 파일(개요, 표지 이미지)만 새로 고치고, 직접 입력한 내용이 있는 노트는 건드리지 않습니다. “대회 노트 업데이트”는 이미 가져온 폴더를 항목별로(날짜, 시간, 성구, 제목) 맞추어 줍니다. 직접 수정한 노트 안에서도 입력한 내용을 잃지 않습니다. 예를 들어 플러그인 업데이트로 노트의 오류가 고쳐졌을 때 유용합니다. 아주 오래된 플러그인 버전에서 만든 노트(보이지 않는 표시가 없는 노트)의 경우, “대회 노트 업데이트”는 수정 제안을 하나씩 확인할 수 있는 검토 창을 대신 엽니다.',
+		setImportActionDesc: '프로그램 파일을 선택하여 노트를 만듭니다(위의 설명 참조).',
+		btnOpen: '열기',
+		headGeneral: '일반',
+		setTargetFolder: '대상 폴더',
+		setTargetFolderDesc: '대회 폴더를 만들 상위 폴더입니다. 비워 두면 각 대회가 보관함 최상위 폴더에 독립된 폴더로 만들어집니다(별도의 상위 폴더 없음).',
+		setTargetFolderPlaceholder: '(보관함 최상위 폴더)',
+		setLang: '인터페이스 및 성경 구절 팝업 언어',
+		setLangDesc: '플러그인 표시 문구와 팝업의 성경 책 이름에 적용됩니다. 노트는 가져온 프로그램 파일의 언어를 자동으로 따릅니다.',
+		headScripture: '성구',
+		setScriptureLinks: '성구 링크 만들기',
+		setScriptureLinksDesc: '모든 성구에 클릭할 수 있는 JW 라이브러리 링크를 만듭니다.',
+		setBiblePopupEnabled: '성경 구절 팝업 사용',
+		setBiblePopupEnabledDesc: '성구를 클릭하거나 탭하면 JW 라이브러리를 여는 대신 Obsidian 안에서 본문을 바로 엽니다. 불러온 성경 파일과 상관없이 끌 수 있습니다.',
+		setBookNameSuggest: '성경 책 이름 자동 완성',
+		setBookNameSuggestDesc: '입력하는 동안 성경 책의 전체 이름을 제안합니다. 일반 문장을 쓸 때 자꾸 나타나지 않도록 대문자로 시작하는 단어에만 작동하므로, 대문자가 없는 한국어에서는 작동하지 않습니다(작동한다면 “여호와”를 입력할 때마다 “여호수아”가 제안될 것입니다). 완성된 성구(예: 디모데 전서 4:12)는 한국어에서도 인식되어 링크로 만들 수 있습니다.',
+		setReviewNote: '복습 노트 만들기',
+		setReviewNoteDesc: '세 가지 기본 생각해 볼 질문이 담긴 “복습” 노트를 추가로 만듭니다(순회 대회는 인쇄된 복습 질문에 링크하고, 대회는 대회 프로그램의 일부 장면을 담은 영상을 안내합니다).',
+		headNoteFields: '노트 항목',
+		setShowDay: '“날짜” 항목 표시',
+		setShowDayDesc: '대회에만 해당됩니다(순회 대회는 하루 동안 진행됩니다).',
+		setShowTime: '“시간” 항목 표시',
+		setShowScriptures: '“성구” 항목 표시',
+		setShowSpeaker: '“연사” 항목 표시',
+		setExtraFields: '추가 항목',
+		setExtraFieldsDesc: '각 줄이 모든 프로그램 항목 노트에 고유한 입력 공간을 가진 별도 항목으로 추가됩니다(예: "**메모:**").',
+		setExtraFieldsPlaceholder: '**메모:**',
+		setExplanationName: '사용 방법',
+		setFrontmatter: 'Frontmatter(속성) 추가',
+		setFrontmatterDesc: '생성되는 모든 노트에 고정된 영어 키(convention, type, day, time)로 된 YAML Frontmatter를 추가합니다. 예를 들어 Dataview 쿼리에 사용할 수 있습니다. 키는 일부러 언어와 상관없이 고정되어 있습니다.',
+		setBibleFile: '성경 파일',
+		bibleDescLoaded: '성경 파일을 불러왔습니다. 성구를 클릭하면 Obsidian 안에서 본문이 바로 표시됩니다(JW 라이브러리에서 여는 버튼 포함).',
+		bibleDescMissing: '선택 사항: 성경 jwpub 파일(예: jw.org에서 내려받은 파일)을 선택하면, 성구를 클릭할 때 JW 라이브러리를 여는 대신 Obsidian 안에서 본문이 바로 표시됩니다. 연구용 성경(nwtsty)에는 연구 노트와 더 많은 각주가 있습니다. 메모리가 적은 모바일 기기에서는 훨씬 작은 일반 성경(nwt)이 메모리 부담이 적습니다. 파일은 보관함에 복사되지 않고 플러그인 폴더에 로컬로 저장됩니다.',
+		btnChooseFile: '파일 선택 …',
+		btnReplaceFile: '파일 바꾸기 …',
+		btnRemoveBible: '성경 파일 삭제',
+		headScriptureSuggest: '입력한 성구 제안',
+		headScriptureSuggestDesc: '성구(예: "시편 12:1")를 입력하는 동안 어떤 작업을 어떤 순서로 제안할지 정합니다. 사용하지 않는 작업은 표시되지 않습니다.',
+		btnMoveUp: '위로 이동',
+		btnMoveDown: '아래로 이동',
+
+		importTitle: '대회 프로그램 가져오기',
+		importCommand: '대회 프로그램 가져오기',
+		importFileName: '프로그램 파일',
+		importFileDesc: '.jwpub 파일 또는 RTF ZIP을 선택하십시오.',
+		btnPickFile: '파일 선택 …',
+		importTarget: '대상 폴더',
+		importTargetDesc: '기본값: 보관함 최상위 폴더 – 대회가 별도의 상위 폴더 없이 독립된 폴더로 바로 만들어집니다. 기존 폴더를 선택하거나 새 폴더를 만들 수도 있습니다.',
+		optVaultRoot: '보관함 최상위 폴더(하위 폴더 없음)',
+		optNewFolder: '➕ 새 폴더 …',
+		importNewFolder: '새 폴더 이름',
+		importNewFolderPlaceholder: '예: 대회',
+		btnImport: '가져오기',
+		btnCancel: '취소',
+		previewHeading: '미리보기',
+		previewFailed: err => `미리보기를 할 수 없습니다: ${err}`,
+		rowType: '종류',
+		rowTheme: '주제',
+		rowYear: '연도',
+		rowDays: '요일',
+		rowSource: '파일 형식',
+		rowSourceRtf: 'RTF(대체 방식)',
+		rowItems: '프로그램 항목',
+		rowLanguage: '언어',
+		langDisplay: lang => displayName(lang, 'ko'),
+		typeLabels: {
+			'CO': '대회',
+			'CA-copgm': '순회 대회(순회 감독자)',
+			'CA-brpgm': '순회 대회(지부 대표자)',
+		},
+
+		updateCommand: '대회 노트 업데이트',
+		updateTitle: '대회 노트 업데이트',
+		updateExplanation: '같은 프로그램 파일을 다시 선택하여 이미 가져온 대회 폴더와 맞추어 봅니다. 플러그인 업데이트로 노트의 오류(예: 날짜, 시간, 성구)가 고쳐졌을 때 유용합니다. 이미 입력한 내용(연사 이름, 개인 메모)은 그대로 두고, 자동으로 생성된 항목만 새로 고칩니다.',
+		updateTargetFolder: '업데이트할 대회 폴더',
+		updateTargetFolderDesc: '처음 가져올 때 만든 폴더입니다.',
+		updateNoFoldersFound: '보관함에 폴더가 없습니다.',
+		btnUpdate: '업데이트',
+		noticeUpdateFolderNotFound: path => `“${path}” 폴더를 찾을 수 없습니다.`,
+		noticeUpdateResult: (merged, created, needsReimport, unchanged) => {
+			const parts = [`업데이트 ${merged}개`];
+			if (created > 0) parts.push(`새로 만듦 ${created}개`);
+			if (unchanged > 0) parts.push(`이미 최신 ${unchanged}개`);
+			if (needsReimport > 0) parts.push(`다시 가져와야 함 ${needsReimport}개(이전 형식)`);
+			return `업데이트 완료: ${parts.join(', ')}.`;
+		},
+
+		bulkUpdateCommand: '여러 대회를 한 번에 업데이트',
+		bulkUpdateTitle: '여러 대회를 한 번에 업데이트',
+		bulkUpdateExplanation: '여러 프로그램 파일을 한꺼번에 선택하여 각 파일을 처음 가져올 때 만든 대회 폴더와 맞추어 봅니다. “대회 노트 업데이트”와 같은 방식으로, 모든 대회를 한 번에 처리합니다. 직접 입력한 내용은 건드리지 않습니다. 대상 폴더는 가져올 때 붙였을 이름을 바탕으로 제안되며, 실행하기 전에 모든 짝을 바꿀 수 있습니다.',
+		bulkUpdatePickFiles: '프로그램 파일',
+		bulkUpdatePickFilesDesc: '여러 파일을 한꺼번에 선택할 수 있습니다. 대회마다 하나씩입니다(.jwpub, .zip 또는 .rtf).',
+		btnPickFiles: '파일 선택',
+		bulkUpdateColFile: '파일',
+		bulkUpdateColFolder: '대상 폴더',
+		bulkUpdateSkip: '— 업데이트하지 않음 —',
+		bulkUpdateNoMatch: '맞는 폴더를 찾지 못했습니다. 직접 선택하십시오.',
+		bulkUpdateFileFailed: err => `파일을 읽을 수 없습니다: ${err}`,
+		noticeBulkUpdateNothingSelected: '어떤 파일에도 대상 폴더가 선택되지 않았습니다.',
+		noticeBulkUpdateDuplicateFolder: path => `“${path}” 폴더가 두 번 이상 지정되었습니다. 폴더 하나에 파일은 하나만 지정할 수 있습니다.`,
+		noticeBulkUpdateResult: (folders, merged, created, needsReimport, unchanged, failed) => {
+			const parts = [`노트 업데이트 ${merged}개`];
+			if (created > 0) parts.push(`새로 만듦 ${created}개`);
+			if (unchanged > 0) parts.push(`이미 최신 ${unchanged}개`);
+			if (needsReimport > 0) parts.push(`다시 가져와야 함 ${needsReimport}개(이전 형식)`);
+			const summary = `대회 ${folders}개 업데이트: ${parts.join(', ')}.`;
+			return failed.length > 0 ? `${summary}\n실패: ${failed.join(', ')}.` : summary;
+		},
+
+		previewUpdateCommand: '업데이트 전에 변경 사항 보기',
+		previewUpdateTitle: '업데이트 전에 변경 사항 보기',
+		previewUpdateExplanation: '“대회 노트 업데이트”와 똑같은 업데이트를 계산하지만 아무것도 저장하지 않습니다. 무엇이 바뀌는지 항목별로 먼저 확인하고 나서 결정할 수 있습니다. 플러그인 업데이트 후 노트가 영향을 받는지 확인할 때나, 여러 대회를 한꺼번에 업데이트해야 할 때 유용합니다.',
+		btnShowChanges: '변경 사항 보기',
+		previewNoChanges: '변경 사항이 없습니다. 모든 노트가 이미 최신 상태입니다.',
+		previewSummary: (changed, created, unchanged, needsReimport) => {
+			const parts = [`바뀔 노트 ${changed}개`];
+			if (created > 0) parts.push(`새로 만듦 ${created}개`);
+			if (unchanged > 0) parts.push(`그대로 ${unchanged}개`);
+			if (needsReimport > 0) parts.push(`다시 가져와야 함 ${needsReimport}개(이전 형식)`);
+			return `${parts.join(', ')}.`;
+		},
+		previewSectionChanged: '바뀌는 노트',
+		previewSectionCreated: '새로 만드는 노트',
+		previewSectionNeedsReimport: '건드리지 않는 노트(이전 형식)',
+		previewRegenerated: '전체를 새로 만듭니다(자동으로만 생성되는 파일).',
+		previewRenamed: '파일 이름을 현재 표기에 맞게 바꿉니다.',
+		previewMarkerOnly: '보이지 않는 표시만 새로 고칩니다. 보이는 내용은 바뀌지 않습니다.',
+
+		setSpeakerLink: '연사 항목을 링크로 준비',
+		setSpeakerLinkDesc: '새 노트의 연사 항목을 빈 위키 링크로 씁니다(**연사:** [[]]). 대괄호 사이를 클릭하면 Obsidian의 자동 완성이 열리므로 같은 형제의 이름을 매번 같은 철자로 쓰게 되고, 그 형제의 노트에는 모든 연설이 백링크로 표시됩니다. 기본값은 꺼짐입니다. 연사 항목은 사용자의 것이고 어떤 업데이트도 건드리지 않으므로, 기존 노트는 그대로 둡니다.',
+		speakerLinkCommand: '연사 이름을 링크로 바꾸기',
+		speakerLinkTitle: '연사 이름을 링크로 바꾸기',
+		speakerLinkDesc: '보관함 전체에서 직접 입력한 연사 이름을 찾아, 어떤 철자들이 같은 사람인지 제안합니다. 결정이 아니라 제안입니다. 사람마다 이름과 묶음을 바꿀 수 있고, 적용하기 전에는 아무것도 저장되지 않습니다. 원래 쓴 문구는 그대로 보이고, Obsidian이 연결하는 대상만 바뀝니다. 연사 항목이 아닌 곳에 쓴 이름은 일부러 건드리지 않습니다. 그 사람의 노트가 생기면 Obsidian이 “링크되지 않은 언급”에서 직접 찾아 줍니다.',
+		speakerLinkTarget: '링크 대상',
+		speakerLinkTargetDesc: '이 사람을 분류할 철자입니다. 수정할 수 있습니다. 이것만은 사용자가 결정해야 합니다.',
+		speakerLinkConvert: '변환',
+		speakerLinkAmbiguous: '이 줄인 이름은 두 사람 이상에게 해당되므로 어느 쪽에도 배정하지 않았고, 꺼진 상태로 시작합니다.',
+		speakerLinkFound: (variants, count) => `찾은 철자: ${variants}(보관함에서 ${count}번)`,
+		noticeSpeakerLinkNothingFound: '직접 입력한 연사 이름을 찾지 못했습니다.',
+		noticeSpeakerLinkNothingSelected: '변환할 묶음이 선택되지 않았습니다.',
+		noticeSpeakerLinksApplied: (converted, skipped) => {
+			const parts = [`연사 이름 ${converted}개를 링크로 바꿈`];
+			if (skipped > 0) parts.push(`건너뜀 ${skipped}개(그사이에 노트가 바뀜)`);
+			return `${parts.join(', ')}.`;
+		},
+
+		removeLinkCommand: '커서 위치의 링크 제거',
+		noticeNoLinkAtCursor: '이 위치에는 이 플러그인의 링크가 없습니다.',
+		setUnderlineLinks: '링크에 밑줄 표시',
+		setUnderlineLinksDesc: '이 플러그인이 만든 링크(성구, 노래, 출처)에만 적용됩니다. 끄면 색은 그대로 두고 밑줄만 없애며, 마우스를 올리면 밑줄이 다시 나타납니다. 성구가 많은 노트가 더 차분하게 읽힙니다. 읽기 화면에만 적용됩니다. 편집 화면에서는 Obsidian이 링크 대상 없이 링크를 그리므로, 이 플러그인의 링크를 다른 링크와 구별할 수 없습니다.',
+		setSongSuggest: '노래 링크 만들기',
+		setSongSuggestDesc: '노래 번호를 일반 텍스트로 입력하면(“노래 45”) 입력한 성구와 마찬가지로 JW 라이브러리 링크를 제안합니다. 링크 대상은 계산식이 아니라 공식 노래책 「기쁨으로 여호와께 노래하라」의 자료에서 가져옵니다. 노래책에 없는 노래는 일부러 제안하지 않습니다.',
+		songSuggestLink: '노래 링크',
+		suggestRemoveLink: '링크 삭제',
+		suggestEditLink: '링크 수정',
+
+		legacyModalTitle: '이전 노트에 대한 수정 제안',
+		legacyModalDesc: '이 노트들은 1.9.0 이전 버전의 플러그인으로 만들어져 보이지 않는 표시가 없습니다. 그래서 알려진 항목과 분명히 짝지을 수 있는 줄만 여기에서 제안합니다. “적용”을 클릭하면 스위치를 켠 노트만 바뀌고, 각 노트의 나머지 내용은 그대로 유지됩니다.',
+		noticeLegacyCorrectionsFound: count => `수정할 수 있는 이전 노트를 ${count}개 찾았습니다. (클릭하면 검토할 수 있습니다)`,
+		noticeLegacyApplied: (count, failed) => {
+			const parts = [`노트 ${count}개 업데이트`];
+			if (failed > 0) parts.push(`실패 ${failed}개`);
+			return `${parts.join(', ')}.`;
+		},
+		btnApply: '적용',
+		// ── Meeting Workbook ───────────────────────────────────────────────
+		// Section headings and the Congregation Bible Study title are parser
+		// anchors (see NoteStrings): read off mwb_KO_202601/202603 and checked
+		// against the German issues of the same months, week by week.
+		treasuresLabel: '성경에 담긴 보물',
+		ministryLabel: '야외 봉사에 힘쓰십시오',
+		livingLabel: '그리스도인 생활',
+		cbsLabel: '회중 성서 연구',
+		// The workbook's own phrase ("이번 주 성경 읽기", 16× in the two issues).
+		weeklyBibleReadingLabel: '이번 주 성경 읽기',
+		// Not printed anywhere; 소요 시간 rather than 시간, which is the
+		// convention notes' clock time and appears beside it in the settings.
+		durationLabel: '소요 시간',
+		// "생활과 봉사" is the publication's own short title; "2026년 1-2월"
+		// the cover's own issue wording.
+		mwbFolder: (year, month) => month ? `생활과 봉사 ${year}년 ${month}-${month % 12 + 1}월` : `생활과 봉사 ${year}년`,
+		mwbDuration: minutes => `${minutes}분`,
+		mwbSong: n => `노래 ${n}`,
+		mwbPrayer: '및 기도',
+		mwbIntroWords: '소개말',
+		mwbClosingWords: '맺음말',
+		headImportMwb: '생활과 봉사 가져오기 및 업데이트',
+		headImportMwbDesc: '집회 교재 파일(.jwpub)을 “그리스도인 생활과 봉사” 집회의 주별 노트로 가져옵니다. 한 주에 노트 하나씩, 세 가지 고정된 프로그램 부분이 담깁니다. “생활과 봉사 노트 가져오기”는 새 폴더를 만들고, “생활과 봉사 노트 업데이트”는 이미 가져온 폴더를 항목별로 맞추어 보며, 직접 입력한 내용은 잃지 않습니다. 대회 프로그램과 같은 방식입니다. 독일어와 한국어 집회 교재 파일을 지원합니다.',
+		setImportMwbActionDesc: '집회 교재 파일을 선택하여 주별 노트를 만듭니다.',
+		importMwbCommand: '생활과 봉사 노트 가져오기',
+		importMwbTitle: '생활과 봉사 노트 가져오기',
+		importMwbFileDesc: '집회 교재 .jwpub 파일을 선택하십시오.',
+		updateMwbCommand: '생활과 봉사 노트 업데이트',
+		updateMwbTitle: '생활과 봉사 노트 업데이트',
+		updateMwbExplanation: '같은 집회 교재 파일을 다시 선택하여 이미 가져온 폴더와 맞추어 봅니다. 이미 쓴 내용은 그대로 두고, 자동으로 생성된 항목만 새로 고칩니다.',
+		setMwbTargetFolder: '생활과 봉사 노트의 대상 폴더',
+		setMwbTargetFolderDesc: '교재별 폴더를 만들 상위 폴더입니다. 비워 두면 각 교재가 보관함 최상위 폴더에 독립된 폴더로 만들어집니다.',
+		importMwbTargetDesc: '기본값: 보관함 최상위 폴더 – 교재가 별도의 상위 폴더 없이 독립된 폴더로 바로 만들어집니다. 기존 폴더를 선택하거나 새 폴더를 만들 수도 있습니다.',
+		noticeImportMwbResult: (folder, created, updated, skipped) => {
+			const parts = [`새로 만듦 ${created}개`];
+			if (updated > 0) parts.push(`업데이트 ${updated}개`);
+			if (skipped > 0) parts.push(`건너뜀 ${skipped}개(이미 있음)`);
+			return `“${folder}”: ${parts.join(', ')}.`;
+		},
+		noticeUpdateMwbResult: (merged, created, needsReimport, unchanged) => {
+			const parts = [`업데이트 ${merged}개`];
+			if (created > 0) parts.push(`새로 만듦 ${created}개`);
+			if (unchanged > 0) parts.push(`이미 최신 ${unchanged}개`);
+			if (needsReimport > 0) parts.push(`다시 가져와야 함 ${needsReimport}개`);
+			return `업데이트 완료: ${parts.join(', ')}.`;
+		},
+		rowWeeks: '주',
+		headNoteFieldsMwb: '생활과 봉사 노트 항목',
+		setShowMwbDuration: '“소요 시간” 항목 표시',
+		setShowMwbSourceCitation: '“출처” 항목 표시',
+		setMwbFrontmatterDesc: '생성되는 모든 주별 노트에 고정된 영어 키(mwb, week, year)로 된 YAML Frontmatter를 추가합니다.',
 	},
 };
+
 
 /**
  * Note-generation strings for every language the parser can detect

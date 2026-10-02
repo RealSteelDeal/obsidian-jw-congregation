@@ -180,3 +180,20 @@ test('rejects a citation that overlaps itself rather than merging it silently', 
 	assert.equal(findScriptureReferenceAtEnd('1. Tim. 4:12-14,13', 'de'), null);
 	assert.equal(findScriptureReferenceAtEnd('1. Tim. 4:12,15-14', 'de'), null);
 });
+
+// ── Korean ──────────────────────────────────────────────────────────────────
+
+test('recognizes a Korean reference, including a two-word book name', () => {
+	const text = '오늘 디모데 전서 4:12';
+	const match = findScriptureReferenceAtEnd(text, 'ko');
+	assert.ok(match);
+	assert.equal(text.slice(match.start, match.end), '디모데 전서 4:12');
+	assert.deepEqual(match.scripture, { book: 54, chapter: 4, verseStart: 12 });
+});
+
+test('recognizes the Korean forms the programmes and people actually write', () => {
+	// "시" is how the programmes cite Psalms; "마태" is how a gospel is typed.
+	assert.deepEqual(findScriptureReferenceAtEnd('시 16:11', 'ko').scripture, { book: 19, chapter: 16, verseStart: 11 });
+	assert.deepEqual(findScriptureReferenceAtEnd('마태 5:3', 'ko').scripture, { book: 40, chapter: 5, verseStart: 3 });
+	assert.deepEqual(findScriptureReferenceAtEnd('마태복음 5:3-12', 'ko').scripture, { book: 40, chapter: 5, verseStart: 3, verseEnd: 12 });
+});

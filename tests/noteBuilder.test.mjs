@@ -383,3 +383,67 @@ test('a corrected day/scripture re-render merges into a user-edited note without
 	assert.match(merged, /Meine eigenen Gedanken zum Vortrag, die niemals verloren gehen dürfen\./);
 	assert.match(merged, /\[\[Samstag\/00\. Übersicht\|↩ Zur Übersicht\]\]/);
 });
+
+// ── Korean programme files (Congress.lang = 'ko'; fictional titles) ─────────
+
+function koDay(overrides = {}) {
+	return { name: '금요일', weekday: '금요일', sessions: [{ name: '오전', items: [] }], ...overrides };
+}
+
+test('a Korean congress produces Korean folder, file names and labels', () => {
+	const talk = coItem({ title: '예시 제목', scriptures: [{ book: 54, chapter: 4, verseStart: 12 }] });
+	const next = coItem({ time: '10:10', title: '다음 제목', scriptures: [] });
+	const result = builder({ reviewNote: true }).buildNotes({
+		type: 'CO', theme: '예시 주제', year: 2026, lang: 'ko',
+		days: [koDay({ sessions: [{ name: '오전', items: [talk, next] }] })],
+	});
+
+	assert.equal(result.congressFolder, '2026 대회 프로그램 – 예시 주제');
+	assert.ok(result.notes.find(n => n.filename === '00. 개요.md'), 'overview must be "00. 개요.md"');
+	assert.ok(result.notes.find(n => n.filename === '복습 질문.md'), 'review note must be "복습 질문.md"');
+
+	const note = stripMarkers(result.notes.find(n => n.filename === '01. 예시 제목.md').content);
+	assert.match(note, /\*\*날짜:\*\* 금요일/);
+	assert.match(note, /\*\*성구:\*\* \(\[디모데 전서 4:12\]\(jwlibrary:[^)]*wtlocale=KO/);
+	// One colon — the label is supplied without one, the renderer adds it.
+	assert.match(note, /\*\*다음 프로:\*\* \[\[/);
+	assert.doesNotMatch(note, /다음 프로::/);
+});
+
+test('a Korean song links its label with the counter suffix and keeps the remark plain', () => {
+	const song = coItem({ itemType: 'song', title: '노래 89번 및 광고', scriptures: [], songNumber: 89, songDocid: 1102016889 });
+	const result = builder().buildNotes({
+		type: 'CO', theme: '예시 주제', year: 2026, lang: 'ko',
+		days: [koDay({ sessions: [{ name: '오전', items: [song] }] })],
+	});
+	const overview = stripMarkers(result.notes.find(n => n.filename === '00. 개요.md').content);
+	assert.ok(overview.includes(
+		'[노래 89번](https://www.jw.org/finder?srcid=jwlshare&wtlocale=KO&prefer=lang&docid=1102016889) 및 광고',
+	));
+});
+
+test('a Korean circuit assembly is named after the publication title', () => {
+	const result = builder().buildNotes({
+		type: 'CA-brpgm', theme: '예시 주제', year: 2027, lang: 'ko', days: [koDay({ name: '토요일', weekday: '토요일' })],
+	});
+	assert.equal(result.congressFolder, '지부 대표자와 함께하는 2026-2027 순회 대회 프로그램 – “예시 주제”');
+});
+
+test('a circuit-assembly folder quotes the theme once, in each language’s own quotes', () => {
+	// The theme arrives from the file already quoted; the template added a
+	// second pair until 02.10.2026 („„…““), and Italian, Portuguese and
+	// Spanish used ASCII quotes, which came out as ʺ“…”ʺ. Russian themes
+	// arrive unquoted. Each case as the real 2027 programmes deliver it.
+	const b = builder();
+	const cases = [
+		['de', '„Titel“', '„Titel“'], ['en', '“Title”', '“Title”'], ['fr', '« Titre »', '« Titre »'],
+		['it', '“Titolo”', '“Titolo”'], ['pt', '“Título”', '“Título”'], ['es', '“Título”', '“Título”'],
+		['ko', '“제목”', '“제목”'], ['ru', 'Название', '«Название»'],
+	];
+	for (const [lang, theme, quoted] of cases) {
+		for (const type of ['CA-copgm', 'CA-brpgm']) {
+			const name = b.congressFolderName({ type, theme, year: 2027, days: [], lang });
+			assert.ok(name.endsWith(` – ${quoted}`), `${lang} ${type}: ${name}`);
+		}
+	}
+});

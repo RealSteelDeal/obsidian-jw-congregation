@@ -19,6 +19,7 @@ import { L } from '../i18n';
  */
 export class SongEditorSuggest extends EditorSuggest<string> {
 	private songNumber: number | null = null;
+	private label = '';
 
 	constructor(private readonly plugin: JwCongregationPlugin) {
 		super(plugin.app);
@@ -32,6 +33,7 @@ export class SongEditorSuggest extends EditorSuggest<string> {
 		if (!match) return null;
 
 		this.songNumber = match.songNumber;
+		this.label = match.label;
 		return {
 			start: { line: cursor.line, ch: match.start },
 			end: { line: cursor.line, ch: match.end },
@@ -53,12 +55,12 @@ export class SongEditorSuggest extends EditorSuggest<string> {
 		const url = songFinderUrl(this.songNumber, this.plugin.settings.lang);
 		if (!url) return;
 
-		// The typed wording is kept as the link's text, so "Song No. 45" stays
-		// "Song No. 45" rather than being rewritten into this plugin's own
-		// phrasing — the same restraint the scripture suggestion shows towards
-		// a user's spelling of a book name.
+		// The link text comes from findSongNumberAtEnd: the typed wording as it
+		// stands, so "Song No. 45" stays "Song No. 45" rather than being
+		// rewritten into this plugin's phrasing — except that a Korean song
+		// gets its counter suffix, "노래 120번", when it was offered before it.
 		const editor = context.editor;
-		const label = editor.getRange(context.start, context.end);
+		const label = this.label;
 		const link = `[${label}](${url})`;
 		// A trailing space with the caret beyond it, exactly as the scripture
 		// suggestion does: Live Preview shows a link's source while the caret

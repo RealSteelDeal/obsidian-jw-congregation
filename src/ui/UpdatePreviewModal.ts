@@ -117,6 +117,9 @@ export class UpdatePreviewModal extends Modal {
 
 	private renderChangedNote(box: HTMLElement, note: PlannedNote) {
 		box.createEl('p', { text: fileName(note.path), cls: 'jw-preview-note-name' });
+		if (note.renameFrom !== undefined) {
+			box.createEl('p', { text: this.t.previewRenamed, cls: 'setting-item-description' });
+		}
 
 		if (note.kind === 'regenerate') {
 			box.createEl('p', { text: this.t.previewRegenerated, cls: 'setting-item-description' });
@@ -150,9 +153,11 @@ export class UpdatePreviewModal extends Modal {
 /** A note the update would actually rewrite — a merge, or a derived file that
  *  is regenerated and really differs. A regenerate whose fresh content equals
  *  what is already on disk is still written (unchanged behavior), but there is
- *  nothing to show the user about it. */
+ *  nothing to show the user about it. A note renamed to a corrected spelling
+ *  is a change even when its content stays the same. */
 function isChanged(note: PlannedNote): boolean {
-	return note.kind === 'merge' || (note.kind === 'regenerate' && note.changed);
+	return note.kind === 'merge' || (note.kind === 'regenerate' && note.changed)
+		|| (note.renameFrom !== undefined && (note.kind === 'regenerate' || note.kind === 'unchanged'));
 }
 
 function fileName(path: string): string {

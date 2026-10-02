@@ -14,7 +14,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { jitiWithObsidianStub, Notice, createFakeApp } from './testFakeObsidian.mjs';
+import { jitiWithObsidianStub, Notice, createFakeApp, moment } from './testFakeObsidian.mjs';
 
 const { default: JwCongregationPlugin } = await jitiWithObsidianStub.import('../src/main.ts');
 const { DEFAULT_SETTINGS } = await jitiWithObsidianStub.import('../src/settings.ts');
@@ -202,9 +202,9 @@ test('updateFolders() reconciles several conventions in one run and sums them in
 	assert.match(fake.notes.get(itemA), /\*\*Uhrzeit:\*\* 9:50/);
 	assert.match(fake.notes.get(itemB), /\*\*Uhrzeit:\*\* 9:50/);
 
-	const summaries = Notice.instances.filter(n => /Kongress\(e\) aktualisiert/.test(n.message));
+	const summaries = Notice.instances.filter(n => /Kongresse? aktualisiert/.test(n.message));
 	assert.equal(summaries.length, 1, 'one summary for the whole run, not one per folder');
-	assert.match(summaries[0].message, /^2 Kongress\(e\)/);
+	assert.match(summaries[0].message, /^2 Kongresse aktualisiert/);
 	assert.doesNotMatch(summaries[0].message, /Fehlgeschlagen/);
 });
 
@@ -226,9 +226,9 @@ test('updateFolders() finishes the other conventions when one of them cannot be 
 	assert.match(fake.notes.get(itemA), /\*\*Uhrzeit:\*\* 9:50/);
 	assert.ok(Notice.instances.some(n => /nicht gefunden/.test(n.message)));
 
-	const summary = Notice.instances.find(n => /Kongress\(e\) aktualisiert/.test(n.message));
+	const summary = Notice.instances.find(n => /Kongresse? aktualisiert/.test(n.message));
 	assert.ok(summary);
-	assert.match(summary.message, /^1 Kongress\(e\)/); // only the one that worked is counted
+	assert.match(summary.message, /^1 Kongress aktualisiert/); // only the one that worked is counted
 	assert.match(summary.message, /Fehlgeschlagen: Weg\.rtf/);
 });
 
@@ -245,7 +245,7 @@ test('updateFolders() with a single job reports exactly the notices the single-f
 	await plugin.updateFolders([{ label: 'Test.rtf', folder: dirname(itemPath), congress }]);
 
 	assert.ok(Notice.instances.some(n => /^Aktualisierung abgeschlossen:/.test(n.message)));
-	assert.ok(!Notice.instances.some(n => /Kongress\(e\) aktualisiert/.test(n.message)));
+	assert.ok(!Notice.instances.some(n => /Kongresse? aktualisiert/.test(n.message)));
 });
 
 test('updateFolders() does nothing at all when given no jobs', async () => {
@@ -401,7 +401,7 @@ test('applySpeakerLinks() links the name while leaving the visible wording and t
 	// Exactly one line differs — nothing else in the note was rewritten.
 	const changedLines = after.split('\n').filter((line, i) => line !== before.split('\n')[i]);
 	assert.equal(changedLines.length, 1);
-	assert.match(Notice.instances.at(-1).message, /1 Rednernamen verlinkt/);
+	assert.match(Notice.instances.at(-1).message, /^1 Rednername verlinkt/);
 });
 
 test('applySpeakerLinks() skips a line that changed since it was reviewed, rather than overwriting it', async () => {
@@ -658,9 +658,11 @@ function lineEditor(line) {
 function acceptSong(line, songNumber) {
 	const suggest = new SongEditorSuggest({ app: {}, settings: { ...DEFAULT_SETTINGS } });
 	const editor = lineEditor(line);
-	const start = { line: 0, ch: line.lastIndexOf(`Lied ${songNumber}`) };
-	suggest.songNumber = songNumber;
-	suggest.context = { editor, start, end: { line: 0, ch: start.ch + `Lied ${songNumber}`.length } };
+	// Through onTrigger, as Obsidian calls it — the suggester keeps what it
+	// recognised there, so setting its fields by hand would skip that.
+	const caret = { line: 0, ch: line.lastIndexOf(`Lied ${songNumber}`) + `Lied ${songNumber}`.length };
+	const info = suggest.onTrigger(caret, editor, null);
+	suggest.context = { editor, start: info.start, end: info.end };
 	suggest.selectSuggestion();
 	return editor;
 }
@@ -680,15 +682,201 @@ test('accepting a song suggestion mid-sentence does not double an existing space
 	assert.match(editor.text, /\) und beten$/);
 });
 
+test('a first start opens in the language Obsidian is set to', async () => {
+	moment.locale('ko');
+	try {
+		const plugin = makePlugin(createFakeApp());
+		plugin.loadData = () => Promise.resolve(null);
+		await plugin.loadSettings();
+		assert.equal(plugin.settings.lang, 'ko');
+	} finally {
+		moment.locale('en');
+	}
+});
+
+test('a saved interface language is never overridden by Obsidian’s', async () => {
+	moment.locale('ko');
+	try {
+		const plugin = makePlugin(createFakeApp());
+		plugin.loadData = () => Promise.resolve({ lang: 'de' });
+		await plugin.loadSettings();
+		assert.equal(plugin.settings.lang, 'de');
+	} finally {
+		moment.locale('en');
+	}
+});
+
+test('a language the plugin does not have keeps the old default', async () => {
+	moment.locale('ja');
+	try {
+		const plugin = makePlugin(createFakeApp());
+		plugin.loadData = () => Promise.resolve(null);
+		await plugin.loadSettings();
+		assert.equal(plugin.settings.lang, 'de');
+	} finally {
+		moment.locale('en');
+	}
+});
+
+test('accepting a Korean song offered before its suffix writes the suffix into the link', async () => {
+	const suggest = new SongEditorSuggest({ app: {}, settings: { ...DEFAULT_SETTINGS, lang: 'ko' } });
+	const line = '노래 120';
+	const editor = lineEditor(line);
+	const info = suggest.onTrigger({ line: 0, ch: line.length }, editor, null);
+	suggest.context = { editor, start: info.start, end: info.end };
+	suggest.selectSuggestion();
+
+	assert.match(editor.text, /^\[노래 120번\]\(https:\/\/www\.jw\.org\/finder\?[^)]*wtlocale=KO[^)]*\) $/);
+});
+
 test('accepting a song suggestion keeps the wording that was typed', async () => {
 	// "Song No. 45" must not come back as this plugin's own phrasing — the
 	// same restraint the scripture suggestion shows towards a book name.
 	const suggest = new SongEditorSuggest({ app: {}, settings: { ...DEFAULT_SETTINGS } });
 	const line = 'Song No. 45';
 	const editor = lineEditor(line);
-	suggest.songNumber = 45;
-	suggest.context = { editor, start: { line: 0, ch: 0 }, end: { line: 0, ch: line.length } };
+	const info = suggest.onTrigger({ line: 0, ch: line.length }, editor, null);
+	suggest.context = { editor, start: info.start, end: info.end };
 	suggest.selectSuggestion();
 
 	assert.match(editor.text, /^\[Song No\. 45\]\(/);
+});
+
+test('an update leaves an identical cover image alone and rewrites a changed one', async () => {
+	// Regenerated on every update, a cover image used to be rewritten and
+	// counted as "updated" even when identical — one false change per day.
+	const fake = createFakeApp();
+	fake.folders.add('Kongress');
+	fake.binaries.set('Kongress/Titelbild.jpg', new Uint8Array([1, 2, 3]));
+	const plugin = makePlugin(fake.app);
+	const image = data => [{ filename: 'Titelbild.jpg', data, regenerate: true }];
+
+	const same = await plugin.planCongressUpdate('Kongress', 'de', [], image(new Uint8Array([1, 2, 3])));
+	assert.equal(same.attachments[0].kind, 'unchanged');
+	const changed = await plugin.planCongressUpdate('Kongress', 'de', [], image(new Uint8Array([1, 2, 4])));
+	assert.equal(changed.attachments[0].kind, 'regenerate');
+});
+
+test('a re-import leaves an overview that came out identical alone', async () => {
+	// It used to be rewritten and reported as "updated" every time.
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+	let modified = 0;
+	const modify = fake.app.vault.modify.bind(fake.app.vault);
+	fake.app.vault.modify = async (file, content) => { modified++; return modify(file, content); };
+
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+
+	assert.equal(modified, 0);
+});
+
+/** Moves a note, or a folder with everything inside, to an earlier spelling
+ *  of its name — the state an earlier plugin version left behind. */
+function renameInFake(fake, from, to) {
+	const move = p => (p === from ? to : p.startsWith(`${from}/`) ? to + p.slice(from.length) : p);
+	for (const [p, v] of [...fake.notes]) { fake.notes.delete(p); fake.notes.set(move(p), v); }
+	for (const p of [...fake.folders]) { fake.folders.delete(p); fake.folders.add(move(p)); }
+}
+
+test('a re-import keeps a line the user corrected in the overview', async () => {
+	// It used to overwrite the overview outright, while an update kept the line.
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+	const overviewPath = [...fake.notes.keys()].find(p => p.endsWith('Übersicht.md'));
+	const lines = fake.notes.get(overviewPath).split('\n');
+	const itemLine = lines.findIndex(l => l.startsWith('- ') && l.includes('9:40'));
+	const { markBlockKept } = await jitiWithObsidianStub.import('../src/util/noteMerge.ts');
+	lines[itemLine] = lines[itemLine].replace('9:40', '10:15');
+	fake.notes.set(overviewPath, markBlockKept(lines, itemLine).join('\n'));
+
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 50'), '');
+
+	const after = fake.notes.get(overviewPath);
+	assert.match(after, /10:15/);
+	assert.doesNotMatch(after, /9:50/);
+});
+
+test('a re-import takes over a convention folder named in an earlier spelling', async () => {
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+	const itemPath = findItemNotePath(fake.notes);
+	const folder = dirname(itemPath);
+	const legacy = `${folder}\u200B`;
+	fake.notes.set(itemPath, fake.notes.get(itemPath) + '\nMeine Notiz.\n');
+	renameInFake(fake, folder, legacy);
+
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+
+	assert.deepEqual(fake.renamed, [[legacy, folder]]);
+	assert.equal([...fake.notes.keys()].some(p => p.startsWith(legacy)), false);
+	assert.match(fake.notes.get(itemPath), /Meine Notiz\./); // taken over, not recreated
+});
+
+test('an update renames a note named in an earlier spelling and merges it', async () => {
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+	const itemPath = findItemNotePath(fake.notes);
+	const legacy = itemPath.replace(/\.md$/, '\u200B.md');
+	fake.notes.set(itemPath, fake.notes.get(itemPath) + '\nMeine Notiz.\n');
+	renameInFake(fake, itemPath, legacy);
+
+	await plugin.updateFile('Test.rtf', makeRtf('9 Uhr 50'), dirname(itemPath));
+
+	assert.deepEqual(fake.renamed, [[legacy, itemPath]]);
+	assert.equal(fake.notes.has(legacy), false);
+	const merged = fake.notes.get(itemPath);
+	assert.match(merged, /\*\*Uhrzeit:\*\* 9:50/);
+	assert.match(merged, /Meine Notiz\./);
+});
+
+test('the preview announces such a rename and writes nothing', async () => {
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+	const itemPath = findItemNotePath(fake.notes);
+	const legacy = itemPath.replace(/\.md$/, '\u200B.md');
+	renameInFake(fake, itemPath, legacy);
+	const before = new Map(fake.notes);
+
+	const congress = await parseCongress(makeRtf('9 Uhr 40'));
+	const [preview] = await plugin.previewFolders([{ label: 'Test.rtf', folder: dirname(itemPath), congress }]);
+
+	assert.deepEqual([...fake.notes.entries()], [...before.entries()]);
+	assert.deepEqual(fake.renamed, []);
+	const planned = preview.plan.notes.find(n => n.path === itemPath);
+	assert.equal(planned.kind, 'unchanged');
+	assert.equal(planned.renameFrom, legacy);
+});
+
+test('an update counts a rename as a change even when the content was already right', async () => {
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	await plugin.importFile('Test.rtf', makeRtf('9 Uhr 40'), '');
+	const itemPath = findItemNotePath(fake.notes);
+	renameInFake(fake, itemPath, itemPath.replace(/\.md$/, '\u200B.md'));
+	Notice.instances.length = 0;
+
+	await plugin.updateFile('Test.rtf', makeRtf('9 Uhr 40'), dirname(itemPath));
+
+	assert.match(Notice.instances.at(-1).message, /^Aktualisierung abgeschlossen: 1 aktualisiert/);
+});
+
+test('an update reports its progress as an update, not as an import', async () => {
+	const fake = createFakeApp();
+	const plugin = makePlugin(fake.app);
+	const { NoteBuilder } = await jitiWithObsidianStub.import('../src/builder/NoteBuilder.ts');
+	const congress = await parseCongress(makeRtf('9 Uhr 40'));
+	const folder = new NoteBuilder({}).congressFolderName(congress);
+	fake.folders.add(folder);
+	// More than three files, so the progress notice is shown at all.
+	const job = { label: 'Test.rtf', folder, congress };
+	Notice.instances.length = 0;
+
+	await plugin.updateFolders([job, { ...job, label: 'Zweite.rtf' }]);
+
+	assert.match(Notice.instances[0].message, /^Aktualisierung läuft/);
 });

@@ -80,15 +80,27 @@ export function songFinderUrl(songNumber: number, lang: CongressLang, songDocid?
  * A song number written as plain text at the END of `text`, e.g. "Lied 45".
  *
  * The wording comes from NoteBuilder.splitSongTitle, whose pattern was
- * verified against real programme files in each of the seven languages —
+ * verified against real programme files in each of the eight languages —
  * including the "No."/"no"/"№" infix that only some of them use. Only songs
  * the table knows are reported: an unknown number has no link to offer, so
  * announcing it would promise something that cannot follow.
+ *
+ * `label` is the link text to write. Everywhere but Korean it is exactly what
+ * was typed, so "Song No. 45" is not rewritten into this plugin's phrasing.
+ *
+ * Korean is offered already at "노래 120", with the counter suffix of the
+ * programmes' own "노래 120번" put into the label. Waiting for the suffix
+ * would fight the input method: 번 is composed from jamo and stays
+ * uncommitted until the next key, so the reference would not reliably end
+ * at the caret while it is being typed. The digits, by contrast, bypass the
+ * input method entirely. Typed with its suffix it is recognised just the same.
  */
-export function findSongNumberAtEnd(text: string): { songNumber: number; start: number; end: number } | undefined {
-	const match = /(?:^|[\s([])((?:Lied|Song|Cantique|Cantico|Cântico|Песня|Canción)(?:\s+(?:No\.|no|№))?\s+(\d{1,3}))$/iu.exec(text);
-	if (!match?.[1] || !match[2]) return undefined;
-	const songNumber = Number(match[2]);
+export function findSongNumberAtEnd(text: string): { songNumber: number; start: number; end: number; label: string } | undefined {
+	const match = /(?:^|[\s([])((?:Lied|Song|Cantique|Cantico|Cântico|Песня|Canción)(?:\s+(?:No\.|no|№))?\s+(\d{1,3})|노래\s+(\d{1,3})번?)$/iu.exec(text);
+	if (!match?.[1]) return undefined;
+	const korean = match[3] !== undefined;
+	const songNumber = Number(korean ? match[3] : match[2]);
 	if (SONG_DOC_IDS[songNumber] === undefined) return undefined;
-	return { songNumber, start: text.length - match[1].length, end: text.length };
+	const label = korean ? `노래 ${songNumber}번` : match[1];
+	return { songNumber, start: text.length - match[1].length, end: text.length, label };
 }

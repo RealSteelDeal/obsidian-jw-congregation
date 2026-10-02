@@ -4,7 +4,7 @@ import { jiti } from './_setup.mjs';
 
 const { lookupBookNumber, findBooksByPrefix, getBookName } = await jiti.import('../src/normalizer/bookNames.ts');
 
-const LANGS = ['de', 'en', 'fr', 'it', 'pt', 'ru', 'es'];
+const LANGS = ['de', 'en', 'fr', 'it', 'pt', 'ru', 'es', 'ko'];
 
 /** The first `count` letters/digits of a name, keeping its punctuation. */
 function truncate(name, count) {
@@ -139,4 +139,37 @@ test('full names and unambiguous truncations keep working', () => {
 	assert.equal(lookupBookNumber('Matth.', 'de'), 40);
 	assert.equal(lookupBookNumber('Ps', 'de'), 19);
 	assert.equal(lookupBookNumber('1 Mo', 'de'), 1);
+});
+
+// ── Korean ──────────────────────────────────────────────────────────────────
+
+test('Korean book names are the citation form, spacing included', () => {
+	// Read from nwt_KO.jwpub; the spacing was confirmed by a native speaker.
+	assert.equal(getBookName(54, 'ko'), '디모데 전서');
+	assert.equal(getBookName(22, 'ko'), '솔로몬의 노래');
+	assert.equal(getBookName(66, 'ko'), '요한 계시록');
+});
+
+test('a Korean name is found with or without its space', () => {
+	// Both spellings are in use; the lookup key drops the space either way.
+	assert.equal(lookupBookNumber('디모데 전서', 'ko'), 54);
+	assert.equal(lookupBookNumber('디모데전서', 'ko'), 54);
+});
+
+test('a Korean gospel is found by dropping 복음, as people type it', () => {
+	// The native speaker's own example: 마태복음 is typed "마태".
+	assert.equal(lookupBookNumber('마태', 'ko'), 40);
+	assert.equal(lookupBookNumber('마가', 'ko'), 41);
+});
+
+test('the one-character Korean Psalm citation resolves through the table', () => {
+	// "시" is how the Korean programmes cite Psalms — a prefix of 시편, but too
+	// short for the prefix rule, which must stay as it is for everything else.
+	assert.equal(lookupBookNumber('시', 'ko'), 19);
+	assert.equal(lookupBookNumber('요', 'ko'), undefined);
+});
+
+test('an ambiguous Korean prefix is refused, not guessed', () => {
+	// 요한 begins John, the three letters of John and Revelation.
+	assert.equal(lookupBookNumber('요한', 'ko'), undefined);
 });

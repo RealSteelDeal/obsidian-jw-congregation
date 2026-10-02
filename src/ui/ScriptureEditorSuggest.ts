@@ -5,6 +5,7 @@ import { Scripture } from '../models/congress';
 import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 import { findScriptureReferenceAtEnd } from '../normalizer/ScriptureTextParser';
 import { buildScriptureQuoteBlock } from '../util/quoteBuilder';
+import { keepBlock } from './BibleVerseModal';
 import { L } from '../i18n';
 
 interface ScriptureSuggestItem {
@@ -163,6 +164,10 @@ export class ScriptureEditorSuggest extends EditorSuggest<ScriptureSuggestItem> 
 			const lineEnd = { line: start.line, ch: editor.getLine(start.line).length };
 			const inserted = `\n${quote}`;
 			editor.replaceRange(inserted, lineEnd);
+			// Typed inside a generated block, the quote would be gone after the
+			// next update — the block is flagged as the user's instead (the
+			// position is the user's own choice here, so it is not moved).
+			keepBlock(editor, lineEnd.line);
 			this.moveCursorPastInsertion(editor, lineEnd.line, inserted);
 			return;
 		}
@@ -177,6 +182,7 @@ export class ScriptureEditorSuggest extends EditorSuggest<ScriptureSuggestItem> 
 		const from = onOwnLine ? { line: start.line, ch: 0 } : start;
 		const inserted = onOwnLine ? quote : `\n${quote}`;
 		editor.replaceRange(inserted, from, end);
+		keepBlock(editor, from.line);
 		this.moveCursorPastInsertion(editor, from.line, inserted);
 	}
 

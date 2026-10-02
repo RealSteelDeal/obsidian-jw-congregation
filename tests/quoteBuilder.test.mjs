@@ -37,3 +37,11 @@ test('stripHtml reduces HTML markup to plain text', () => {
 	assert.equal(stripHtml('<strong>5</strong>'), '5');
 	assert.equal(stripHtml(''), '');
 });
+
+test('buildScriptureQuoteBlock writes no zero-width space into the note', () => {
+	// The Korean Bible has about ten per verse, between a word and its
+	// particle; left in, Obsidian's search would not find "사랑과".
+	const block = buildScriptureQuoteBlock('디모데 전서 4:12', HREF, [verse('12', '말\u200b과 행실\u200b과 사랑\u200b과')]);
+	assert.ok(!block.includes('\u200b'));
+	assert.ok(block.includes('말과 행실과 사랑과'));
+});

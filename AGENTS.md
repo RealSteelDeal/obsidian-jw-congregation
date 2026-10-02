@@ -36,18 +36,18 @@ npm run lint      # ESLint
 src/
   main.ts                    # Plugin-Lifecycle (onload/onunload, Commands, Settings, importFile()/updateFile()/updateFolders()/previewFolders())
   settings.ts                # JwPluginSettings, DEFAULT_SETTINGS, JwSettingTab
-  i18n.ts                    # Strings/NoteStrings-Interfaces + L/NL für alle 7 Sprachen (siehe Abschnitt "Sprachen" unten)
+  i18n.ts                    # Strings/NoteStrings-Interfaces + L/NL für alle 8 Sprachen (siehe Abschnitt "Sprachen" unten)
   models/
     congress.ts              # Typen: Congress, Day, Session, ProgramItem, Scripture, VerseRun
     mwb.ts                   # Typen für den Leben-und-Dienst-Import: Mwb, MwbWeek, MwbItem, MemorialReadingSchedule
   normalizer/
-    bookNames.ts             # Buchnamenstabelle 1–66, alle 7 Sprachen (DE/EN/FR/IT/PT/RU/ES)
+    bookNames.ts             # Buchnamenstabelle 1–66, alle 8 Sprachen (DE/EN/FR/IT/PT/RU/ES/KO)
     songDocIds.ts            # Liednummer → JW-Library-docid, AUS dem Liederbuch gelesen (nie berechnet — die Formel liegt bei 12 von 163 falsch); songFinderUrl()/findSongNumberAtEnd()
     ScriptureNormalizer.ts   # fromJwpub(), fromRtf(), toJwLibraryLink(), toMarkdownLink()
     ScriptureTextParser.ts   # erkennt eine als Klartext getippte Bibelstelle (für den Editor-Suggester)
   util/
     jwpubCrypto.ts           # geteilte jwpub-Krypto: openJwpubDatabase(), readPublication(), deriveKey(), decryptBlob()
-    jwpubLinks.ts            # geteilte jwpub-Konstanten: MEPS_LANGUAGE_INDEX, Bibel-/Lied-Href-Regexe, assertPlatformSupport()
+    jwpubLinks.ts            # geteilte jwpub-Konstanten: MEPS_LANGUAGE_INDEX, Bibel-/Lied-Href-Regexe, assertPlatformSupport(), stripZeroWidthSpace() (nur für Koreanisch angewandt, siehe "Sprachen")
     fileSignature.ts         # looksLikeJwpub()/hasPkZipSignature() — von SourceRouter.ts und MwbSourceRouter.ts geteilt
     folderList.ts            # listAllFolders() — von allen vier Import/Update-Modalen geteilt; findFoldersByName() für die Datei-↔-Ordner-Zuordnung des Sammel-Updates
     bytes.ts                 # latin1Decode(), hexToBytes()
@@ -61,13 +61,14 @@ src/
                              #   + findScriptureLinkSpanAt()/cutSpan() — Bibelstelle unter dem Cursor entfernen
                              #   + findPluginLinkToRemoveAt()/pluginLinkLabel() — wann der Lösch-Vorschlag erscheint
                              #     (alle Plugin-Links: Bibelstellen jwlibrary://, Lieder/Quellen jw.org — Fremdlinks nie, per Test abgesichert)
+    legacyNames.ts           # frühere Schreibweisen plugin-eigener Namen (U+200B, doppelte Anführungszeichen) — Import/Update finden und benennen alte Ordner/Notizen um (siehe „Notiz- & Ordnerbenennung")
     speakerNames.ts          # gruppiert Schreibweisen eines Rednernamens — reiner Vorschlag, nie eine Entscheidung (siehe eigener Doc-Kommentar)
   parser/
     JwpubParser.ts           # .jwpub → Congress (primär, nutzt util/jwpubCrypto.ts + DOMParser)
     RtfParser.ts             # RTF-ZIP → Congress (Fallback)
     SourceRouter.ts          # Dateiformat erkennen, Router jwpub → rtf
-    MwbParser.ts             # .jwpub (Leben-und-Dienst-Arbeitsheft) → Mwb; nur Deutsch (siehe eigener Abschnitt unten)
-    MwbSourceRouter.ts       # eigenständig (nicht Teil von SourceRouter/ParseResult) — prüft Publication.Symbol auf "mwb"-Präfix vor dem vollen Parse
+    MwbParser.ts             # .jwpub (Leben-und-Dienst-Arbeitsheft) → Mwb; Deutsch und Koreanisch (siehe eigener Abschnitt unten)
+    MwbSourceRouter.ts       # eigenständig (nicht Teil von SourceRouter/ParseResult) — prüft Publication.EnglishSymbol auf "mwb"-Präfix vor dem vollen Parse (Symbol ist lokalisiert, siehe unten)
   builder/
     NoteBuilder.ts           # Congress → GeneratedNote[] (Ordnernamen, Nummerierung, Übersicht, Notiz-Rendering, unsichtbare Marker)
     MwbNoteBuilder.ts        # Mwb → eine Notiz pro Woche (kein Ordner-pro-Tag, keine Notiz pro Programmpunkt) + optionale Gedächtnismahl-Notiz
@@ -102,51 +103,133 @@ scripts/
 ## Sprachen: `Congress.lang` vs. `settings.lang`
 
 Seit v1.9.0 unterstützt das Plugin **7 Sprachen** (Deutsch, Englisch, Französisch,
-Italienisch, Portugiesisch, Russisch, Spanisch), nicht nur DE/EN — und seit v1.13.0 gilt das
-für **beide** unabhängigen Sprach-Ebenen, nicht nur eine. Nicht verwechseln:
+Italienisch, Portugiesisch, Russisch, Spanisch), seit v1.29.0 **8** — Koreanisch kam dazu,
+vollständig übersetzt (siehe unten). Seit v1.13.0 gilt das für
+**beide** unabhängigen Sprach-Ebenen, nicht nur eine. Nicht verwechseln:
 
 - **`Congress.lang`** (`CongressLang`, vom Parser aus `Publication.MepsLanguageIndex` erkannt
-  über `JwpubParser.ts`s `MEPS_LANGUAGE_INDEX`-Map: `0 = en, 1 = es, 2 = de, 3 = fr, 4 = it,
-  207 = ru, 785 = pt`): bestimmt ALLES, was in erzeugte Notizen geschrieben wird —
-  Feldbeschriftungen, Datei-/Ordnernamen (`00. Übersicht` vs. `00. Overview` vs. `00. Aperçu`
+  über `jwpubLinks.ts`s `MEPS_LANGUAGE_INDEX`-Map: `0 = en, 1 = es, 2 = de, 3 = fr, 4 = it,
+  129 = ko, 207 = ru, 785 = pt`): bestimmt ALLES, was in erzeugte Notizen geschrieben wird —
+  Feldbeschriftungen, Datei-/Ordnernamen (`00. Übersicht` vs. `00. Overview` vs. `00. 개요`
   …), Buchnamen, Wiederholungs-Notiz. Eine französische Programmdatei erzeugt französische
   Notizen, unabhängig von der Plugin-Einstellung.
 - **`settings.lang`** (`SupportedLang`, Nutzereinstellung im Settings-Tab): bestimmt seit
   v1.13.0 die **gesamte Plugin-Oberfläche** — Settings-Tab, Bibeltext-Popup, Import-/
   Update-Dialoge, alle Notices — nicht mehr nur das Popup. `SupportedLang` und `CongressLang`
-  sind seither **derselbe** 7-Werte-Typ (`bookNames.ts`: `export type CongressLang =
+  sind seither **derselbe** Typ (`bookNames.ts`: `export type CongressLang =
   SupportedLang`); die zwei Typnamen bleiben nur aus Lesbarkeitsgründen getrennt
   ("welche Sprache hat DIESE Notiz" vs. "welche Sprache hat der NUTZER gewählt").
 
 `src/i18n.ts`s Struktur folgt dieser Trennung: `NoteStrings` (die von `Congress.lang`
 abhängigen Felder — Labels, Ordnernamen, Wiederholungsfragen, …) ist eine Teilmenge von
 `Strings` (zusätzlich Settings-Tab/Popup/Dialoge/Notices, von `settings.lang` abhängig).
-Beide sind für **alle 7 Sprachen vollständig** ausimplementiert — `L: Record<SupportedLang,
-Strings>` und `NL: Record<CongressLang, NoteStrings> = L` (seit alle Sprachen volle `Strings`
-haben, ist `NL` nur noch ein Alias von `L`, keine eigene Übersetzung mehr). Parser und
+Alle acht Sprachen sind **vollständig** übersetzt, `L: Record<SupportedLang, Strings>` — der
+Compiler verweigert also jeden fehlenden Schlüssel, statt still auf Englisch zu fallen. Für
+eine Sprache, die nur teilweise übersetzt werden kann, beschreibt der Kommentar über `L` das
+Rezept (`{ ...L.en, <das Belegte> }`); Koreanisch hat so begonnen. `NL` ist ein Alias von `L`,
+keine eigene Übersetzung. Parser und
 NoteBuilder halten die aktive Sprache als `this.lang` + `this.t`-Getter (`this.t = NL[this.lang]`
 bzw. `L[this.lang]`).
 
-Die Parser-**Erkennungsmuster** (Marker wie `SYMPOSIUM:`/`VORTRAGSREIHE:`/`SIMPOSIO:`,
+Die Parser-**Erkennungsmuster** (Marker wie `SYMPOSIUM:`/`VORTRAGSREIHE:`/`심포지엄:`,
 Musik-/Pause-Zeilen, Wochentage, `QUESTIONS_RE`) sind bewusst **sprachtolerant kombiniert**
-(matchen alle 7 Sprachen gleichzeitig), nicht pro Sprache verzweigt — nur echte
+(matchen alle Sprachen gleichzeitig), nicht pro Sprache verzweigt — nur echte
 AUSGABE-Strings kommen aus `i18n.ts`. Wichtige sprachvariable Realdaten (per
-`scripts/dump-structure.mjs` an echten Dateien in allen 7 Sprachen verifiziert): Song-Links
-sind `jwpub://p/{X|E|F|I|TPO|U|S}:` je nach Sprache (MEPS-Locale-Symbol, `bookNames.ts`s
-`WTLOCALE`) → Selektor/Regex müssen auf `jwpub://p/` matchen; englische Liedzeilen heißen
-„Song **No.** 160 …" (`splitSongTitle`!); Fragen-Dokument-h1 variiert pro Sprache
-(„Beantworte die folgenden Fragen:", „Find Answers to These Questions:", „Soyez attentifs
-aux réponses à ces questions", …); englische Marker: `CHAIRMAN’S ADDRESS:`, `FEATURE BIBLE
+`scripts/dump-structure.mjs` an echten Dateien jeder Sprache verifiziert): Song-Links
+sind `jwpub://p/{X|E|F|I|TPO|U|S|KO}:` je nach Sprache (MEPS-Locale-Symbol,
+`ScriptureNormalizer`s `WTLOCALE`) → Selektor/Regex müssen auf `jwpub://p/` matchen;
+englische Liedzeilen heißen „Song **No.** 160 …", koreanische „노래 160**번**" mit
+**nachgestelltem** Zählwort (`splitSongTitle`!); Fragen-Dokument-h1 variiert pro Sprache
+(„Beantworte die folgenden Fragen:", „Find Answers to These Questions:", „아래 질문에 대한
+답을 찾아 보십시오", …); englische Marker: `CHAIRMAN’S ADDRESS:`, `FEATURE BIBLE
 DRAMA:`, `PUBLIC BIBLE DISCOURSE:`, `BAPTISM:`. Der RTF-Fallback bleibt rein deutsch
 (`lang: 'de'` hart gesetzt) — nicht-deutsche RTF-Exporte lagen nie als Testmaterial vor.
 
-Echte Testdateien für Deutsch/Englisch (alle 3 Kongresstypen + Studienbibel) liegen lokal
-unter `C:\Users\LukasSchütter\Obsidian\.dateien\{Deutsch,Englisch}\` — nach Parser-Änderungen
-immer alle 6 Kongressdateien durch `node scripts/test-parse.mjs` schicken und die
-Programmpunkt-Zahlen zwischen den Sprachen vergleichen (müssen identisch sein). Die fünf
-weiteren Sprachen (FR/IT/PT/RU/ES) wurden bei ihrer Einführung ebenfalls gegen echte
-CO-/CA-Programmdateien in jeder Sprache verifiziert (siehe CHANGELOG 1.9.0), ohne dass dafür
-ein eigenes lokales Testdateien-Verzeichnis dokumentiert wurde.
+⚠️ **Zwei Fallen, an Koreanisch gefunden (02.10.2026), die jede neue Sprache treffen:**
+
+- **Kein `\b` in sprachübergreifenden Mustern.** In JavaScript ist `\b` auch mit `u`-Flag
+  **ASCII-basiert** — neben `ì`, Kyrillisch oder Hangul gibt es für die Engine keine
+  Wortgrenze. Genau das hat seit 1.9.0 den italienischen Freitag (`Venerdì`) und alle drei
+  russischen Tage unerkannt gelassen: Sie fielen auf den Eintages-Fallback, die Tage teilten
+  sich einen Ordner, jede Übersicht überschrieb die vorige. Stattdessen
+  `(?:^|[^\p{L}\p{N}])(…)(?![\p{L}\p{N}])`. **Kein Lookbehind** — der ist auf iOS vor 16.4
+  ein Syntaxfehler und lässt das ganze Plugin nicht laden; `\p{…}` nutzt `normalizeBookKey`
+  ohnehin schon.
+- **U+200B (Zero Width Space) im Dateitext.** Koreanische Programme setzen es als
+  Umbruchhinweis mitten in Wörter (252× in einem Programm) — es bricht jede Erkennung und
+  wandert in Datei-/Ordnernamen und Link-Anker. `JwpubParser.clean()` und `MwbParser.clean()`
+  entfernen es **seit 02.10.2026 in jeder Sprache** (vorher nur Koreanisch). Englische
+  Dateien tragen auch zwei, vor Gedankenstrichen in Programmpunkt-Titeln und damit in
+  Dateinamen. Dass bestehende englische Importe trotzdem gefunden werden, leistet
+  `util/legacyNames.ts` (siehe „Notiz- & Ordnerbenennung"). Gemessen über alle acht
+  Sprachen; DE/FR/IT/PT/RU/ES haben keine, die sechs deutschen Arbeitshefte 2026 ebenfalls
+  nicht. Bei einer neuen Sprache erst zählen.
+  ⚠️ Beim Schreiben von Quelltext darauf achten, das Zeichen als Escape (`\u200B`) und nicht
+  als echtes Zeichen einzufügen — aus einem Dump kopiert, ist es unsichtbar.
+  `no-irregular-whitespace` (ESLint) meldet es in `src/`, in `tests/` nicht.
+
+Echte Testdateien für **alle acht Sprachen** (alle 3 Kongresstypen; dazu `nwtsty`/`nwt`)
+liegen lokal unter `C:\Users\LukasSchütter\Obsidian\.dateien\<Sprache>\` (`Deutsch`,
+`Englisch`, `Französisch`, `Italienisch`, `Portugiesisch`, `Russisch`, `Spanisch`,
+`Koreanisch`), Dateinamen `CO-pgm26_<Symbol>.jwpub`, `CA-copgm27_<Symbol>.jwpub`,
+`CA-brpgm27_<Symbol>.jwpub`. Fehlende Sprachen lassen sich selbst beschaffen —
+`https://b.jw-cdn.org/apis/pub-media/GETPUBMEDIALINKS?pub=CO-pgm26&langwritten=<Symbol>&fileformat=JWPUB&output=json`
+liefert die Download-Adresse (so kamen die koreanischen; ein Melder muss dafür nichts tun).
+
+**Prüfverfahren nach Parser-Änderungen.** Dasselbe Programm existiert in jeder Sprache, also
+muss alles, was nicht Text ist, übereinstimmen. Alle 24 Dateien durch
+`node scripts/test-parse.mjs` schicken und **mehr als die Programmpunkt-Zahlen** vergleichen:
+Typ je Punkt, Liednummern, Bibelstellen, Teilezahlen **und die Anzahl verschiedener
+Tagesnamen** — ohne Uhrzeit, denn DE schreibt 24-, EN und KO 12-Stunden-Format. ⚠️ Bis
+02.10.2026 verglich dieses Verfahren nur die Zahlen, und die stimmten bei Italienisch und
+Russisch; deshalb blieb der Wochentag-Fehler seit 1.9.0 unentdeckt. Zusätzlich für jede
+**nicht** beabsichtigt betroffene Sprache die gesamte Ausgabe vorher/nachher vergleichen
+(`git stash`) — sie muss **byte-identisch** sein. Bekannte, legitime Abweichung:
+Portugiesisch verlinkt in `CA-copgm27` `Psalm 119:12`, alle anderen Sprachen `119:112` — die
+Datei selbst trägt den Link so, kein Parserfehler.
+
+**Übersetzen — woher die Begriffe kommen (an Koreanisch erprobt, 02.10.2026).** Nicht aus
+einem Wörterbuch, sondern aus drei Quellen, damit das Plugin dieselben Wörter benutzt wie
+Obsidian und die Publikationen:
+
+- **Obsidians eigene Übersetzung** für alles, was Obsidian benennt (Vault, Notiz,
+  Befehlspalette, Leseansicht, Rückverweise, Eigenschaften, …). Sie liegt in der
+  installierten App: `%LOCALAPPDATA%\Programs\Obsidian\resources\obsidian.asar`, darin
+  `/i18n/<code>.txt` und `/i18n/mapping.txt`. Das asar-Format ist ein JSON-Header (Länge
+  ab Byte 12, Daten ab `8 + uint32(Byte 4)`); die `.txt`-Dateien sind **zeilenweise
+  ausgerichtet** — Zeile *n* von `mapping.txt` ist der Schlüssel, Zeile *n* von `ko.txt` und
+  `de.txt` dessen Übersetzung (2596 Zeilen). Über `de.txt` lässt sich jeder deutsche Begriff
+  nachschlagen. Für Koreanisch z. B. `보관함` (Vault), `보관함 최상위 폴더` (Vault-Wurzel),
+  `읽기 화면`, `실시간 미리보기`, `원본 모드`, `편집`, `리본 메뉴`, `모바일 툴바`, `백링크`,
+  `링크되지 않은 언급`, `속성`, `인용`, `콜아웃`; `Frontmatter` bleibt dort unübersetzt.
+- **Die Publikationen selbst** für alles, was sie benennen — Dateien per `dump-structure.mjs`
+  oder eine kleine Textsuche; `wol.jw.org/<sprache>/` für die Studienbibel (Fußnoten,
+  Querverweise, Studienanmerkungen heißen dort `각주`, `상호 참조 성구`, `연구 노트`); die
+  Medien-API für Publikationstitel (`pubName`). Auch der **App-Name** ist sprachabhängig:
+  koreanisch `JW 라이브러리`, nie „JW Library".
+- **Sprachnamen:** `https://www.jw.org/<sprache>/languages/` (mit `Accept: application/json`)
+  liefert jw.orgs eigene Liste mit lokalisierten Namen — daher stammen `독일어`, `영어`, ….
+
+Was eine Übersetzung allein nicht findet und nur der Funktionsprüfgang in der Sprache: die
+**Wortstellung** (`popupVerseLabel(n)` ist eine Funktion, weil Koreanisch `12절` schreibt),
+die **Eingabemethode** (koreanische Silben bleiben bis zur nächsten Taste unbestätigt — der
+Lied-Vorschlag erscheint deshalb schon bei `노래 120`, und `findSongNumberAtEnd` liefert das
+Label mit `번`), **unsichtbare Zeichen im Bibeltext** (die koreanische Bibel hat rund zehn
+U+200B je Vers; `buildScriptureQuoteBlock` entfernt sie für alle Sprachen, weil ein Zitat nie
+über seinen Text wiedergefunden wird), **Anredewörter** hinter dem Namen (`형제`, `자매` in
+`speakerNames.ts`) und **die Sprachauswahl selbst** (beide Pfade in `settings.ts` — sie
+entscheidet auch, in welcher Sprache getippte Bibelstellen erkannt werden). Der erste Start
+folgt Obsidians Sprache (`interfaceLangFor(moment.locale())` — nicht `getLanguage()`, das erst
+ab 1.8.7 existiert; Obsidian setzt die moment-Locale beim Start aus demselben Code, mit dem es
+sein Sprachpaket lädt, im App-Bundle geprüft).
+
+**Zahlen in Hinweisen: Einzahl/Mehrzahl über `one()`/`oneFr()` (`i18n.ts`)**, nie mit
+„(e)“/„(s)“/„/e“ umgehen und nie fest im Plural. Bis 02.10.2026 stand überall „1 notes would
+change“, „1 Notizen“, „1 nouvelles“. Französisch nimmt auch für 0 die Einzahl (`oneFr`), die
+anderen nur für genau 1. Russisch stellt die Zahl hinter einen Doppelpunkt („обновлено: 1“),
+damit die drei russischen Pluralformen gar nicht gebraucht werden — diesen Stil bei Russisch
+beibehalten. Koreanisch kennt keinen Plural. Bei einer neuen Sprache deren Pluralregel klären,
+bevor ein Hinweis mit Zahl übersetzt wird; `tests/i18n.test.mjs` hält 1 und 2 je Sprache fest.
 
 ## Roadmap
 
@@ -665,6 +748,57 @@ klickbar und öffnet dabei wieder das Vers-Popup – nicht nur die Titelzeile:
   zusätzlich einen `separator` (`"\n\n"` statt `"\n"`), sobald direkt nach einer
   bestehenden Blockquote-Zeile angehängt wird – sonst verschmelzen zwei
   aufeinanderfolgende Zitate ebenfalls zu einem einzigen, kaputten Block.
+- **Bug (behoben 02.10.2026): ein eingefügtes Zitat überlebte das nächste Update nicht**,
+  wenn es innerhalb eines generierten Marker-Blocks landete (z. B. unter der Bibelstellen-
+  Zeile eines Programmpunkts) — das Update schreibt den Block neu, das Zitat war weg.
+  Gefunden erst in der Update-**Vorschau** in echtem Obsidian, kein Unit-Test hatte es
+  abgedeckt. Jetzt: `noteMerge.insertionOutsideBlocks()` verschiebt die Einfügestelle hinter
+  das Blockende, wenn danach im Block nur noch Leerzeilen kämen (dann ändert das für den
+  Leser nichts); sonst bleibt sie, und der Block wird per `keepBlock()`
+  (`BibleVerseModal.ts`, nutzt `markBlockKept()`) als vom Nutzer bearbeitet markiert. Gilt
+  für beide Einfügewege (Popup und `ScriptureEditorSuggest`) und ebenso für
+  „Bibelstelle erweitern" (`alignReference`), das vorher vom nächsten Update zurückgesetzt
+  wurde. **Regel für jede neue Funktion, die in eine Notiz schreibt:** Landet der Text in
+  einem generierten Block, muss er den Block als behalten markieren oder außerhalb landen.
+
+### Leben-und-Dienst-Arbeitsheft (MwbParser, MwbNoteBuilder)
+
+Seit 1.29.0 **Deutsch und Koreanisch**. Eine Sprache gilt als unterstützt, sobald
+`NL[lang].treasuresLabel` gesetzt ist — `MwbParser` prüft genau das und lehnt jede andere
+erkannte Sprache mit `mwbLanguageNotSupported` ab, statt unbelegte Überschriften zu raten.
+Die drei Abschnittsüberschriften und `cbsLabel` sind **Erkennungsanker** (müssen exakt dem
+Dateitext entsprechen); die übrigen Arbeitsheft-Schlüssel in `NoteStrings` (`mwbFolder`,
+`mwbDuration`, `mwbSong`, `mwbPrayer`, `mwbIntroWords`, `mwbClosingWords`) sind Ausgabe.
+Die deutschen Werte reproduzieren die vorherige Ausgabe byte-genau; `MwbNoteBuilder` fällt
+für einen fehlenden Schlüssel auf Deutsch zurück. **Die Oberflächen-Schlüssel des
+Arbeitshefts** (`importMwbCommand`, `headImportMwb`, … in `Strings`) sind dagegen
+**Pflicht in allen acht Sprachen**: Jeder kann ein deutsches oder koreanisches Heft
+importieren, egal welche Sprache das Plugin spricht. Bis 02.10.2026 waren sie optional und
+nur DE/KO gefüllt — in den anderen sechs standen Befehle, Ribbon-Symbol und
+Einstellungsabschnitt ohne Namen da. Die Namen der Zusammenkunft/des Hefts je Sprache kommen
+aus der Medien-API (`GETPUBMEDIALINKS?pub=mwb&issue=202601&langwritten=<Symbol>` → `pubName`).
+
+- **`Publication.Symbol` ist lokalisiert**, nicht `mwb26`: Das koreanische Heft heißt
+  `집교26`. Erkennung und Schlüssel-unabhängige Prüfungen nutzen deshalb `EnglishSymbol`
+  (`jwpubLinks.ts`s `englishSymbol()`) — für die Schlüsselableitung bleibt `Symbol` richtig,
+  die gehört zur Datei selbst. Gilt vermutlich für jede nicht-lateinische Sprache.
+- **Sprachtolerante Muster** wie beim Kongress: `DURATION_RE` (`Min.` | `분`),
+  `SONG_PRAYER_RE`, `SONG_INTRO_WORDS_RE`, `MEMORIAL_READING_TITLE_RE`. Ausnahme ist die
+  Aufgabenart: Deutsch erkennt sie an Großbuchstaben (`ASSIGNMENT_TYPE_RE`), Hangul hat keine
+  — daher die belegte Liste `KOREAN_ASSIGNMENT_TYPE_RE` (`호별 방문`, `비공식 증거`,
+  `공개 증거`), gewählt nach `this.lang`.
+- **U+200B**: das koreanische Heft hat 981 je Ausgabe; `clean()` entfernt sie wie beim
+  Kongress nur für Koreanisch.
+- **Leerzeichen an Link-Grenzen**: `renderParagraphSegments` trimmt nur die beiden Enden
+  des Absatzes, nicht jeden Textlauf. Bis 02.10.2026 wurde jeder Lauf einzeln getrimmt, und
+  das Wort vor oder nach einem Bibelstellen-/Quellen-Link klebte daran (86 von 91
+  betroffenen deutschen Absätzen). Gefunden mit einem Vergleich Quelltext gegen
+  Notiztext je Absatz — bei einer neuen Sprache wiederholen.
+- **Prüfverfahren**: wie beim Kongress über die Struktur-Signatur — Wochen, Punkte, Minuten,
+  Aufgabenart ja/nein, Versammlungsbibelstudium, Lieder (+ Gebet/Einleitung), Bibelstellen,
+  Quellen-docids, Gedächtnismahl-Tage. `mwb_KO_202601`/`202603` (unter `.dateien\Koreanisch\`)
+  sind gegen die deutschen Hefte derselben Monate **identisch**; die deutsche Ausgabe vor/nach
+  der Umstellung byte-identisch (bis auf die gewollte Leerzeichen-Korrektur).
 
 ### Notiz- & Ordnerbenennung (NoteBuilder)
 
@@ -701,12 +835,35 @@ klickbar und öffnet dabei wieder das Vers-Popup – nicht nur die Titelzeile:
   bei leerem `baseFolder` übersprungen (Vault-Root existiert immer). `ImportModal` bietet dafür
   im Zielordner-Dropdown einen expliziten Eintrag „Vault-Wurzel (kein Unterordner)" (`ROOT_VALUE`)
   neben bestehenden Ordnern und „➕ Neuer Ordner …".
+- **CA-Ordnername: das Motto trägt seine Anführungszeichen schon selbst.** `MEPS:Title`
+  eines Kreiskongresses kommt in allen Sprachen außer Russisch bereits gequotet aus der
+  Datei („…“, “…”, « … »), und die `folderCAco`/`folderCAbr`-Vorlagen setzen das
+  Sprachpaar noch einmal darum. Bis 02.10.2026 ergab das `„„…““` usw., in IT/PT/ES wegen
+  ASCII-`"` in der Vorlage sogar `ʺ“…”ʺ`. `congressFolderName()` entfernt deshalb ein
+  umschließendes Paar (`QUOTED_THEME_RE`), bevor die Vorlage greift; IT/PT/ES nutzen jetzt
+  “…”, wie ihre Programme (per Zeichenzählung in den echten Dateien belegt). Alle 16 echten
+  CA-Ordnernamen der acht Sprachen wurden danach einzeln angesehen.
+- **Frühere Schreibweisen (`util/legacyNames.ts`)**: Wer ändert, wie ein Ordner oder eine
+  Notiz benannt wird, muss bestehende Importe mitnehmen — sonst findet das Update die Notiz
+  nicht mehr, und ein erneuter Import legt einen zweiten Ordner daneben an. `legacyKey()`
+  gleicht aus, was korrigiert wurde (U+200B, Anführungszeichen, Leerraum); `findLegacySpelling()`
+  liefert den **einen** passenden Altnamen, nichts bei Mehrdeutigkeit oder wenn der neue Name
+  schon existiert. Angewandt in `main.ts`: `importFile()` benennt Kongressordner und Notizen
+  per `adoptLegacyName()` um, `planCongressUpdate()` setzt `renameFrom` (die Vorschau zeigt es
+  mit `previewRenamed`, `executeCongressPlan()` benennt vor dem Schreiben um und zählt das als
+  Änderung), `findFoldersByName()` fällt für das Sammel-Update darauf zurück. Umbenannt wird
+  über `fileManager.renameFile()`, damit Links mitwandern. ⚠️ Bei Links **mit Pfad** fragt
+  Obsidian dabei mit einem eigenen Dialog nach („Links aktualisieren?") und die Operation
+  wartet auf die Antwort — so in echtem Obsidian gesehen. Bei einer künftigen
+  Namenskorrektur: erst `legacyKey()` erweitern, dann umbenennen.
 - **Erneuter Import / `regenerate`-Flag**: `GeneratedNote`/`GeneratedAttachment` tragen ein
   optionales `regenerate: boolean`. `true` nur bei rein abgeleiteten Dateien ohne Schreibplatz
   (`00. Übersicht.md`, `Titelbild.<ext>`) – die werden in `main.ts.importFile()` bei erneutem
   Import per `vault.modify()`/`vault.modifyBinary()` überschrieben, statt übersprungen zu werden,
   damit Plugin-Updates (neue Felder, Titelbild-Support, …) auch bei bereits importierten
-  Kongressen ankommen, ohne den Ordner löschen zu müssen. Alles mit Schreibplatz (Redner-Notizen,
+  Kongressen ankommen, ohne den Ordner löschen zu müssen. Seit 02.10.2026 über
+  `noteMerge.refreshDerivedNote()`: vom Nutzer korrigierte (behaltene) Blöcke der Übersicht
+  überleben auch den erneuten Import, nicht nur das Update. Alles mit Schreibplatz (Redner-Notizen,
   `Wiederholung.md`, die Wiederholungsfragen-Notiz) bleibt ohne `regenerate` und wird bei
   Existenz **nie** angefasst, um Nutzereinträge nicht zu überschreiben – bewusst kein
   Diffing/Merge, um das nicht heimlich falsch zu machen.
@@ -778,6 +935,30 @@ einen eigenen zu berechnen — eine Vorschau, die vom nachfolgenden Schreibvorga
 wäre schlimmer als gar keine. Wer eine Verzweigung der Aktualisierung ändert, ändert sie in
 `planCongressUpdate()`; `executeCongressPlan()` kennt nur noch die entschiedenen Fälle.
 
+**Ende-zu-Ende in echtem Obsidian (an Koreanisch erprobt, 02.10.2026).** Was die Unit-Tests
+nicht erreichen — Modale, Settings, Editor-Vorschläge, Klicks — lässt sich in einer
+**getrennten** Obsidian-Instanz über das Chrome DevTools Protocol fahren, ohne das Vault des
+Nutzers anzufassen: `Obsidian.exe --user-data-dir=<scratchpad>/profile
+--remote-debugging-port=9333 --disable-background-timer-throttling
+--disable-renderer-backgrounding --disable-backgrounding-occluded-windows` (ohne die
+letzten drei Flags drosselt Chromium das Hintergrundfenster, und Timer laufen nicht). Dann
+per WebSocket `Runtime.evaluate` gegen `app`. Hinweise:
+- `Emulation.setFocusEmulationEnabled` — sonst gilt der Editor nie als fokussiert, und
+  Obsidian öffnet keine Vorschläge.
+- Dateiauswahl: `Page.setInterceptFileChooserDialog` + `DOM.setFileInputFiles`.
+- Tippen: `Input.insertText` (fertige Silbe), `Input.imeSetComposition` für eine offene
+  IME-Komposition (koreanisch), `Input.dispatchKeyEvent` für echte Tasten.
+- Obsidian 1.13 öffnet die Einstellungen in einem **eigenen Fenster** (eigenes CDP-Target).
+- Handy-Layout: `app.emulateMobile(true)` lädt die App neu, danach warten;
+  `Emulation.setDeviceMetricsOverride` für die Breite.
+- esbuild schreibt Nicht-ASCII in `main.js` als `\u`-Escapes — bei Suchen im Bundle beachten.
+- Beim Beenden **nur** die Prozesse mit dem Test-Profil in der Kommandozeile schließen.
+- `fileManager.renameFile()` kann Obsidians Dialog „Links aktualisieren?" öffnen und hängt
+  dann, bis jemand antwortet — im Skript per MutationObserver beantworten, sonst läuft der
+  CDP-Aufruf in den Timeout (die Seite arbeitet trotzdem weiter).
+- Dateipfade in Schritt-JSON mit `/`, nicht `\` — Backslashes kommen durch die
+  Werkzeugkette nicht heil an.
+
 Manuell in Obsidian:
 
 ```
@@ -815,6 +996,7 @@ ein Rundlauf, keine Erkennung). Die echten Anker, alle gegen echten Dateitext:
 |---|---|
 | Wochentag in `JwpubParser.extractDayName` + `dayOrder` | **dreitägiger Kongress bricht** — kein Tag erkannt, der CA-Fallback benennt alle gleich |
 | `detectItemType` (Bibeldrama/Vortragsreihe/Taufe) | diese Punkte werden normale Vorträge |
+| `detectItemType`, letzte Zeile (allgemeiner Vortrag) | **unsichtbar für jede Zählung**: der Punkt bleibt ein `talk`, aber `hasTypeMarker` ist falsch, also bleibt der Marker (`사회자 연설:`) vorn in Titel und Dateiname stehen |
 | `QUESTIONS_RE` | Wiederholungsfragen-Notiz fehlt ganz |
 | `MUSIC_VIDEO_RE`, `PAUSE_RE` | Musik-/Pausenzeilen bekommen eigene Notizen |
 | `NoteBuilder.splitSongTitle` | das Link-Label schluckt den ganzen Absatz |
@@ -822,6 +1004,29 @@ ein Rundlauf, keine Erkennung). Die echten Anker, alle gegen echten Dateitext:
 Sie alle stehen **sichtbar im Programm** und lassen sich in JW Library ablesen — ein
 Melder braucht dafür weder ein Terminal noch einen Klon dieses Repos. Bei Issue #1 wurde
 zuerst nach einem Skriptlauf gefragt, was den Melder unnötig blockiert hat (01.10.2026).
+Nötig war auch das nicht: Die Programme jeder Sprache lassen sich selbst über die jw.org-API
+holen (siehe „Sprachen"), und daraus abgelesen ist es belastbarer als abgetippt.
+
+**Der Weg, auf dem Koreanisch kam (02.10.2026) — als Rezept für die nächste Sprache:**
+
+1. Programme (`CO-pgm`, `CA-copgm`, `CA-brpgm`) und `nwt_<Symbol>.jwpub` über die API holen.
+2. **Prüfstandard festlegen, bevor Code entsteht:** die anderen Sprachen parsen und ihre
+   strukturelle Signatur als Erwartung sichern (siehe „Prüfverfahren" unter „Sprachen").
+   Den Standard erst an zwei bekannten Sprachen gegeneinander prüfen — er muss für sie
+   identisch sein, sonst misst er Sprache statt Struktur.
+3. Die neue Sprache **vorher** parsen: Das Vorher-Bild muss die Prognose aus der Anker-Tabelle
+   oben bestätigen. Tut es das nicht, ist die Mechanik nicht verstanden.
+4. `dump-structure.mjs` für Überschriften, Marker und Liedzeilen; **U+200B und andere
+   unsichtbare Zeichen auf Codepoint-Ebene zählen**, in jeder Sprache.
+5. Buchnamen per Skript **aus dem Dump** eintragen, nie abtippen; Zitierform von einem
+   Muttersprachler bestätigen lassen (die Spalte ist je Sprache verschieden belegt).
+6. Anker eintragen, Signatur vergleichen, Endprodukt (Datei-/Ordnernamen, Notizinhalte)
+   ansehen — die Signatur sieht weder Marker-Reste im Titel noch unsichtbare Zeichen.
+7. `dump-book-abbreviations.mjs <lang>` gegen die Programme: Was nicht auflöst, ist entweder
+   ein falscher Name oder ein Tabelleneintrag (bei Koreanisch: `시` für Psalm, eine Silbe —
+   zu kurz für die Präfixregel, also Tabelle statt Regel lockern).
+8. Neue Tests gegen den **alten** Quelltext laufen lassen (`git stash push -- src/`): Die
+   Tests für reparierte Fehler müssen dort rot sein, sonst prüfen sie nichts.
 
 **Abkürzungen** (`BOOK_ABBREVIATIONS` in `bookNames.ts`) kommen aus
 `dump-book-abbreviations.mjs`. Es liest in jeder Zitat-Verlinkung einer Publikation den

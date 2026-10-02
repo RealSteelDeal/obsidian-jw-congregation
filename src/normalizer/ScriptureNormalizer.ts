@@ -170,7 +170,7 @@ export class ScriptureNormalizer {
 	// hrefs (jwpub://p/<symbol>:<docid>/) for each language's own programme
 	// files — not guessed.
 	private static readonly WTLOCALE: Record<CongressLang, string> = {
-		de: 'X', en: 'E', fr: 'F', it: 'I', pt: 'TPO', ru: 'U', es: 'S',
+		de: 'X', en: 'E', fr: 'F', it: 'I', pt: 'TPO', ru: 'U', es: 'S', ko: 'KO',
 	};
 
 	/** MEPS locale symbol for a supported language (the wtlocale= URL parameter). */

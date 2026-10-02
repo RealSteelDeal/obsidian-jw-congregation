@@ -29,14 +29,14 @@ export class UpdateMwbNotesModal extends Modal {
 	onOpen() {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.createEl('h2', { text: this.t.updateMwbTitle ?? '' });
-		contentEl.createEl('p', { text: this.t.updateMwbExplanation ?? '', cls: 'setting-item-description' });
+		contentEl.createEl('h2', { text: this.t.updateMwbTitle });
+		contentEl.createEl('p', { text: this.t.updateMwbExplanation, cls: 'setting-item-description' });
 
 		let folderDropdown: HTMLSelectElement | undefined;
 
 		new Setting(contentEl)
 			.setName(this.t.importFileName)
-			.setDesc(this.t.importMwbFileDesc ?? '')
+			.setDesc(this.t.importMwbFileDesc)
 			.addButton(btn =>
 				btn.setButtonText(this.t.btnPickFile).onClick(() => {
 					const input = createEl('input', { type: 'file' });
@@ -141,7 +141,7 @@ export class UpdateMwbNotesModal extends Modal {
 		};
 
 		addRow(this.t.rowYear, String(mwb.year));
-		addRow(this.t.rowWeeks ?? 'Wochen', String(mwb.weeks.length));
+		addRow(this.t.rowWeeks, String(mwb.weeks.length));
 		const itemCount = mwb.weeks.reduce((sum, w) => sum + w.items.length, 0);
 		addRow(this.t.rowItems, String(itemCount));
 		addRow(this.t.rowLanguage, this.t.langDisplay(mwb.lang));

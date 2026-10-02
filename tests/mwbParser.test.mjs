@@ -278,3 +278,86 @@ test('parseMemorialReadingDocument returns null when no day headings are found',
 	const dom = parseHtml('<header><h1>Titel</h1></header><div class="bodyTxt"></div>');
 	assert.equal(parser()['parseMemorialReadingDocument'](dom, 'Titel'), null);
 });
+
+// ── Spacing at link boundaries ──────────────────────────────────────────────
+
+test('renderParagraphSegments keeps the space on either side of a link', () => {
+	// Every text run used to be trimmed at each link, so "13; w18.06" came out
+	// as "13;w18.06" — 86 of the 91 paragraphs with links in a real issue.
+	const p = parseHtml(`<p>Ein Satz (<a href="jwpub://b/NWTR/23:17:12-23:17:13">Jes 17:12, 13</a>; <a class="xt" href="jwpub://p/X:2018406/7">w18.06 7</a>) und weiter.</p>`).querySelector('p');
+	const segments = parser()['renderParagraphSegments'](p);
+	assert.deepEqual(segments.map(s => s.type === 'text' ? s.markdown : `<${s.type}>`), ['Ein Satz (', '<scripture>', '; ', '<citation>', ') und weiter.']);
+});
+
+test('renderParagraphSegments still trims the paragraph\u2019s own two ends', () => {
+	const p = parseHtml(`<p>  Anfang <a class="xt" href="jwpub://p/X:1/">Quelle</a>  </p>`).querySelector('p');
+	const segments = parser()['renderParagraphSegments'](p);
+	assert.equal(segments[0].markdown, 'Anfang ');
+	assert.equal(segments.length, 2, 'a trailing run of nothing but space is dropped');
+});
+
+// ── Korean (fictional titles; structure words as the real files print them) ─
+
+function koreanParser() {
+	const p = parser();
+	p['lang'] = 'ko';
+	return p;
+}
+
+const KOREAN_WEEK_HTML = `
+<header><h1>1월 5-11일</h1><h2><a href="jwpub://b/NWTR/23:17:1-23:20:6">이사야 17-20장</a></h2></header>
+<div class="bodyTxt">
+<h3><a href="jwpub://p/KO:1102022953/"><strong>노래 153</strong></a> <strong>및 기도 | 소개말</strong> (1분)</h3>
+<h2>성경에 담긴 보물</h2>
+<h3>1. 예시 제목</h3><p>(10분)</p>
+<h2>야외 봉사에 힘쓰십시오</h2>
+<h3>2. 대화 시작하기</h3><p>(3분) 호별 방문. 예시 문장.</p>
+<h3>3. 관심이 자라도록 돕기</h3><p>(4분) 비공식 증거. 예시 문장.</p>
+<h3>4. 제자 삼기</h3><p>(5분) 공개 증거. 예시 문장.</p>
+<h3>5. 연설</h3><p>(5분) 실연. 예시 문장.</p>
+<h2>그리스도인 생활</h2>
+<h3><a href="jwpub://p/KO:1102016948/"><strong>노래 148</strong></a></h3>
+<h3>6. 예시 토의</h3><p>(10분) 토의.</p>
+<h3>7. 회중 성서 연구</h3><p>(30분) 예시.</p>
+<h3>맺음말 (3분) | <a href="jwpub://p/KO:1102016873/"><strong>노래 73</strong></a> 및 기도</h3>
+</div>`;
+
+test('a Korean week is split into the three sections by their own headings', () => {
+	const week = koreanParser()['parseWeekDocument'](parseHtml(KOREAN_WEEK_HTML));
+	assert.deepEqual(week.items.map(i => i.section), ['treasures', 'ministry', 'ministry', 'ministry', 'ministry', 'living', 'living']);
+	assert.equal(week.dateRangeLabel, '1월 5-11일');
+});
+
+test('a Korean duration is read from "(N분)" and cut from the text', () => {
+	const week = koreanParser()['parseWeekDocument'](parseHtml(KOREAN_WEEK_HTML));
+	assert.deepEqual(week.items.map(i => i.durationMin), [10, 3, 4, 5, 5, 10, 30]);
+	assert.ok(!week.items[1].paragraphs[0][0].markdown.includes('분)'));
+});
+
+test('the three Korean assignment types are recognised, and nothing else of that shape', () => {
+	// 실연 (demonstration) and 토의 (discussion) sit in the same position and
+	// are not assignment types — German leaves their counterparts alone too.
+	const week = koreanParser()['parseWeekDocument'](parseHtml(KOREAN_WEEK_HTML));
+	assert.deepEqual(week.items.map(i => i.assignmentType), [undefined, '호별 방문', '비공식 증거', '공개 증거', undefined, undefined, undefined]);
+	assert.equal(week.items[1].paragraphs[0][0].markdown, '**호별 방문.** 예시 문장.');
+});
+
+test('the Korean Congregation Bible Study is found by its title', () => {
+	const week = koreanParser()['parseWeekDocument'](parseHtml(KOREAN_WEEK_HTML));
+	assert.equal(week.items[6].isCongregationBibleStudy, true);
+	assert.equal(week.items.filter(i => i.isCongregationBibleStudy).length, 1);
+});
+
+test('Korean song headings carry prayer and introduction like German ones', () => {
+	const week = koreanParser()['parseWeekDocument'](parseHtml(KOREAN_WEEK_HTML));
+	assert.equal(week.openingSong.songNumber, 153);
+	assert.equal(week.openingSong.includesPrayer, true);
+	assert.equal(week.openingSong.includesIntroWords, true);
+	assert.equal(week.midWeekSong.includesPrayer, undefined);
+	assert.equal(week.closingSong.includesPrayer, true);
+});
+
+test('a workbook file has its zero-width spaces removed before parsing, in every language', () => {
+	assert.equal(koreanParser()['clean']('성경\u200b에 담긴 보물'), '성경에 담긴 보물');
+	assert.equal(parser()['clean']('Text\u200bmit'), 'Textmit');
+});

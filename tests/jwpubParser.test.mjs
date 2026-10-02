@@ -166,3 +166,101 @@ test('extractQuestionsDocument matches the English "Find Answers to These Questi
 	assert.equal(item.title, 'Find Answers to These Questions');
 	assert.equal(item.parts.length, 2);
 });
+
+// ── Weekdays outside ASCII ──────────────────────────────────────────────────
+
+test('extractDayName finds weekdays that begin or end outside ASCII', () => {
+	// \b is ASCII-only in JavaScript even with the u flag, so it found no
+	// boundary next to "ì", Cyrillic or Hangul. Until 02.10.2026 these all
+	// fell through to the one-day fallback: an Italian convention got two
+	// Saturdays, a Russian one three — the item counts still matched.
+	const p = parser();
+	for (const day of ['Venerdì', 'Пятница', 'Суббота', 'Воскресенье', '금요일', '토요일', '일요일']) {
+		const dom = parseHtml(`<h1>${day}</h1><div class="bodyTxt"><h2>x</h2></div>`);
+		assert.equal(p['extractDayName'](dom), day);
+	}
+});
+
+test('extractDayName still needs a whole word, not part of one', () => {
+	const p = parser();
+	p['lang'] = 'de';
+	// Neither is the weekday on its own; both fall to the one-day fallback.
+	const compound = parseHtml('<h1>Freitagsprogramm</h1><div class="bodyTxt"><h2>x</h2></div>');
+	assert.equal(p['extractDayName'](compound), 'Samstag');
+	const korean = parseHtml('<h1>금요일들</h1><div class="bodyTxt"><h2>x</h2></div>');
+	assert.equal(p['extractDayName'](korean), 'Samstag');
+});
+
+test('dayOrder sorts the Korean days like every other language', () => {
+	const p = parser();
+	assert.deepEqual(
+		['일요일', '금요일', '토요일'].sort((a, b) => p['dayOrder'](a) - p['dayOrder'](b)),
+		['금요일', '토요일', '일요일'],
+	);
+});
+
+// ── Korean (fictional titles; the markers are as the real files print them) ─
+
+test('parseLi strips Korean talk markers from the title', () => {
+	// Missing from the generic talk pattern, these would still parse as talks
+	// — with the marker left at the front of the title and the file name.
+	const p = parser();
+	for (const marker of ['사회자 연설:', '성경 공개 강연:']) {
+		const dom = parseHtml(`
+			<ul><li>
+				<p>9:40 <span class="du-color--gold"><strong>${marker}</strong></span> 예시 제목 (<a href="jwpub://b/NWTR/19:16:11-19:16:11">시 16:11</a>)</p>
+			</li></ul>
+		`);
+		const item = p['parseLi'](dom.querySelector('li'));
+		assert.equal(item.itemType, 'talk');
+		assert.equal(item.title, '예시 제목', `marker "${marker}" must be stripped`);
+	}
+});
+
+test('detectItemType recognises the Korean drama, symposium and baptism markers', () => {
+	const p = parser();
+	const typeOf = marker => p['detectItemType'](
+		parseHtml(`<ul><li><p><strong>${marker}</strong> 예시</p></li></ul>`).querySelector('li'),
+	)[0];
+	assert.equal(typeOf('성경 드라마:'), 'bible-drama');
+	assert.equal(typeOf('심포지엄:'), 'talk-series');
+	// Carries the generic talk word 연설 too, so it must be caught first.
+	assert.equal(typeOf('침례 연설:'), 'baptism');
+});
+
+test('extractQuestionsDocument matches the Korean heading once it is cleaned', () => {
+	const p = parser();
+	p['lang'] = 'ko';
+	const body = '<div class="bodyTxt"><ul class="source"><li><p>1. 예시 질문?</p></li></ul></div>';
+	// As the file prints it: two U+200B inside the heading.
+	const raw = '<header><h1>아래 질문\u200b에 대한 답\u200b을 찾아 보십시오</h1></header>' + body;
+	assert.equal(p['extractQuestionsDocument'](parseHtml(raw)), null, 'uncleaned, it must not match');
+	const item = p['extractQuestionsDocument'](parseHtml(p['clean'](raw)));
+	assert.ok(item, 'cleaned, it must match');
+	assert.equal(item.title, '아래 질문에 대한 답을 찾아 보십시오');
+});
+
+test('clean removes zero-width spaces in every language', () => {
+	// English files carry a few, before dashes, two of them inside item titles;
+	// util/legacyNames.ts lets an update find the notes named with them.
+	const p = parser();
+	p['lang'] = 'ko';
+	assert.equal(p['clean']('노래 89\u200b번'), '노래 89번');
+	p['lang'] = 'en';
+	assert.equal(p['clean']('Forever\u200b—Is It Realistic?'), 'Forever—Is It Realistic?');
+});
+
+test('extractDayTheme drops a citation appended after a dash', () => {
+	// English, Portuguese and Korean write "…”—Matthew 5:3" rather than
+	// "(Matthew 5:3)"; the overview used to print the reference twice.
+	for (const [text, link] of [['“Glückliche Probe”—Testbuch 5:3', 'Testbuch 5:3'], ['“Probe.” — Testbuch 5:3.', 'Testbuch 5:3'], ['“예시”—마태복음 5:3', '마태복음 5:3']]) {
+		const visible = text.replace(link, `<a href="jwpub://b/NWTR/40:5:3-40:5:3">${link}</a>`);
+		const { theme } = parser()['extractDayTheme'](parseHtml(`<header></header><p>${visible}</p>`));
+		assert.ok(!theme.includes('5:3'), theme);
+	}
+});
+
+test('extractDayTheme keeps a reference that is part of the sentence', () => {
+	const { theme } = parser()['extractDayTheme'](parseHtml('<header></header><p>Lies <a href="jwpub://b/NWTR/40:5:3-40:5:3">Testbuch 5:3</a></p>'));
+	assert.equal(theme, 'Lies Testbuch 5:3');
+});

@@ -1,5 +1,144 @@
 # Changelog
 
+## 1.29.0
+
+### New
+
+- **Korean programme files** (requested in
+  [#1](https://github.com/RealSteelDeal/obsidian-jw-congregation/issues/1)). All three
+  convention types import into Korean notes, folders and file names; scripture references
+  and songs are linked for JW Library in Korean; a reference or song typed into a note is
+  recognised and offered for linking, as in every other language.
+
+  **Nothing was guessed.** The book names come from the Korean Bible file, the detection
+  patterns from the three Korean programmes, the note labels from a native speaker. The
+  result was then held against a standard fixed *before* the code was written: the same
+  convention exists in every language, so everything that is not text — item types, the 78
+  items, the 30 songs, every scripture reference, the parts of each talk series, the days —
+  must match the German programme exactly. It does, line for line.
+
+  Two things in the Korean files had to be handled rather than just looked up. A song is
+  written `노래 89번`, with a counter suffix after the number, unlike every other language,
+  where the number ends the label — so the suffix now belongs to the link. And the files put
+  an invisible zero-width space inside words as a line-break hint, 252 times in one
+  programme; it is removed on import, since it would otherwise defeat detection and travel
+  on into file names and links, where it cannot be seen or typed.
+
+  **The interface is Korean throughout** — settings, dialogs, the Bible-verse popup, every
+  notice — and so are the fixed texts in the notes. The wording follows two sources rather
+  than a dictionary: Obsidian's own Korean translation for everything Obsidian names
+  (보관함, 노트, 명령어 팔레트, 읽기 화면, 백링크, 인용, …), so the plugin uses the words a Korean
+  user already sees everywhere else in Obsidian; and the Korean publications, wol.jw.org and
+  jw.org for everything they name (성구, 연설, 각주, 상호 참조 성구, 연구 노트, JW 라이브러리, the
+  names of the other languages). A native speaker's review of the whole is still to come.
+
+  Used in Korean, the plugin was then checked function by function, which turned up what a
+  translation alone would have missed:
+
+  - **Korean could not be chosen as the interface language** — both language lists lacked
+    it — and recognising a typed reference depends on that choice, so `디모데 전서 4:12` could
+    not have been linked at all.
+  - **A first start now follows Obsidian's own language** where the plugin has it, instead of
+    opening in German for everybody. A saved choice always wins.
+  - **A song is offered at `노래 120` already**, and the link is written as `노래 120번`.
+    Waiting for the suffix would have fought the Korean input method, which keeps a syllable
+    uncommitted until the next key; the digits bypass it.
+  - **An inserted quote carries no zero-width spaces.** The Korean Bible has about ten per
+    verse, between a word and its particle; in a note they would stop Obsidian's search
+    finding `사랑과`.
+  - **"Verse 12" reads `12절`** in the popup — the unit follows the number in Korean.
+  - **`형제`/`자매` after a speaker's name** are recognised as forms of address, so
+    `김철수 형제` and `김철수` are proposed as one person.
+
+  Verified on the real files: verse text, Psalm superscriptions, footnotes and
+  cross-references from the Korean Bible; citations formatted exactly as the Korean
+  programmes print them (`8:16, 17` for two verses, a hyphen from three); and "Update
+  convention notes" on all 48 Korean notes, keeping what was typed in each.
+
+  **Completing a book name while typing stays off for Korean, and that was measured.** It
+  waits for a capital letter to stay quiet in ordinary writing, and Hangul has none. Without
+  that, in the Korean programmes' own prose, 20 of the 24 false triggers are `여호와` —
+  Jehovah — whose first two syllables begin `여호수아`, Joshua. A complete reference is still
+  recognised and linked.
+
+- **Korean Meeting Workbook ("생활과 봉사")**. The workbook import, until now German only,
+  reads Korean issues as well, with Korean notes, folders (`생활과 봉사 2026년 1-2월`), week
+  titles, durations (`10분`), songs and the Memorial reading schedule. It was held against the
+  same standard as the conventions: two Korean issues produce exactly the weeks, items,
+  durations, assignment labels, songs, scripture references and source citations of the
+  German issues, and the German notes stay byte for byte as they were. A Korean issue names
+  itself `집교26` rather than `mwb26`, so it is now recognised by the language-independent
+  symbol every file also carries.
+
+### Fixes
+
+- **Italian and Russian conventions were not split into days.** Since 1.9.0, an Italian
+  convention's Friday and all three days of a Russian one were not recognised: Italian
+  programmes came out with two Saturdays, Russian ones with three. The days then shared one
+  folder, and each day's overview overwrote the one before it. The item counts were right,
+  which is why this went unnoticed. The cause was a word boundary that JavaScript only
+  understands for ASCII letters — so it found none next to `ì` or Cyrillic. It surfaced
+  because Hangul has the same problem.
+
+  **If you already imported an Italian or Russian convention:** run "Update convention
+  notes" with the same programme file. It creates the missing days in their own folders and
+  deletes nothing — the notes filed under the wrong day stay where they are, with everything
+  you wrote in them, so you can move your text across and remove them yourself.
+
+- **A quote inserted from the Bible-verse popup was removed by the next update** when it
+  landed inside a section the plugin generates — under a programme item's heading, say. The
+  update rewrote the section and the quote went with it. A quote is now placed after the
+  section where that changes nothing for the reader, and otherwise the section is marked as
+  edited by you, which an update leaves alone. The same applies to a quote inserted while
+  typing a reference.
+- **A reference widened in the popup ("Extend reference") was reverted by the next update.**
+  The section is now marked as edited by you, as when you correct it by hand.
+- **The workbook lost spaces next to links.** A word directly before or after a scripture
+  reference or a source citation ran into it — in 86 of the 91 such paragraphs of a German
+  issue. Re-running "Update Meeting Workbook notes" corrects existing notes.
+- **A day theme showed its scripture twice** in English, Portuguese and Korean overviews,
+  which put the citation after a dash rather than in parentheses: once in the theme, once as
+  the link after it. The next update corrects the overview.
+- **Updating and re-importing no longer rewrite files that have not changed.** Cover images
+  and overviews were written again on every run and reported as updated, which also gave
+  sync services something to upload each time. Now only what actually differs is written,
+  and an update straight after an import reports nothing to change.
+- **The explanations in the settings were missing in Obsidian 1.13**, whose new settings
+  window leaves out an entry without a name. They now have one.
+- **The example text in "Additional fields" was German in every language.** It now follows
+  the interface language.
+- **The Meeting Workbook commands had no name in English, French, Italian, Portuguese,
+  Russian and Spanish.** Only German and Korean had them, so with the interface in any other
+  language both commands, the ribbon icon and the whole settings section stood there blank.
+  They are now translated, with the meeting and the workbook called what jw.org calls them in
+  each language (Life and Ministry, Vie chrétienne et ministère, Vita cristiana e ministero,
+  Vida e Ministério Cristãos, «Наша христианская жизнь и служение», Vida y Ministerio
+  Cristianos).
+- **Circuit-assembly folders quoted their theme twice** — `„„…““`, `““…””`, `« « … » »` —
+  in every language but Russian, because the theme arrives from the programme already in
+  quotes and the folder name added a second pair. Italian, Portuguese and Spanish came out
+  as `ʺ“…”ʺ`. Each folder now carries one pair, in the quotes its programme uses.
+- **English programme items carried an invisible character in their file names.** Two
+  English titles hold a zero-width space before a dash, and it went into the note's name,
+  where it cannot be seen or typed. It is now removed in every language, as it already was
+  for Korean.
+
+  **Nothing needs to be done about either of these two.** "Update convention notes" finds
+  a note under its old name and renames it; a re-import does the same for the whole folder,
+  and so does "Update several conventions at once" when it pairs files with folders. The
+  preview lists such a note with "The file name is brought in line with the current
+  spelling." What you wrote in the notes stays, and Obsidian carries links to them along —
+  for links written with the full path it asks first, as it does for any rename.
+- **A re-import overwrote lines you corrected in the overview.** "Update convention notes"
+  has kept them since 1.26.0; a re-import into the same folder now does too.
+- **Updating showed "Importing …"** as its progress. It now says "Updating …".
+- **A count of one read in the plural** in every notice and in the update preview — "1 notes
+  would change", "1 Notizen würden geändert", "1 nouvelles" — or was hedged as
+  "convention(s)", "Kongress(e)", "nota/e". The wording now follows the number in German,
+  English, French, Italian, Portuguese and Spanish, with French taking the singular for zero
+  too, as French does. Russian puts the number after a colon and Korean has no plural, so
+  both already read correctly.
+
 ## 1.28.0
 
 ### New

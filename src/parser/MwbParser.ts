@@ -15,16 +15,20 @@ import { ScriptureNormalizer } from '../normalizer/ScriptureNormalizer';
 import { NL, NoteStrings } from '../i18n';
 import { DbRow, decryptBlob, deriveKey, openJwpubDatabase, readPublication } from '../util/jwpubCrypto';
 import { ParseError } from '../util/parseErrors';
-import { assertPlatformSupport, BIBLE_HREF_RE, MEPS_LANGUAGE_INDEX, SONG_DOCID_HREF_RE, SONG_HREF_SELECTOR } from '../util/jwpubLinks';
+import { CongressLang } from '../normalizer/bookNames';
+import { assertPlatformSupport, BIBLE_HREF_RE, MEPS_LANGUAGE_INDEX, SONG_DOCID_HREF_RE, SONG_HREF_SELECTOR, stripZeroWidthSpace } from '../util/jwpubLinks';
 
 // A numbered programme item's heading, e.g. "1. „Das Los derer, die uns
 // ausplündern“" — the number is taken verbatim, never recomputed, since it's
 // already stable in the source and numbering continues across all 3 sections
 // (not restarted per section).
 const NUMBERED_ITEM_RE = /^(\d+)\.\s*(.+)$/;
-// Trailing "(N Min.)" duration marker — German-only for v1 (see MwbParser's
-// class doc comment on language scope).
-const DURATION_RE = /\((\d{1,3})\s*Min\.?\)/;
+// Trailing "(N Min.)" duration marker — German "(10 Min.)", Korean "(10분)".
+// Like every detection pattern here, the languages are combined in one
+// expression rather than switched on; only output text comes from i18n.ts.
+const DURATION_RE = /\((\d{1,3})\s*(?:Min\.?|분)\)/;
+// The same marker at the very start of a text, to be cut off it.
+const LEADING_DURATION_RE = /^\((\d{1,3})\s*(?:Min\.?|분)\)\s*/;
 // A leading run of ALL-CAPS words followed by a period, e.g. "VON HAUS ZU
 // HAUS." / "INFORMELL." — the assignment-type label some ministry items
 // carry inline. Captured verbatim (not mapped to a closed vocabulary): only
@@ -33,10 +37,27 @@ const DURATION_RE = /\((\d{1,3})\s*Min\.?\)/;
 // weeks/year not yet seen — a missed/mismatched label would silently drop
 // real information, where verbatim capture loses nothing.
 const ASSIGNMENT_TYPE_RE = /^([A-ZÄÖÜß][A-ZÄÖÜß\s]{2,40})\./;
+// Korean has no capitals, so the German rule above cannot carry over, and a
+// shape rule ("a short phrase and a period") would also catch "실연."
+// (demonstration) and "연설." (talk), which sit in the same position and are
+// NOT assignment types — German leaves "Demonstration."/"Vortrag." alone too.
+// So Korean uses exactly the labels read off the real files, each paired
+// with the German one at the same week and item of the same issue
+// (02.10.2026, 202601 + 202603, 40 occurrences): VON HAUS ZU HAUS = 호별 방문,
+// INFORMELL = 비공식 증거, IN DER ÖFFENTLICHKEIT = 공개 증거. A label not in
+// this list is not lost — it simply stays in the paragraph's text.
+const KOREAN_ASSIGNMENT_TYPE_RE = /^(호별 방문|비공식 증거|공개 증거)\./;
 // A paragraph whose ENTIRE text is just the duration marker, e.g. "(10 Min.)"
 // on its own line — excluded from MwbItem.paragraphs (already surfaced via
 // durationMin) rather than shown as a redundant, content-free paragraph.
-const DURATION_ONLY_RE = /^\(\d{1,3}\s*Min\.?\)$/;
+const DURATION_ONLY_RE = /^\(\d{1,3}\s*(?:Min\.?|분)\)$/;
+// The Memorial-season Bible reading insert, recognised by its document title:
+// "Bibelleseprogramm für das Gedächtnismahl 2026" / "2026 기념식 성서 읽기 계획표".
+const MEMORIAL_READING_TITLE_RE = /Bibelleseprogramm|성서 읽기 계획표/;
+// Additions in a song heading: "Lied 153 und Gebet | Einleitende Worte" /
+// "노래 153 및 기도 | 소개말".
+const SONG_PRAYER_RE = /und Gebet|및 기도/i;
+const SONG_INTRO_WORDS_RE = /Einleitende Worte|소개말/i;
 // Any jwpub://p/ publication cross-reference (source-material citation),
 // e.g. "jwpub://p/X:1102018451/" or "jwpub://p/X:1102023302/13-13" (with a
 // trailing paragraph-range anchor — not preserved in the resulting link,
@@ -57,20 +78,31 @@ const CITATION_HREF_RE = /^jwpub:\/\/p\/[^:/]+:(\d+)(?:\/.*)?$/;
  * headers with a sequence of numbered h3 items, not a congress's
  * `ul.noMarker > li` list) is structurally unrelated to JwpubParser's.
  *
- * v1 is deliberately German-only: the three section-heading labels and the
+ * German and Korean only: the three section-heading labels and the
  * Congregation-Bible-Study title (NoteStrings.treasuresLabel/ministryLabel/
  * livingLabel/cbsLabel) double as both display text AND parser detection
- * anchors, and only German real files have been examined so far — matching
- * unverified text in another language risks silently misparsing every week.
- * Any other detected MepsLanguageIndex is rejected with a clear ParseError
- * rather than guessed at.
+ * anchors, so a language is supported exactly when its NoteStrings carry
+ * them — read off real files, never translated. Korean was added on
+ * 02.10.2026 against the German issues of the same months (same weeks,
+ * items, durations, songs, scriptures and citations). Any other detected
+ * MepsLanguageIndex is rejected with a clear ParseError rather than guessed.
  */
 export class MwbParser {
 
 	constructor(private readonly sqlWasmBinary: Uint8Array) {}
 
+	// The file being parsed, set in parse() from its MepsLanguageIndex.
+	private lang: CongressLang = 'de';
+
 	private get t(): NoteStrings {
-		return NL.de;
+		return NL[this.lang];
+	}
+
+	/** Korean files put U+200B inside words — see stripZeroWidthSpace.
+	 *  Removed in every language, as in JwpubParser; the six German issues
+	 *  of 2026 carry none, so their notes are unaffected. */
+	private clean(text: string): string {
+		return stripZeroWidthSpace(text);
 	}
 
 	async parse(fileBuffer: Uint8Array): Promise<Mwb> {
@@ -79,10 +111,11 @@ export class MwbParser {
 		const pub = readPublication(db);
 
 		const lang = MEPS_LANGUAGE_INDEX[Number(pub['MepsLanguageIndex'])];
-		if (lang !== 'de') {
+		if (!lang || !NL[lang].treasuresLabel) {
 			db.close();
 			throw new ParseError('mwbLanguageNotSupported');
 		}
+		this.lang = lang;
 
 		const keyIv = await deriveKey(pub);
 		const docs = this.readDocuments(db);
@@ -113,19 +146,19 @@ export class MwbParser {
 			const docId = Number(doc['DocumentId']);
 			if (docId === 0) continue; // cover/title page, no week content
 
-			const rawTitle = String(doc['Title']);
+			const rawTitle = this.clean(String(doc['Title']));
 			const raw = doc['Content'] as Uint8Array;
 
 			let html: string;
 			try {
-				html = await decryptBlob(raw, keyIv.key, keyIv.iv);
+				html = this.clean(await decryptBlob(raw, keyIv.key, keyIv.iv));
 			} catch {
 				continue; // one bad document must not kill the whole import
 			}
 
 			const dom = new DOMParser().parseFromString(html, 'text/html');
 
-			if (rawTitle.includes('Bibelleseprogramm')) {
+			if (MEMORIAL_READING_TITLE_RE.test(rawTitle)) {
 				memorialReading = this.parseMemorialReadingDocument(dom, rawTitle) ?? memorialReading;
 				continue;
 			}
@@ -147,7 +180,7 @@ export class MwbParser {
 			issueTagNumber: String(pub['IssueTagNumber']),
 			weeks,
 			memorialReading,
-			lang: 'de',
+			lang: this.lang,
 		};
 	}
 
@@ -195,9 +228,9 @@ export class MwbParser {
 
 	private cleanText(text: string): string {
 		// U+00AD SOFT HYPHEN appears inside some real headings (e.g.
-		// "Versammlungs­bibelstudium") purely as a line-break hint — invisible
+		// "Versammlungs\u00ADbibelstudium") purely as a line-break hint — invisible
 		// to a human reader, but breaks a naive strict-equality label match.
-		return text.replace(/­/g, '').replace(/\s+/g, ' ').trim();
+		return text.replace(/\u00AD/g, '').replace(/\s+/g, ' ').trim();
 	}
 
 	/**
@@ -370,7 +403,7 @@ export class MwbParser {
 
 		let text = firstSegment.markdown;
 		if (durationMin !== undefined) {
-			text = text.replace(/^\(\d{1,3}\s*Min\.?\)\s*/, '');
+			text = text.replace(LEADING_DURATION_RE, '');
 		}
 		if (assignmentType) {
 			const escaped = assignmentType.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -390,8 +423,8 @@ export class MwbParser {
 	private extractAssignmentType(els: Element[]): string | undefined {
 		for (const el of els) {
 			const text = this.cleanText(el.textContent ?? '');
-			const withoutDuration = text.replace(/^\(\d{1,3}\s*Min\.?\)\s*/, '');
-			const m = ASSIGNMENT_TYPE_RE.exec(withoutDuration);
+			const withoutDuration = text.replace(LEADING_DURATION_RE, '');
+			const m = (this.lang === 'ko' ? KOREAN_ASSIGNMENT_TYPE_RE : ASSIGNMENT_TYPE_RE).exec(withoutDuration);
 			if (m) return m[1]!.trim();
 		}
 		return undefined;
@@ -433,9 +466,15 @@ export class MwbParser {
 	private renderParagraphSegments(p: Element): MwbTextSegment[] {
 		const segments: MwbTextSegment[] = [];
 		let buffer = '';
+		// Whitespace is collapsed here but NOT trimmed: a text run sits between
+		// links, and the space separating it from them is part of the sentence.
+		// Trimming every run (as cleanText() does) dropped it at each link —
+		// "(Jes 17:12, 13; w18.06 …)" came out as "…13;w18.06 …" in 86 of the
+		// 91 paragraphs with links in a real German issue, until 02.10.2026.
+		// Only the paragraph's own two ends are trimmed, below.
 		const flush = () => {
 			if (buffer) {
-				segments.push({ type: 'text', markdown: this.cleanText(buffer) });
+				segments.push({ type: 'text', markdown: buffer.replace(/\u00AD/g, '').replace(/\s+/g, ' ') });
 				buffer = '';
 			}
 		};
@@ -487,7 +526,12 @@ export class MwbParser {
 
 		for (const child of Array.from(p.childNodes)) walk(child);
 		flush();
-		return segments;
+
+		const first = segments[0];
+		if (first?.type === 'text') first.markdown = first.markdown.trimStart();
+		const last = segments[segments.length - 1];
+		if (last?.type === 'text') last.markdown = last.markdown.trimEnd();
+		return segments.filter(seg => seg.type !== 'text' || seg.markdown !== '');
 	}
 
 	/**
@@ -557,8 +601,8 @@ export class MwbParser {
 		const songDocid = docidMatch?.[1] ? Number(docidMatch[1]) : undefined;
 
 		const fullText = h3.textContent ?? '';
-		const includesPrayer = /und Gebet/i.test(fullText) || undefined;
-		const includesIntroWords = /Einleitende Worte/i.test(fullText) || undefined;
+		const includesPrayer = SONG_PRAYER_RE.test(fullText) || undefined;
+		const includesIntroWords = SONG_INTRO_WORDS_RE.test(fullText) || undefined;
 
 		return { songNumber, songDocid, includesPrayer, includesIntroWords };
 	}

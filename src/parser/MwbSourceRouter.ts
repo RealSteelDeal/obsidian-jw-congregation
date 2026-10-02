@@ -1,3 +1,4 @@
+import { englishSymbol } from '../util/jwpubLinks';
 import { Mwb } from '../models/mwb';
 import { MwbParser } from './MwbParser';
 import { ParseError } from '../util/parseErrors';
@@ -30,7 +31,7 @@ export class MwbSourceRouter {
 			throw new ParseError('unknownFormat', filename);
 		}
 
-		// Peek Publication.Symbol BEFORE committing to a full MwbParser.parse()
+		// Peek the publication's (English) symbol BEFORE committing to a full MwbParser.parse()
 		// run, so picking a congress .jwpub file in this import flow fails with
 		// a clear, specific message instead of a confusing structural-parse
 		// error (or, worse, silently misinterpreting it). Opens the database
@@ -41,7 +42,7 @@ export class MwbSourceRouter {
 		const { db } = await openJwpubDatabase(data, this.sqlWasmBinary);
 		const pub = readPublication(db);
 		db.close();
-		if (!/^mwb/i.test(String(pub['Symbol']))) {
+		if (!/^mwb/i.test(englishSymbol(pub))) {
 			throw new ParseError('notMwbPublication', filename);
 		}
 

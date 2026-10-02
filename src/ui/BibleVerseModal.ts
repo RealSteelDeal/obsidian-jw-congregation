@@ -6,6 +6,7 @@ import { SupportedLang } from '../normalizer/bookNames';
 import { L } from '../i18n';
 import { buildScriptureQuoteBlock, stripHtml } from '../util/quoteBuilder';
 import { findQuoteBlockRange, findQuoteInsertionPoint, findScriptureLinkSpan } from '../util/scriptureLinkScan';
+import { insertionOutsideBlocks, markBlockKept } from '../util/noteMerge';
 
 // The scheme used by embedded scripture links *inside* footnote/cross-reference/
 // study-note HTML (e.g. `<a href="jwpub://b/NWTR/43:5:7-43:5:7">Joh 5:7</a>`) —
@@ -291,6 +292,10 @@ export class BibleVerseModal extends Modal {
 				{ line, ch: span.index },
 				{ line, ch: span.index + span.length },
 			);
+			// The reference usually sits in a generated field, which every update
+			// rewrites: without this the widened passage looked saved and quietly
+			// went back to the programme's on the next update (until 02.10.2026).
+			keepBlock(editor, line);
 			new Notice(L[this.lang].noticeReferenceAligned);
 			this.close();
 			return;
@@ -339,10 +344,15 @@ export class BibleVerseModal extends Modal {
 		const insertionPoint = findQuoteInsertionPoint(lines, this.initialScripture);
 
 		if (insertionPoint) {
-			const { line: targetLine, separator } = insertionPoint;
+			// Never inside a generated block, or the next update deletes the
+			// quote again — see noteMerge.insertionOutsideBlocks.
+			const placed = insertionOutsideBlocks(lines, insertionPoint.line);
+			const targetLine = placed.line;
+			const separator = targetLine === insertionPoint.line ? insertionPoint.separator : '\n';
 			const inserted = `${separator}${quote}`;
 			const lineLength = editor.getLine(targetLine).length;
 			editor.replaceRange(inserted, { line: targetLine, ch: lineLength });
+			if (placed.pin) keepBlock(editor, targetLine);
 			// Obsidian's Live Preview renders whichever line the cursor is
 			// currently on as raw markdown source, not as a styled callout —
 			// normally invisible since a cursor placed by typing/clicking
@@ -444,7 +454,7 @@ export class BibleVerseModal extends Modal {
 			details.createEl('summary', { text: `${L[this.lang].popupFootnotes} (${footnoteLines.length})` });
 			const list = details.createEl('ul', { cls: 'jw-bible-notes-list' });
 			for (const fn of footnoteLines) {
-				const prefix = multiVerse ? `${L[this.lang].popupVersePrefix} ${stripHtml(fn.verse)}, ` : '';
+				const prefix = multiVerse ? `${L[this.lang].popupVerseLabel(stripHtml(fn.verse))}, ` : '';
 				const li = list.createEl('li');
 				li.appendText(prefix);
 				li.createSpan({ text: fn.symbol, cls: 'jw-bible-inline-footnote' });
@@ -467,7 +477,7 @@ export class BibleVerseModal extends Modal {
 			details.createEl('summary', { text: `${L[this.lang].popupCrossRefs} (${crossRefLines.length})` });
 			const list = details.createEl('ul', { cls: 'jw-bible-notes-list' });
 			for (const cr of crossRefLines) {
-				const prefix = multiVerse ? `${L[this.lang].popupVersePrefix} ${stripHtml(cr.verse)}, ` : '';
+				const prefix = multiVerse ? `${L[this.lang].popupVerseLabel(stripHtml(cr.verse))}, ` : '';
 				const li = list.createEl('li');
 				li.appendText(prefix);
 				li.createSpan({ text: cr.symbol, cls: 'jw-bible-inline-crossref' });
@@ -499,7 +509,7 @@ export class BibleVerseModal extends Modal {
 		const list = details.createEl('ul', { cls: 'jw-bible-notes-list' });
 		for (const note of notes) {
 			const li = list.createEl('li');
-			const prefix = multiVerse ? `${L[this.lang].popupVersePrefix} ${stripHtml(note.verse)}, ` : '';
+			const prefix = multiVerse ? `${L[this.lang].popupVerseLabel(stripHtml(note.verse))}, ` : '';
 			const label = stripHtml(note.label);
 			li.appendText(prefix);
 			if (label) li.createSpan({ text: `${label}: `, cls: 'jw-bible-inline-studynote' });
@@ -572,4 +582,13 @@ export class BibleVerseModal extends Modal {
 	onClose() {
 		this.contentEl.empty();
 	}
+}
+
+/** Flags the generated block around `line` as the user's, so an update leaves it — see noteMerge.markBlockKept. */
+export function keepBlock(editor: Editor, line: number): void {
+	const lines = editor.getValue().split('\n');
+	const marked = markBlockKept(lines, line);
+	if (marked === lines) return;
+	const last = lines.length - 1;
+	editor.replaceRange(marked.join('\n'), { line: 0, ch: 0 }, { line: last, ch: lines[last]!.length });
 }

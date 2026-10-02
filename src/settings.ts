@@ -161,7 +161,7 @@ export class JwSettingTab extends PluginSettingTab {
 				type: 'group',
 				heading: t.headImport,
 				items: [
-					{ name: '', desc: t.headImportDesc, searchable: false },
+					{ name: t.setExplanationName, desc: t.headImportDesc, searchable: false },
 					{
 						name: t.importCommand,
 						desc: t.setImportActionDesc,
@@ -186,28 +186,28 @@ export class JwSettingTab extends PluginSettingTab {
 			},
 			{
 				type: 'group',
-				heading: t.headImportMwb ?? '',
+				heading: t.headImportMwb,
 				items: [
-					{ name: '', desc: t.headImportMwbDesc ?? '', searchable: false },
+					{ name: t.setExplanationName, desc: t.headImportMwbDesc, searchable: false },
 					{
-						name: t.importMwbCommand ?? '',
-						desc: t.setImportMwbActionDesc ?? '',
+						name: t.importMwbCommand,
+						desc: t.setImportMwbActionDesc,
 						render: setting => this.renderOpenModalButton(setting, () => new ImportMwbModal(this.app, this.plugin).open()),
 					},
 					{
-						name: t.updateMwbCommand ?? '',
-						desc: t.updateMwbExplanation ?? '',
+						name: t.updateMwbCommand,
+						desc: t.updateMwbExplanation,
 						render: setting => this.renderOpenModalButton(setting, () => new UpdateMwbNotesModal(this.app, this.plugin).open()),
 					},
 				],
 			},
 			{
 				type: 'group',
-				heading: t.headNoteFieldsMwb ?? '',
+				heading: t.headNoteFieldsMwb,
 				items: [
 					{
-						name: t.setMwbTargetFolder ?? '',
-						desc: t.setMwbTargetFolderDesc ?? '',
+						name: t.setMwbTargetFolder,
+						desc: t.setMwbTargetFolderDesc,
 						control: { type: 'text', key: 'mwbTargetFolder', placeholder: t.setTargetFolderPlaceholder },
 					},
 					{
@@ -215,11 +215,11 @@ export class JwSettingTab extends PluginSettingTab {
 						desc: t.setScriptureLinksDesc,
 						control: { type: 'toggle', key: 'mwbScriptureLinks' },
 					},
-					{ name: t.setShowMwbDuration ?? '', control: { type: 'toggle', key: 'mwbShowDurationField' } },
-					{ name: t.setShowMwbSourceCitation ?? '', control: { type: 'toggle', key: 'mwbShowSourceCitationField' } },
+					{ name: t.setShowMwbDuration, control: { type: 'toggle', key: 'mwbShowDurationField' } },
+					{ name: t.setShowMwbSourceCitation, control: { type: 'toggle', key: 'mwbShowSourceCitationField' } },
 					{
 						name: t.setFrontmatter,
-						desc: t.setMwbFrontmatterDesc ?? '',
+						desc: t.setMwbFrontmatterDesc,
 						control: { type: 'toggle', key: 'mwbFrontmatter' },
 					},
 				],
@@ -239,7 +239,7 @@ export class JwSettingTab extends PluginSettingTab {
 						control: {
 							type: 'dropdown',
 							key: 'lang',
-							options: { de: 'Deutsch', en: 'English', fr: 'Français', it: 'Italiano', pt: 'Português', ru: 'Русский', es: 'Español' },
+							options: { de: 'Deutsch', en: 'English', fr: 'Français', it: 'Italiano', pt: 'Português', ru: 'Русский', es: 'Español', ko: '한국어' },
 						},
 					},
 					{
@@ -288,7 +288,7 @@ export class JwSettingTab extends PluginSettingTab {
 					{
 						name: t.setExtraFields,
 						desc: t.setExtraFieldsDesc,
-						control: { type: 'textarea', key: 'extraFields', placeholder: '**Notizen:**' },
+						control: { type: 'textarea', key: 'extraFields', placeholder: t.setExtraFieldsPlaceholder },
 					},
 					{
 						name: t.setFrontmatter,
@@ -472,23 +472,23 @@ export class JwSettingTab extends PluginSettingTab {
 			() => new BulkUpdateNotesModal(this.app, this.plugin, 'preview').open(),
 		);
 
-		new Setting(containerEl).setName(t.headImportMwb ?? '').setHeading();
-		new Setting(containerEl).setDesc(t.headImportMwbDesc ?? '');
+		new Setting(containerEl).setName(t.headImportMwb).setHeading();
+		new Setting(containerEl).setDesc(t.headImportMwbDesc);
 
 		this.renderOpenModalButton(
-			new Setting(containerEl).setName(t.importMwbCommand ?? '').setDesc(t.setImportMwbActionDesc ?? ''),
+			new Setting(containerEl).setName(t.importMwbCommand).setDesc(t.setImportMwbActionDesc),
 			() => new ImportMwbModal(this.app, this.plugin).open(),
 		);
 		this.renderOpenModalButton(
-			new Setting(containerEl).setName(t.updateMwbCommand ?? '').setDesc(t.updateMwbExplanation ?? ''),
+			new Setting(containerEl).setName(t.updateMwbCommand).setDesc(t.updateMwbExplanation),
 			() => new UpdateMwbNotesModal(this.app, this.plugin).open(),
 		);
 
-		new Setting(containerEl).setName(t.headNoteFieldsMwb ?? '').setHeading();
+		new Setting(containerEl).setName(t.headNoteFieldsMwb).setHeading();
 
 		new Setting(containerEl)
-			.setName(t.setMwbTargetFolder ?? '')
-			.setDesc(t.setMwbTargetFolderDesc ?? '')
+			.setName(t.setMwbTargetFolder)
+			.setDesc(t.setMwbTargetFolderDesc)
 			.addText(text =>
 				text
 					.setPlaceholder(t.setTargetFolderPlaceholder)
@@ -512,7 +512,7 @@ export class JwSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName(t.setShowMwbDuration ?? '')
+			.setName(t.setShowMwbDuration)
 			.addToggle(toggle =>
 				toggle
 					.setValue(this.plugin.settings.mwbShowDurationField)
@@ -523,7 +523,7 @@ export class JwSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName(t.setShowMwbSourceCitation ?? '')
+			.setName(t.setShowMwbSourceCitation)
 			.addToggle(toggle =>
 				toggle
 					.setValue(this.plugin.settings.mwbShowSourceCitationField)
@@ -535,7 +535,7 @@ export class JwSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName(t.setFrontmatter)
-			.setDesc(t.setMwbFrontmatterDesc ?? '')
+			.setDesc(t.setMwbFrontmatterDesc)
 			.addToggle(toggle =>
 				toggle
 					.setValue(this.plugin.settings.mwbFrontmatter)
@@ -572,6 +572,7 @@ export class JwSettingTab extends PluginSettingTab {
 					.addOption('pt', 'Português')
 					.addOption('ru', 'Русский')
 					.addOption('es', 'Español')
+					.addOption('ko', '한국어')
 					.setValue(this.plugin.settings.lang)
 					.onChange(async (value: string) => {
 						this.plugin.settings.lang = value as SupportedLang;
@@ -681,7 +682,7 @@ export class JwSettingTab extends PluginSettingTab {
 			.setDesc(t.setExtraFieldsDesc)
 			.addTextArea(text =>
 				text
-					.setPlaceholder('**Notizen:**')
+					.setPlaceholder(t.setExtraFieldsPlaceholder)
 					.setValue(this.plugin.settings.extraFields)
 					.onChange(async value => {
 						this.plugin.settings.extraFields = value;

@@ -6,7 +6,7 @@
 // the two type names are now the same set; kept separate for readability at
 // call sites (SupportedLang = "the user's chosen interface language",
 // CongressLang = "this note's language").
-export type SupportedLang = 'de' | 'en' | 'fr' | 'it' | 'pt' | 'ru' | 'es';
+export type SupportedLang = 'de' | 'en' | 'fr' | 'it' | 'pt' | 'ru' | 'es' | 'ko';
 export type CongressLang = SupportedLang;
 
 interface BookEntry {
@@ -17,6 +17,7 @@ interface BookEntry {
 	pt: string;
 	ru: string;
 	es: string;
+	ko: string;
 }
 
 // Index 0 = book 1 (Genesis) … index 65 = book 66 (Revelation). de/en were
@@ -36,73 +37,81 @@ interface BookEntry {
 // forms ("Das erste Buch Mose", not "1. Mose"), so "Hohes Lied" is derived
 // from a title rather than seen in a citation — the weakest of the three, and
 // still unconfirmed against a real citation.
+//
+// ko is read from nwt_KO.jwpub's BibleBook.BookDisplayTitle
+// (scripts/dump-book-names.mjs, 02.10.2026). That column holds the formal
+// title in German but the short form in Korean, so it could not be trusted
+// on the strength of the other languages; the citation form, spacing
+// included ("디모데 전서", not "디모데전서"), was confirmed by a native
+// speaker in issue #1. The names carry none of the U+200B the Korean
+// programme files scatter through their text.
 const BOOK_NAMES: BookEntry[] = [
-	{ de: '1. Mose', en: 'Genesis', fr: 'Genèse', it: 'Genesi', pt: 'Génesis', ru: 'Бытие', es: 'Génesis' },
-	{ de: '2. Mose', en: 'Exodus', fr: 'Exode', it: 'Esodo', pt: 'Êxodo', ru: 'Исход', es: 'Éxodo' },
-	{ de: '3. Mose', en: 'Leviticus', fr: 'Lévitique', it: 'Levitico', pt: 'Levítico', ru: 'Левит', es: 'Levítico' },
-	{ de: '4. Mose', en: 'Numbers', fr: 'Nombres', it: 'Numeri', pt: 'Números', ru: 'Числа', es: 'Números' },
-	{ de: '5. Mose', en: 'Deuteronomy', fr: 'Deutéronome', it: 'Deuteronomio', pt: 'Deuteronómio', ru: 'Второзаконие', es: 'Deuteronomio' },
-	{ de: 'Josua', en: 'Joshua', fr: 'Josué', it: 'Giosuè', pt: 'Josué', ru: 'Иисус Навин', es: 'Josué' },
-	{ de: 'Richter', en: 'Judges', fr: 'Juges', it: 'Giudici', pt: 'Juízes', ru: 'Судей', es: 'Jueces' },
-	{ de: 'Rut', en: 'Ruth', fr: 'Ruth', it: 'Rut', pt: 'Rute', ru: 'Руфь', es: 'Rut' },
-	{ de: '1. Samuel', en: '1 Samuel', fr: '1 Samuel', it: '1 Samuele', pt: '1 Samuel', ru: '1 Самуила', es: '1 Samuel' },
-	{ de: '2. Samuel', en: '2 Samuel', fr: '2 Samuel', it: '2 Samuele', pt: '2 Samuel', ru: '2 Самуила', es: '2 Samuel' },
-	{ de: '1. Könige', en: '1 Kings', fr: '1 Rois', it: '1 Re', pt: '1 Reis', ru: '1 Царей', es: '1 Reyes' },
-	{ de: '2. Könige', en: '2 Kings', fr: '2 Rois', it: '2 Re', pt: '2 Reis', ru: '2 Царей', es: '2 Reyes' },
-	{ de: '1. Chronika', en: '1 Chronicles', fr: '1 Chroniques', it: '1 Cronache', pt: '1 Crónicas', ru: '1 Летопись', es: '1 Crónicas' },
-	{ de: '2. Chronika', en: '2 Chronicles', fr: '2 Chroniques', it: '2 Cronache', pt: '2 Crónicas', ru: '2 Летопись', es: '2 Crónicas' },
-	{ de: 'Esra', en: 'Ezra', fr: 'Esdras', it: 'Esdra', pt: 'Esdras', ru: 'Ездра', es: 'Esdras' },
-	{ de: 'Nehemia', en: 'Nehemiah', fr: 'Néhémie', it: 'Neemia', pt: 'Neemias', ru: 'Неемия', es: 'Nehemías' },
-	{ de: 'Esther', en: 'Esther', fr: 'Esther', it: 'Ester', pt: 'Ester', ru: 'Эсфирь', es: 'Ester' },
-	{ de: 'Hiob', en: 'Job', fr: 'Job', it: 'Giobbe', pt: 'Jó', ru: 'Иов', es: 'Job' },
-	{ de: 'Psalm', en: 'Psalm', fr: 'Psaumes', it: 'Salmi', pt: 'Salmos', ru: 'Псалмы', es: 'Salmos' },
-	{ de: 'Sprüche', en: 'Proverbs', fr: 'Proverbes', it: 'Proverbi', pt: 'Provérbios', ru: 'Притчи', es: 'Proverbios' },
-	{ de: 'Prediger', en: 'Ecclesiastes', fr: 'Ecclésiaste', it: 'Ecclesiaste', pt: 'Eclesiastes', ru: 'Экклезиаст', es: 'Eclesiastés' },
-	{ de: 'Hohes Lied', en: 'Song of Solomon', fr: 'Chant de Salomon', it: 'Cantico dei Cantici', pt: 'Cântico de Salomão', ru: 'Песня Соломона', es: 'El Cantar de los Cantares' },
-	{ de: 'Jesaja', en: 'Isaiah', fr: 'Isaïe', it: 'Isaia', pt: 'Isaías', ru: 'Исайя', es: 'Isaías' },
-	{ de: 'Jeremia', en: 'Jeremiah', fr: 'Jérémie', it: 'Geremia', pt: 'Jeremias', ru: 'Иеремия', es: 'Jeremías' },
-	{ de: 'Klagelieder', en: 'Lamentations', fr: 'Lamentations', it: 'Lamentazioni', pt: 'Lamentações', ru: 'Плач Иеремии', es: 'Lamentaciones' },
-	{ de: 'Hesekiel', en: 'Ezekiel', fr: 'Ézéchiel', it: 'Ezechiele', pt: 'Ezequiel', ru: 'Иезекииль', es: 'Ezequiel' },
-	{ de: 'Daniel', en: 'Daniel', fr: 'Daniel', it: 'Daniele', pt: 'Daniel', ru: 'Даниил', es: 'Daniel' },
-	{ de: 'Hosea', en: 'Hosea', fr: 'Osée', it: 'Osea', pt: 'Oseias', ru: 'Осия', es: 'Oseas' },
-	{ de: 'Joel', en: 'Joel', fr: 'Joël', it: 'Gioele', pt: 'Joel', ru: 'Иоиль', es: 'Joel' },
-	{ de: 'Amos', en: 'Amos', fr: 'Amos', it: 'Amos', pt: 'Amós', ru: 'Амос', es: 'Amós' },
-	{ de: 'Obadja', en: 'Obadiah', fr: 'Abdias', it: 'Abdia', pt: 'Obadias', ru: 'Авдий', es: 'Abdías' },
-	{ de: 'Jona', en: 'Jonah', fr: 'Jonas', it: 'Giona', pt: 'Jonas', ru: 'Иона', es: 'Jonás' },
-	{ de: 'Micha', en: 'Micah', fr: 'Michée', it: 'Michea', pt: 'Miqueias', ru: 'Михей', es: 'Miqueas' },
-	{ de: 'Nahum', en: 'Nahum', fr: 'Nahum', it: 'Naum', pt: 'Naum', ru: 'Наум', es: 'Nahúm' },
-	{ de: 'Habakuk', en: 'Habakkuk', fr: 'Habacuc', it: 'Abacuc', pt: 'Habacuque', ru: 'Аввакум', es: 'Habacuc' },
-	{ de: 'Zephanja', en: 'Zephaniah', fr: 'Sophonie', it: 'Sofonia', pt: 'Sofonias', ru: 'Софония', es: 'Sofonías' },
-	{ de: 'Haggai', en: 'Haggai', fr: 'Aggée', it: 'Aggeo', pt: 'Ageu', ru: 'Аггей', es: 'Ageo' },
-	{ de: 'Sacharja', en: 'Zechariah', fr: 'Zacharie', it: 'Zaccaria', pt: 'Zacarias', ru: 'Захария', es: 'Zacarías' },
-	{ de: 'Maleachi', en: 'Malachi', fr: 'Malachie', it: 'Malachia', pt: 'Malaquias', ru: 'Малахия', es: 'Malaquías' },
-	{ de: 'Matthäus', en: 'Matthew', fr: 'Matthieu', it: 'Matteo', pt: 'Mateus', ru: 'Матфея', es: 'Mateo' },
-	{ de: 'Markus', en: 'Mark', fr: 'Marc', it: 'Marco', pt: 'Marcos', ru: 'Марка', es: 'Marcos' },
-	{ de: 'Lukas', en: 'Luke', fr: 'Luc', it: 'Luca', pt: 'Lucas', ru: 'Луки', es: 'Lucas' },
-	{ de: 'Johannes', en: 'John', fr: 'Jean', it: 'Giovanni', pt: 'João', ru: 'Иоанна', es: 'Juan' },
-	{ de: 'Apostelgeschichte', en: 'Acts', fr: 'Actes', it: 'Atti', pt: 'Atos', ru: 'Деяния', es: 'Hechos' },
-	{ de: 'Römer', en: 'Romans', fr: 'Romains', it: 'Romani', pt: 'Romanos', ru: 'Римлянам', es: 'Romanos' },
-	{ de: '1. Korinther', en: '1 Corinthians', fr: '1 Corinthiens', it: '1 Corinti', pt: '1 Coríntios', ru: '1 Коринфянам', es: '1 Corintios' },
-	{ de: '2. Korinther', en: '2 Corinthians', fr: '2 Corinthiens', it: '2 Corinti', pt: '2 Coríntios', ru: '2 Коринфянам', es: '2 Corintios' },
-	{ de: 'Galater', en: 'Galatians', fr: 'Galates', it: 'Galati', pt: 'Gálatas', ru: 'Галатам', es: 'Gálatas' },
-	{ de: 'Epheser', en: 'Ephesians', fr: 'Éphésiens', it: 'Efesini', pt: 'Efésios', ru: 'Эфесянам', es: 'Efesios' },
-	{ de: 'Philipper', en: 'Philippians', fr: 'Philippiens', it: 'Filippesi', pt: 'Filipenses', ru: 'Филиппийцам', es: 'Filipenses' },
-	{ de: 'Kolosser', en: 'Colossians', fr: 'Colossiens', it: 'Colossesi', pt: 'Colossenses', ru: 'Колоссянам', es: 'Colosenses' },
-	{ de: '1. Thessalonicher', en: '1 Thessalonians', fr: '1 Thessaloniciens', it: '1 Tessalonicesi', pt: '1 Tessalonicenses', ru: '1 Фессалоникийцам', es: '1 Tesalonicenses' },
-	{ de: '2. Thessalonicher', en: '2 Thessalonians', fr: '2 Thessaloniciens', it: '2 Tessalonicesi', pt: '2 Tessalonicenses', ru: '2 Фессалоникийцам', es: '2 Tesalonicenses' },
-	{ de: '1. Timotheus', en: '1 Timothy', fr: '1 Timothée', it: '1 Timoteo', pt: '1 Timóteo', ru: '1 Тимофею', es: '1 Timoteo' },
-	{ de: '2. Timotheus', en: '2 Timothy', fr: '2 Timothée', it: '2 Timoteo', pt: '2 Timóteo', ru: '2 Тимофею', es: '2 Timoteo' },
-	{ de: 'Titus', en: 'Titus', fr: 'Tite', it: 'Tito', pt: 'Tito', ru: 'Титу', es: 'Tito' },
-	{ de: 'Philemon', en: 'Philemon', fr: 'Philémon', it: 'Filemone', pt: 'Filémon', ru: 'Филимону', es: 'Filemón' },
-	{ de: 'Hebräer', en: 'Hebrews', fr: 'Hébreux', it: 'Ebrei', pt: 'Hebreus', ru: 'Евреям', es: 'Hebreos' },
-	{ de: 'Jakobus', en: 'James', fr: 'Jacques', it: 'Giacomo', pt: 'Tiago', ru: 'Иакова', es: 'Santiago' },
-	{ de: '1. Petrus', en: '1 Peter', fr: '1 Pierre', it: '1 Pietro', pt: '1 Pedro', ru: '1 Петра', es: '1 Pedro' },
-	{ de: '2. Petrus', en: '2 Peter', fr: '2 Pierre', it: '2 Pietro', pt: '2 Pedro', ru: '2 Петра', es: '2 Pedro' },
-	{ de: '1. Johannes', en: '1 John', fr: '1 Jean', it: '1 Giovanni', pt: '1 João', ru: '1 Иоанна', es: '1 Juan' },
-	{ de: '2. Johannes', en: '2 John', fr: '2 Jean', it: '2 Giovanni', pt: '2 João', ru: '2 Иоанна', es: '2 Juan' },
-	{ de: '3. Johannes', en: '3 John', fr: '3 Jean', it: '3 Giovanni', pt: '3 João', ru: '3 Иоанна', es: '3 Juan' },
-	{ de: 'Judas', en: 'Jude', fr: 'Jude', it: 'Giuda', pt: 'Judas', ru: 'Иуды', es: 'Judas' },
-	{ de: 'Offenbarung', en: 'Revelation', fr: 'Révélation', it: 'Rivelazione', pt: 'Apocalipse', ru: 'Откровение', es: 'Apocalipsis' },
+	{ de: '1. Mose', en: 'Genesis', fr: 'Genèse', it: 'Genesi', pt: 'Génesis', ru: 'Бытие', es: 'Génesis', ko: '창세기' },
+	{ de: '2. Mose', en: 'Exodus', fr: 'Exode', it: 'Esodo', pt: 'Êxodo', ru: 'Исход', es: 'Éxodo', ko: '출애굽기' },
+	{ de: '3. Mose', en: 'Leviticus', fr: 'Lévitique', it: 'Levitico', pt: 'Levítico', ru: 'Левит', es: 'Levítico', ko: '레위기' },
+	{ de: '4. Mose', en: 'Numbers', fr: 'Nombres', it: 'Numeri', pt: 'Números', ru: 'Числа', es: 'Números', ko: '민수기' },
+	{ de: '5. Mose', en: 'Deuteronomy', fr: 'Deutéronome', it: 'Deuteronomio', pt: 'Deuteronómio', ru: 'Второзаконие', es: 'Deuteronomio', ko: '신명기' },
+	{ de: 'Josua', en: 'Joshua', fr: 'Josué', it: 'Giosuè', pt: 'Josué', ru: 'Иисус Навин', es: 'Josué', ko: '여호수아' },
+	{ de: 'Richter', en: 'Judges', fr: 'Juges', it: 'Giudici', pt: 'Juízes', ru: 'Судей', es: 'Jueces', ko: '사사기' },
+	{ de: 'Rut', en: 'Ruth', fr: 'Ruth', it: 'Rut', pt: 'Rute', ru: 'Руфь', es: 'Rut', ko: '룻기' },
+	{ de: '1. Samuel', en: '1 Samuel', fr: '1 Samuel', it: '1 Samuele', pt: '1 Samuel', ru: '1 Самуила', es: '1 Samuel', ko: '사무엘상' },
+	{ de: '2. Samuel', en: '2 Samuel', fr: '2 Samuel', it: '2 Samuele', pt: '2 Samuel', ru: '2 Самуила', es: '2 Samuel', ko: '사무엘하' },
+	{ de: '1. Könige', en: '1 Kings', fr: '1 Rois', it: '1 Re', pt: '1 Reis', ru: '1 Царей', es: '1 Reyes', ko: '열왕기상' },
+	{ de: '2. Könige', en: '2 Kings', fr: '2 Rois', it: '2 Re', pt: '2 Reis', ru: '2 Царей', es: '2 Reyes', ko: '열왕기하' },
+	{ de: '1. Chronika', en: '1 Chronicles', fr: '1 Chroniques', it: '1 Cronache', pt: '1 Crónicas', ru: '1 Летопись', es: '1 Crónicas', ko: '역대기상' },
+	{ de: '2. Chronika', en: '2 Chronicles', fr: '2 Chroniques', it: '2 Cronache', pt: '2 Crónicas', ru: '2 Летопись', es: '2 Crónicas', ko: '역대기하' },
+	{ de: 'Esra', en: 'Ezra', fr: 'Esdras', it: 'Esdra', pt: 'Esdras', ru: 'Ездра', es: 'Esdras', ko: '에스라' },
+	{ de: 'Nehemia', en: 'Nehemiah', fr: 'Néhémie', it: 'Neemia', pt: 'Neemias', ru: 'Неемия', es: 'Nehemías', ko: '느헤미야' },
+	{ de: 'Esther', en: 'Esther', fr: 'Esther', it: 'Ester', pt: 'Ester', ru: 'Эсфирь', es: 'Ester', ko: '에스더' },
+	{ de: 'Hiob', en: 'Job', fr: 'Job', it: 'Giobbe', pt: 'Jó', ru: 'Иов', es: 'Job', ko: '욥기' },
+	{ de: 'Psalm', en: 'Psalm', fr: 'Psaumes', it: 'Salmi', pt: 'Salmos', ru: 'Псалмы', es: 'Salmos', ko: '시편' },
+	{ de: 'Sprüche', en: 'Proverbs', fr: 'Proverbes', it: 'Proverbi', pt: 'Provérbios', ru: 'Притчи', es: 'Proverbios', ko: '잠언' },
+	{ de: 'Prediger', en: 'Ecclesiastes', fr: 'Ecclésiaste', it: 'Ecclesiaste', pt: 'Eclesiastes', ru: 'Экклезиаст', es: 'Eclesiastés', ko: '전도서' },
+	{ de: 'Hohes Lied', en: 'Song of Solomon', fr: 'Chant de Salomon', it: 'Cantico dei Cantici', pt: 'Cântico de Salomão', ru: 'Песня Соломона', es: 'El Cantar de los Cantares', ko: '솔로몬의 노래' },
+	{ de: 'Jesaja', en: 'Isaiah', fr: 'Isaïe', it: 'Isaia', pt: 'Isaías', ru: 'Исайя', es: 'Isaías', ko: '이사야' },
+	{ de: 'Jeremia', en: 'Jeremiah', fr: 'Jérémie', it: 'Geremia', pt: 'Jeremias', ru: 'Иеремия', es: 'Jeremías', ko: '예레미야' },
+	{ de: 'Klagelieder', en: 'Lamentations', fr: 'Lamentations', it: 'Lamentazioni', pt: 'Lamentações', ru: 'Плач Иеремии', es: 'Lamentaciones', ko: '예레미야 애가' },
+	{ de: 'Hesekiel', en: 'Ezekiel', fr: 'Ézéchiel', it: 'Ezechiele', pt: 'Ezequiel', ru: 'Иезекииль', es: 'Ezequiel', ko: '에스겔' },
+	{ de: 'Daniel', en: 'Daniel', fr: 'Daniel', it: 'Daniele', pt: 'Daniel', ru: 'Даниил', es: 'Daniel', ko: '다니엘' },
+	{ de: 'Hosea', en: 'Hosea', fr: 'Osée', it: 'Osea', pt: 'Oseias', ru: 'Осия', es: 'Oseas', ko: '호세아' },
+	{ de: 'Joel', en: 'Joel', fr: 'Joël', it: 'Gioele', pt: 'Joel', ru: 'Иоиль', es: 'Joel', ko: '요엘' },
+	{ de: 'Amos', en: 'Amos', fr: 'Amos', it: 'Amos', pt: 'Amós', ru: 'Амос', es: 'Amós', ko: '아모스' },
+	{ de: 'Obadja', en: 'Obadiah', fr: 'Abdias', it: 'Abdia', pt: 'Obadias', ru: 'Авдий', es: 'Abdías', ko: '오바댜' },
+	{ de: 'Jona', en: 'Jonah', fr: 'Jonas', it: 'Giona', pt: 'Jonas', ru: 'Иона', es: 'Jonás', ko: '요나' },
+	{ de: 'Micha', en: 'Micah', fr: 'Michée', it: 'Michea', pt: 'Miqueias', ru: 'Михей', es: 'Miqueas', ko: '미가' },
+	{ de: 'Nahum', en: 'Nahum', fr: 'Nahum', it: 'Naum', pt: 'Naum', ru: 'Наум', es: 'Nahúm', ko: '나훔' },
+	{ de: 'Habakuk', en: 'Habakkuk', fr: 'Habacuc', it: 'Abacuc', pt: 'Habacuque', ru: 'Аввакум', es: 'Habacuc', ko: '하박국' },
+	{ de: 'Zephanja', en: 'Zephaniah', fr: 'Sophonie', it: 'Sofonia', pt: 'Sofonias', ru: 'Софония', es: 'Sofonías', ko: '스바냐' },
+	{ de: 'Haggai', en: 'Haggai', fr: 'Aggée', it: 'Aggeo', pt: 'Ageu', ru: 'Аггей', es: 'Ageo', ko: '학개' },
+	{ de: 'Sacharja', en: 'Zechariah', fr: 'Zacharie', it: 'Zaccaria', pt: 'Zacarias', ru: 'Захария', es: 'Zacarías', ko: '스가랴' },
+	{ de: 'Maleachi', en: 'Malachi', fr: 'Malachie', it: 'Malachia', pt: 'Malaquias', ru: 'Малахия', es: 'Malaquías', ko: '말라기' },
+	{ de: 'Matthäus', en: 'Matthew', fr: 'Matthieu', it: 'Matteo', pt: 'Mateus', ru: 'Матфея', es: 'Mateo', ko: '마태복음' },
+	{ de: 'Markus', en: 'Mark', fr: 'Marc', it: 'Marco', pt: 'Marcos', ru: 'Марка', es: 'Marcos', ko: '마가복음' },
+	{ de: 'Lukas', en: 'Luke', fr: 'Luc', it: 'Luca', pt: 'Lucas', ru: 'Луки', es: 'Lucas', ko: '누가복음' },
+	{ de: 'Johannes', en: 'John', fr: 'Jean', it: 'Giovanni', pt: 'João', ru: 'Иоанна', es: 'Juan', ko: '요한복음' },
+	{ de: 'Apostelgeschichte', en: 'Acts', fr: 'Actes', it: 'Atti', pt: 'Atos', ru: 'Деяния', es: 'Hechos', ko: '사도행전' },
+	{ de: 'Römer', en: 'Romans', fr: 'Romains', it: 'Romani', pt: 'Romanos', ru: 'Римлянам', es: 'Romanos', ko: '로마서' },
+	{ de: '1. Korinther', en: '1 Corinthians', fr: '1 Corinthiens', it: '1 Corinti', pt: '1 Coríntios', ru: '1 Коринфянам', es: '1 Corintios', ko: '고린도 전서' },
+	{ de: '2. Korinther', en: '2 Corinthians', fr: '2 Corinthiens', it: '2 Corinti', pt: '2 Coríntios', ru: '2 Коринфянам', es: '2 Corintios', ko: '고린도 후서' },
+	{ de: 'Galater', en: 'Galatians', fr: 'Galates', it: 'Galati', pt: 'Gálatas', ru: 'Галатам', es: 'Gálatas', ko: '갈라디아서' },
+	{ de: 'Epheser', en: 'Ephesians', fr: 'Éphésiens', it: 'Efesini', pt: 'Efésios', ru: 'Эфесянам', es: 'Efesios', ko: '에베소서' },
+	{ de: 'Philipper', en: 'Philippians', fr: 'Philippiens', it: 'Filippesi', pt: 'Filipenses', ru: 'Филиппийцам', es: 'Filipenses', ko: '빌립보서' },
+	{ de: 'Kolosser', en: 'Colossians', fr: 'Colossiens', it: 'Colossesi', pt: 'Colossenses', ru: 'Колоссянам', es: 'Colosenses', ko: '골로새서' },
+	{ de: '1. Thessalonicher', en: '1 Thessalonians', fr: '1 Thessaloniciens', it: '1 Tessalonicesi', pt: '1 Tessalonicenses', ru: '1 Фессалоникийцам', es: '1 Tesalonicenses', ko: '데살로니가 전서' },
+	{ de: '2. Thessalonicher', en: '2 Thessalonians', fr: '2 Thessaloniciens', it: '2 Tessalonicesi', pt: '2 Tessalonicenses', ru: '2 Фессалоникийцам', es: '2 Tesalonicenses', ko: '데살로니가 후서' },
+	{ de: '1. Timotheus', en: '1 Timothy', fr: '1 Timothée', it: '1 Timoteo', pt: '1 Timóteo', ru: '1 Тимофею', es: '1 Timoteo', ko: '디모데 전서' },
+	{ de: '2. Timotheus', en: '2 Timothy', fr: '2 Timothée', it: '2 Timoteo', pt: '2 Timóteo', ru: '2 Тимофею', es: '2 Timoteo', ko: '디모데 후서' },
+	{ de: 'Titus', en: 'Titus', fr: 'Tite', it: 'Tito', pt: 'Tito', ru: 'Титу', es: 'Tito', ko: '디도서' },
+	{ de: 'Philemon', en: 'Philemon', fr: 'Philémon', it: 'Filemone', pt: 'Filémon', ru: 'Филимону', es: 'Filemón', ko: '빌레몬서' },
+	{ de: 'Hebräer', en: 'Hebrews', fr: 'Hébreux', it: 'Ebrei', pt: 'Hebreus', ru: 'Евреям', es: 'Hebreos', ko: '히브리서' },
+	{ de: 'Jakobus', en: 'James', fr: 'Jacques', it: 'Giacomo', pt: 'Tiago', ru: 'Иакова', es: 'Santiago', ko: '야고보서' },
+	{ de: '1. Petrus', en: '1 Peter', fr: '1 Pierre', it: '1 Pietro', pt: '1 Pedro', ru: '1 Петра', es: '1 Pedro', ko: '베드로 전서' },
+	{ de: '2. Petrus', en: '2 Peter', fr: '2 Pierre', it: '2 Pietro', pt: '2 Pedro', ru: '2 Петра', es: '2 Pedro', ko: '베드로 후서' },
+	{ de: '1. Johannes', en: '1 John', fr: '1 Jean', it: '1 Giovanni', pt: '1 João', ru: '1 Иоанна', es: '1 Juan', ko: '요한 1서' },
+	{ de: '2. Johannes', en: '2 John', fr: '2 Jean', it: '2 Giovanni', pt: '2 João', ru: '2 Иоанна', es: '2 Juan', ko: '요한 2서' },
+	{ de: '3. Johannes', en: '3 John', fr: '3 Jean', it: '3 Giovanni', pt: '3 João', ru: '3 Иоанна', es: '3 Juan', ko: '요한 3서' },
+	{ de: 'Judas', en: 'Jude', fr: 'Jude', it: 'Giuda', pt: 'Judas', ru: 'Иуды', es: 'Judas', ko: '유다서' },
+	{ de: 'Offenbarung', en: 'Revelation', fr: 'Révélation', it: 'Rivelazione', pt: 'Apocalipse', ru: 'Откровение', es: 'Apocalipsis', ko: '요한 계시록' },
 ];
 
 export function getBookName(bookNumber: number, lang: CongressLang): string {
@@ -168,6 +177,12 @@ const BOOK_ABBREVIATIONS: Partial<Record<SupportedLang, Record<string, number>>>
 	en: { jas: 59 },
 	it: { salmo: 19 },
 	ru: { псалом: 19 },
+	// The Korean programmes cite Psalms as "시" (6× across the three of them,
+	// never for another book). It IS a prefix of 시편 — but one character, so
+	// MIN_ABBREVIATION_LENGTH turns it away. Entered here rather than lowering
+	// that rule for Hangul, which would accept every single syllable that
+	// happens to begin one book. Harvested 02.10.2026.
+	ko: { 시: 19 },
 };
 
 /**

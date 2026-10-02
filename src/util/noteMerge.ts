@@ -164,6 +164,28 @@ export function markBlockKept(lines: string[], lineIndex: number): string[] {
 	return updated;
 }
 
+/**
+ * Where content the user adds after `line` — an inserted quote — has to go
+ * so that the next update cannot take it away.
+ *
+ * A generated block is rewritten wholesale by every update, and the popup's
+ * scripture links sit inside one: a quote inserted right below them was
+ * deleted by the next "Update convention notes" (found 02.10.2026, in every
+ * language). When `line` is the block's last line with content, which is the
+ * normal case — the scripture field ends the header block — the quote goes
+ * just past the invisible end marker instead: the same place on screen, but
+ * outside the block, which keeps receiving updates. Anywhere else inside a
+ * block the position is kept and `pin` asks the caller to flag the block as
+ * the user's (markBlockKept), as removing or adjusting a link does.
+ */
+export function insertionOutsideBlocks(lines: string[], line: number): { line: number; pin: boolean } {
+	const block = findMarkerBlocks(lines)?.find(b => line > b.startLine && line < b.endLine);
+	if (!block) return { line, pin: false };
+	let lastContent = block.endLine - 1;
+	while (lastContent > block.startLine && lines[lastContent]!.trim() === '') lastContent--;
+	return line >= lastContent ? { line: block.endLine, pin: false } : { line, pin: true };
+}
+
 export function pushMarked(lines: string[], id: string, render: () => void): void {
 	const start = lines.length;
 	render();
@@ -282,4 +304,21 @@ export function mergeNoteContent(existing: string, fresh: string): string | null
 	}
 
 	return [...frontmatterPrefix, ...mergedBody].join('\n');
+}
+
+/**
+ * What to write over a purely derived note (the overview) that already
+ * exists: the fresh rendering, except that blocks the user corrected through
+ * the plugin survive. A re-import uses this; planCongressUpdate() applies the
+ * same rule while telling "regenerate" and "merge" apart for its preview.
+ * Until 02.10.2026 a re-import overwrote the overview outright and threw
+ * those corrections away, while an update kept them.
+ *
+ * No markers (an overview from before 1.26.0) or markers that no longer line
+ * up (the programme itself changed) yield the fresh rendering: for a derived
+ * note, rewriting is the right answer there.
+ */
+export function refreshDerivedNote(existing: string, fresh: string): string {
+	if (hasNoMarkers(existing)) return fresh;
+	return mergeNoteContent(existing, fresh) ?? fresh;
 }

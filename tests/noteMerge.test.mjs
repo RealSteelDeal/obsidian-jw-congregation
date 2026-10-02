@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { jiti } from './_setup.mjs';
 
-const { mergeNoteContent, hasNoMarkers, diffNoteContent, markBlockKept } = await jiti.import('../src/util/noteMerge.ts');
+const { mergeNoteContent, hasNoMarkers, diffNoteContent, markBlockKept, refreshDerivedNote } = await jiti.import('../src/util/noteMerge.ts');
 
 // Current (1.18.1+) marker format — invisible via this plugin's own
 // `.jw-marker { display: none; }` CSS rule, unlike the pre-1.18.1 `%%jw:id%%`
@@ -300,4 +300,76 @@ test('a kept marker is still recognised as a marker at all', () => {
 	// pre-1.9.0 heuristic, which knows nothing about markers.
 	const content = [keptStart('hint'), 'Feld', end('hint')].join('\n');
 	assert.equal(hasNoMarkers(content), false);
+});
+
+// ── Inserted quotes must survive an update ──────────────────────────────────
+
+const { insertionOutsideBlocks } = await jiti.import('../src/util/noteMerge.ts');
+
+function noteWithHeader() {
+	return [
+		'<span class="jw-marker" data-jw-start="header"></span>',
+		'**Uhrzeit:** 9:40',
+		'**Bibeltexte:** ([Psalm 16:11](jwlibrary:///finder?bible=19016011))',
+		'',
+		'<span class="jw-marker" data-jw-end="header"></span>',
+		'**Redner:**',
+	];
+}
+
+test('a quote after the block\u2019s last line goes past the end marker, not into the block', () => {
+	assert.deepEqual(insertionOutsideBlocks(noteWithHeader(), 2), { line: 4, pin: false });
+});
+
+test('a line in the middle of a block keeps its place and asks for the block to be kept', () => {
+	assert.deepEqual(insertionOutsideBlocks(noteWithHeader(), 1), { line: 1, pin: true });
+});
+
+test('a line outside every block is left as it is', () => {
+	assert.deepEqual(insertionOutsideBlocks(noteWithHeader(), 5), { line: 5, pin: false });
+});
+
+test('a quote placed where insertionOutsideBlocks says survives the next update', () => {
+	// Until 02.10.2026 the popup put it right below the scripture line, inside
+	// the generated block — and the next update deleted it.
+	const fresh = noteWithHeader().join('\n');
+	const lines = noteWithHeader();
+	const { line } = insertionOutsideBlocks(lines, 2);
+	lines.splice(line + 1, 0, '> [!quote] [Psalm 16:11](jwlibrary:///finder?bible=19016011)', '> [11 Mein Zitat.](jwlibrary:///finder?bible=19016011)', '');
+	const merged = mergeNoteContent(lines.join('\n'), fresh.replace('9:40', '9:45'));
+	assert.match(merged, /Mein Zitat\./, 'the quote is kept');
+	assert.match(merged, /9:45/, 'and the block itself still receives the update');
+});
+
+test('a quote inside a block survives the update once the block is kept', () => {
+	const lines = noteWithHeader();
+	lines.splice(2, 0, '> [!quote] Mitten im Block');
+	const kept = markBlockKept(lines, 2);
+	const merged = mergeNoteContent(kept.join('\n'), noteWithHeader().join('\n').replace('9:40', '9:45'));
+	assert.match(merged, /Mitten im Block/);
+});
+
+test('where the popup used to put a quote, an update deleted it', () => {
+	// The behaviour insertionOutsideBlocks exists to avoid, kept as evidence.
+	const lines = noteWithHeader();
+	lines.splice(3, 0, '> [!quote] Altes Zitat');
+	const merged = mergeNoteContent(lines.join('\n'), noteWithHeader().join('\n').replace('9:40', '9:45'));
+	assert.doesNotMatch(merged, /Altes Zitat/);
+});
+
+test('refreshDerivedNote keeps a block the user corrected and refreshes the rest', () => {
+	const existing = [start('a'), '- 9:40 Alt', end('a'), start('b'), '- 10:00 Alt', end('b')];
+	const kept = markBlockKept(existing, 1).join('\n').replace('9:40', '9:45');
+	const fresh = [start('a'), '- 9:50 Neu', end('a'), start('b'), '- 10:10 Neu', end('b')].join('\n');
+	const out = refreshDerivedNote(kept, fresh);
+	assert.match(out, /9:45/);
+	assert.doesNotMatch(out, /9:50/);
+	assert.match(out, /10:10 Neu/);
+});
+
+test('refreshDerivedNote rewrites a note without markers, or whose markers no longer line up', () => {
+	const fresh = [start('a'), '- 9:50 Neu', end('a')].join('\n');
+	assert.equal(refreshDerivedNote('- 9:40 Alt', fresh), fresh);
+	const other = [start('x'), '- 9:40 Alt', end('x')].join('\n');
+	assert.equal(refreshDerivedNote(other, fresh), fresh);
 });

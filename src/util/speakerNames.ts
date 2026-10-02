@@ -17,16 +17,22 @@
  * wrong merge.
  */
 
-/** Forms of address that precede a name and say nothing about who it is.
- *  Deliberately covers all seven supported note languages at once: the field
- *  is free text, so nothing guarantees it was written in the note's own
- *  language, and stripping a word too many only ever splits a group that the
- *  user can still merge by hand. */
+/** Forms of address that say nothing about who someone is. Deliberately
+ *  covers all eight supported note languages at once: the field is free text,
+ *  so nothing guarantees it was written in the note's own language, and
+ *  stripping a word too many only ever splits a group that the user can
+ *  still merge by hand — never joins two people.
+ *
+ *  Korean puts it after the name — "김철수 형제", politely "형제님" — and
+ *  since matching ignores word order, that needs nothing else. The words are
+ *  attested in the Korean Bible as "brother"/"sister"; their use after a name
+ *  is ordinary Korean, which the rule above makes safe to rely on. */
 const HONORIFICS = new Set([
 	'br', 'bro', 'bruder', 'brother', 'schw', 'schwester', 'sister', 'sr',
 	'frere', 'frère', 'soeur', 'sœur', 'fratello', 'sorella',
 	'irmao', 'irmão', 'irma', 'irmã', 'hermano', 'hermana', 'hno', 'hna',
 	'брат', 'сестра',
+	'형제', '자매', '형제님', '자매님',
 ]);
 
 /** One place a name was found: which note, and exactly how it was written. */

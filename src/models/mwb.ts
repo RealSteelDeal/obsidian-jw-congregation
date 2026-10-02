@@ -1,4 +1,5 @@
 import { CoverImage, Scripture } from './congress';
+import { CongressLang } from '../normalizer/bookNames';
 
 /** Internal section keys, language-independent — the visible heading text
  *  (SCHÄTZE AUS GOTTES WORT / UNS IM DIENST VERBESSERN / UNSER LEBEN ALS
@@ -110,8 +111,9 @@ export interface Mwb {
 	issueTagNumber: string;
 	weeks: MwbWeek[];
 	memorialReading?: MemorialReadingSchedule;
-	/** v1 only ever produces 'de' — MwbParser rejects any other detected
-	 *  MepsLanguageIndex with a clear ParseError rather than misinterpreting
-	 *  unverified section-heading/duration text in another language. */
-	lang: 'de';
+	/** German or Korean — the languages whose workbook anchors have been read
+	 *  off real files (NoteStrings.treasuresLabel and the rest). MwbParser
+	 *  rejects any other detected MepsLanguageIndex with a clear ParseError
+	 *  rather than matching unverified section-heading text against it. */
+	lang: CongressLang;
 }

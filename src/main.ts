@@ -1,4 +1,4 @@
-import { Editor, Notice, Plugin, TFile, TFolder, normalizePath } from 'obsidian';
+import { Editor, Notice, Plugin, TAbstractFile, TFile, TFolder, moment, normalizePath } from 'obsidian';
 import { EditorView } from '@codemirror/view';
 import { DEFAULT_SCRIPTURE_SUGGEST_ACTIONS, DEFAULT_SETTINGS, JwPluginSettings, JwSettingTab } from './settings';
 import { SourceRouter } from './parser/SourceRouter';
@@ -16,9 +16,10 @@ import { RemoveLinkSuggest } from './ui/RemoveLinkSuggest';
 import { SongEditorSuggest } from './ui/SongEditorSuggest';
 import { Congress, Scripture } from './models/congress';
 import { CongressLang } from './normalizer/bookNames';
-import { L, NL } from './i18n';
+import { L, NL, interfaceLangFor } from './i18n';
 import { cutSpan, findFirstScriptureLinkInText, findScriptureLinkInText, findPluginLinkSpanAt, parseScriptureFromHref, QUOTE_CALLOUT_START_RE, solePluginLinkSpan } from './util/scriptureLinkScan';
-import { diffNoteContent, hasNoMarkers, markBlockKept, mergeNoteContent, NoteChange } from './util/noteMerge';
+import { diffNoteContent, hasNoMarkers, markBlockKept, mergeNoteContent, NoteChange, refreshDerivedNote } from './util/noteMerge';
+import { findLegacySpelling } from './util/legacyNames';
 import { UpdateNotesModal } from './ui/UpdateNotesModal';
 import { BulkUpdateNotesModal } from './ui/BulkUpdateNotesModal';
 import { SpeakerLinkModal } from './ui/SpeakerLinkModal';
@@ -35,6 +36,14 @@ const BIBLE_FILE_NAME = 'bible-cache.jwpub';
 /** On <body> while scripture/song/publication links should NOT be underlined —
  *  see styles.css and settings.underlineLinks. */
 const LINK_UNDERLINE_CLASS = 'jw-no-link-underline';
+
+/** Whether a generated file's bytes equal what is already in the vault. */
+function sameBytes(fresh: Uint8Array, current: ArrayBuffer): boolean {
+	const existing = new Uint8Array(current);
+	if (existing.length !== fresh.length) return false;
+	for (let i = 0; i < fresh.length; i++) if (existing[i] !== fresh[i]) return false;
+	return true;
+}
 
 /** One convention to reconcile in an update run: an already-parsed programme
  *  and the existing folder it belongs to. `label` is what the summary notice
@@ -56,13 +65,16 @@ interface UpdateCounts {
 
 /** What an update has decided to do with one note, before anything is written.
  *  `regenerate.changed` and `merge.changes` exist purely so the preview can
- *  tell a real change from a write that alters nothing the reader sees. */
-export type PlannedNote =
+ *  tell a real change from a write that alters nothing the reader sees.
+ *  `renameFrom` is set when the note exists under an earlier spelling of its
+ *  name (see util/legacyNames.ts): it is renamed to `path` first. */
+export type PlannedNote = (
 	| { kind: 'create'; path: string; content: string }
 	| { kind: 'regenerate'; path: string; content: string; changed: boolean }
 	| { kind: 'merge'; path: string; content: string; changes: NoteChange[] }
 	| { kind: 'needs-reimport'; path: string; legacy: LegacyFieldCorrection[] }
-	| { kind: 'unchanged'; path: string };
+	| { kind: 'unchanged'; path: string }
+) & { renameFrom?: string };
 
 export type PlannedAttachment =
 	| { kind: 'create'; path: string; data: Uint8Array }
@@ -180,19 +192,19 @@ export default class JwCongregationPlugin extends Plugin {
 		// A second, distinct icon (not 'book-open', which is reserved for the
 		// congress import) — justified by usage frequency: a meeting workbook
 		// is imported weekly, far more often than a convention program.
-		this.addRibbonIcon('calendar-days', this.tr.importMwbCommand ?? '', () => {
+		this.addRibbonIcon('calendar-days', this.tr.importMwbCommand, () => {
 			new ImportMwbModal(this.app, this).open();
 		});
 
 		this.addCommand({
 			id: 'import-mwb-workbook',
-			name: this.tr.importMwbCommand ?? '',
+			name: this.tr.importMwbCommand,
 			callback: () => new ImportMwbModal(this.app, this).open(),
 		});
 
 		this.addCommand({
 			id: 'update-mwb-notes',
-			name: this.tr.updateMwbCommand ?? '',
+			name: this.tr.updateMwbCommand,
 			callback: () => new UpdateMwbNotesModal(this.app, this).open(),
 		});
 
@@ -532,6 +544,20 @@ export default class JwCongregationPlugin extends Plugin {
 		const stored = (await this.loadData()) as Partial<JwPluginSettings> | null;
 		this.hadStoredSettings = stored != null;
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, stored);
+		// A first start follows Obsidian's own language where this plugin has it,
+		// instead of opening in German for everybody — a Korean user would
+		// otherwise have to find the language setting in a language they may
+		// not read. Only when nothing was chosen yet: a saved choice always
+		// wins.
+		//
+		// Read from moment.locale(), not getLanguage(): the latter exists only
+		// from Obsidian 1.8.7, and minAppVersion is 1.6.6. Obsidian sets the
+		// moment locale at start-up from the very code it loads its own
+		// language pack with (`/i18n/<code>.txt`), so it is the same value —
+		// checked in the app bundle on 02.10.2026.
+		if (stored?.lang === undefined) {
+			this.settings.lang = interfaceLangFor(moment.locale()) ?? this.settings.lang;
+		}
 		// Object.assign only shallow-copies — without this, an unset/older
 		// data.json would leave settings.scriptureSuggestActions pointing at
 		// the shared DEFAULT_SCRIPTURE_SUGGEST_ACTIONS array itself, and the
@@ -599,14 +625,24 @@ export default class JwCongregationPlugin extends Plugin {
 
 		try {
 			if (baseFolder) await this.ensureFolder(baseFolder);
+			// A folder an earlier version named differently is taken over and
+			// renamed, rather than left next to a second, fresh one.
+			await this.adoptLegacyName(congressPath);
 			await this.ensureFolder(congressPath);
 
 			for (const note of notes) {
 				const notePath = await this.resolvePath(congressPath, note.dayFolder, note.filename);
+				await this.adoptLegacyName(notePath);
 				const existing = this.app.vault.getAbstractFileByPath(notePath);
 				if (existing) {
-					if (note.regenerate && existing instanceof TFile) {
-						await this.app.vault.modify(existing, note.content);
+					// Rewritten and counted only when the content really changed — a
+					// re-import used to report every overview as "updated" even when
+					// it came out identical. Blocks the user corrected survive, as
+					// they do on an update (see refreshDerivedNote).
+					const before = note.regenerate && existing instanceof TFile ? await this.app.vault.read(existing) : null;
+					const content = before === null ? null : refreshDerivedNote(before, note.content);
+					if (existing instanceof TFile && content !== null && content !== before) {
+						await this.app.vault.modify(existing, content);
 						updated++;
 					} else {
 						skipped++;
@@ -625,7 +661,7 @@ export default class JwCongregationPlugin extends Plugin {
 				const buf = attachment.data;
 				const arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
 				if (existing) {
-					if (attachment.regenerate && existing instanceof TFile) {
+					if (attachment.regenerate && existing instanceof TFile && !sameBytes(buf, await this.app.vault.readBinary(existing))) {
 						await this.app.vault.modifyBinary(existing, arrayBuffer);
 						updated++;
 					} else {
@@ -736,10 +772,10 @@ export default class JwCongregationPlugin extends Plugin {
 		const plans = jobs.map(job => ({ job, ...builder.buildNotes(job.congress) }));
 		const total = plans.reduce((sum, plan) => sum + plan.notes.length + plan.attachments.length, 0);
 		let done = 0;
-		const progress = total > 3 ? new Notice(this.tr.noticeImportProgress(0, total), 0) : null;
+		const progress = total > 3 ? new Notice(this.tr.noticeUpdateProgress(0, total), 0) : null;
 		const onStep = () => {
 			done++;
-			progress?.setMessage(this.tr.noticeImportProgress(done, total));
+			progress?.setMessage(this.tr.noticeUpdateProgress(done, total));
 		};
 
 		// Notes with no markers at all (pre-1.9.0) that still have safely
@@ -866,7 +902,11 @@ export default class JwCongregationPlugin extends Plugin {
 
 		for (const note of notes) {
 			const path = await this.resolvePath(congressPath, note.dayFolder, note.filename);
-			const existing = this.app.vault.getAbstractFileByPath(path);
+			// Under an earlier spelling of its name, the note is read and planned
+			// from there and renamed first; nothing is written while planning.
+			const legacy = this.findLegacyItem(path);
+			const renamed = legacy instanceof TFile ? { renameFrom: legacy.path } : {};
+			const existing = legacy instanceof TFile ? legacy : this.app.vault.getAbstractFileByPath(path);
 			if (!(existing instanceof TFile)) {
 				// Nothing to preserve for a note that doesn't exist yet
 				// (e.g. the programme fix added a new item) — create it
@@ -889,11 +929,11 @@ export default class JwCongregationPlugin extends Plugin {
 				// right answer, not the "needs re-import" a hand-edited note gets.
 				const merged = hasNoMarkers(before) ? null : mergeNoteContent(before, note.content);
 				if (merged === null) {
-					plannedNotes.push({ kind: 'regenerate', path, content: note.content, changed: before !== note.content });
+					plannedNotes.push({ ...renamed, kind: 'regenerate', path, content: note.content, changed: before !== note.content });
 				} else if (merged !== before) {
-					plannedNotes.push({ kind: 'merge', path, content: merged, changes: diffNoteContent(before, note.content) ?? [] });
+					plannedNotes.push({ ...renamed, kind: 'merge', path, content: merged, changes: diffNoteContent(before, note.content) ?? [] });
 				} else {
-					plannedNotes.push({ kind: 'unchanged', path });
+					plannedNotes.push({ ...renamed, kind: 'unchanged', path });
 				}
 				continue;
 			}
@@ -908,20 +948,21 @@ export default class JwCongregationPlugin extends Plugin {
 				const corrections = hasNoMarkers(existingContent)
 					? findLegacyCorrections(existingContent, note.content, NL[lang])
 					: [];
-				plannedNotes.push({ kind: 'needs-reimport', path, legacy: corrections });
+				plannedNotes.push({ ...renamed, kind: 'needs-reimport', path, legacy: corrections });
 			} else if (mergedContent !== existingContent) {
 				// `changes` can legitimately be empty here: a note written by
 				// 1.9.0–1.18.0 has its %%jw:…%% markers silently upgraded to
 				// span markers, which changes the file without changing a
 				// single character the reader ever sees.
 				plannedNotes.push({
+					...renamed,
 					kind: 'merge',
 					path,
 					content: mergedContent,
 					changes: diffNoteContent(existingContent, note.content) ?? [],
 				});
 			} else {
-				plannedNotes.push({ kind: 'unchanged', path });
+				plannedNotes.push({ ...renamed, kind: 'unchanged', path });
 			}
 		}
 
@@ -930,9 +971,13 @@ export default class JwCongregationPlugin extends Plugin {
 			const existing = this.app.vault.getAbstractFileByPath(path);
 			if (!(existing instanceof TFile)) {
 				plannedAttachments.push({ kind: 'create', path, data: attachment.data });
-			} else if (attachment.regenerate) {
+			} else if (attachment.regenerate && !sameBytes(attachment.data, await this.app.vault.readBinary(existing))) {
 				plannedAttachments.push({ kind: 'regenerate', path, data: attachment.data });
 			} else {
+				// Rewritten only when the bytes really changed. A cover image is
+				// regenerated on every update, and was counted as "updated" even
+				// when identical — so an update that changed nothing still
+				// reported one change per day, and the preview listed the images.
 				plannedAttachments.push({ kind: 'unchanged', path });
 			}
 		}
@@ -958,6 +1003,10 @@ export default class JwCongregationPlugin extends Plugin {
 
 		try {
 			for (const note of plan.notes) {
+				if (note.renameFrom !== undefined) {
+					const legacy = this.app.vault.getAbstractFileByPath(note.renameFrom);
+					if (legacy) await this.app.fileManager.renameFile(legacy, note.path);
+				}
 				switch (note.kind) {
 					case 'create':
 						await this.app.vault.create(note.path, note.content);
@@ -977,7 +1026,9 @@ export default class JwCongregationPlugin extends Plugin {
 						if (note.legacy.length > 0) legacyCandidates.push({ path: note.path, corrections: note.legacy });
 						break;
 					case 'unchanged':
-						unchanged++;
+						// Renamed is changed, even when the content was already right.
+						if (note.renameFrom !== undefined) merged++;
+						else unchanged++;
 						break;
 				}
 				onStep();
@@ -1204,7 +1255,10 @@ export default class JwCongregationPlugin extends Plugin {
 				const notePath = await this.resolvePath(issuePath, undefined, note.filename);
 				const existing = this.app.vault.getAbstractFileByPath(notePath);
 				if (existing) {
-					if (note.regenerate && existing instanceof TFile) {
+					// Rewritten and counted only when the content really changed — a
+					// re-import used to report every overview as "updated" even when
+					// it came out identical.
+					if (note.regenerate && existing instanceof TFile && await this.app.vault.read(existing) !== note.content) {
 						await this.app.vault.modify(existing, note.content);
 						updated++;
 					} else {
@@ -1224,7 +1278,7 @@ export default class JwCongregationPlugin extends Plugin {
 				const buf = attachment.data;
 				const arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
 				if (existing) {
-					if (attachment.regenerate && existing instanceof TFile) {
+					if (attachment.regenerate && existing instanceof TFile && !sameBytes(buf, await this.app.vault.readBinary(existing))) {
 						await this.app.vault.modifyBinary(existing, arrayBuffer);
 						updated++;
 					} else {
@@ -1239,7 +1293,7 @@ export default class JwCongregationPlugin extends Plugin {
 			}
 
 			progress?.hide();
-			const describe = this.tr.noticeImportMwbResult ?? this.tr.noticeImportResult;
+			const describe = this.tr.noticeImportMwbResult;
 			new Notice(describe(issueFolder, createdPaths.length, updated, skipped), 10000);
 		} catch (err) {
 			progress?.hide();
@@ -1289,7 +1343,7 @@ export default class JwCongregationPlugin extends Plugin {
 
 		const total = notes.length + attachments.length;
 		let done = 0;
-		const progress = total > 3 ? new Notice(this.tr.noticeImportProgress(0, total), 0) : null;
+		const progress = total > 3 ? new Notice(this.tr.noticeUpdateProgress(0, total), 0) : null;
 
 		try {
 			for (const note of notes) {
@@ -1317,7 +1371,7 @@ export default class JwCongregationPlugin extends Plugin {
 					created++;
 				}
 				done++;
-				progress?.setMessage(this.tr.noticeImportProgress(done, total));
+				progress?.setMessage(this.tr.noticeUpdateProgress(done, total));
 			}
 
 			for (const attachment of attachments) {
@@ -1326,7 +1380,9 @@ export default class JwCongregationPlugin extends Plugin {
 				const buf = attachment.data;
 				const arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
 				if (existing instanceof TFile) {
-					if (attachment.regenerate) {
+					// Same rule as a convention's cover images: rewritten and
+					// counted only when the bytes really changed.
+					if (attachment.regenerate && !sameBytes(buf, await this.app.vault.readBinary(existing))) {
 						await this.app.vault.modifyBinary(existing, arrayBuffer);
 						merged++;
 					} else {
@@ -1338,11 +1394,11 @@ export default class JwCongregationPlugin extends Plugin {
 					created++;
 				}
 				done++;
-				progress?.setMessage(this.tr.noticeImportProgress(done, total));
+				progress?.setMessage(this.tr.noticeUpdateProgress(done, total));
 			}
 
 			progress?.hide();
-			const describe = this.tr.noticeUpdateMwbResult ?? this.tr.noticeUpdateResult;
+			const describe = this.tr.noticeUpdateMwbResult;
 			new Notice(describe(merged, created, needsReimport, unchanged), 10000);
 		} catch (err) {
 			progress?.hide();
@@ -1352,6 +1408,25 @@ export default class JwCongregationPlugin extends Plugin {
 			}
 			new Notice(this.tr.noticeImportRolledBack(this.describeError(err)));
 		}
+	}
+
+	/** The file or folder an earlier version created for `path` under a
+	 *  spelling of its name that has since been corrected — null when `path`
+	 *  itself exists or nothing fits unambiguously (see util/legacyNames.ts). */
+	private findLegacyItem(path: string): TAbstractFile | null {
+		if (this.app.vault.getAbstractFileByPath(path)) return null;
+		const slash = path.lastIndexOf('/');
+		const parent = slash === -1 ? this.app.vault.getRoot() : this.app.vault.getAbstractFileByPath(path.slice(0, slash));
+		if (!(parent instanceof TFolder)) return null;
+		const legacy = findLegacySpelling(parent.children.map(child => child.name), path.slice(slash + 1));
+		return parent.children.find(child => child.name === legacy) ?? null;
+	}
+
+	/** Renames what findLegacyItem() finds to `path`. Through the file
+	 *  manager, so links to it elsewhere in the vault follow the new name. */
+	private async adoptLegacyName(path: string): Promise<void> {
+		const legacy = this.findLegacyItem(path);
+		if (legacy) await this.app.fileManager.renameFile(legacy, path);
 	}
 
 	private async resolvePath(congressPath: string, dayFolder: string | undefined, filename: string): Promise<string> {

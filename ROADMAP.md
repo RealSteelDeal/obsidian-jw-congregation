@@ -5,80 +5,12 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
 
 ## Planned
 
-- **Korean program files** (requested in
-  [#1](https://github.com/RealSteelDeal/obsidian-jw-congregation/issues/1)).
+- **Korean: a native speaker's review of the translation.** The interface and the fixed note
+  texts are translated in full, with the terms taken from Obsidian's own Korean translation
+  and from the Korean publications rather than from a dictionary — but the sentences
+  themselves have not yet been read by a native speaker. Corrections are welcome in
+  [#1](https://github.com/RealSteelDeal/obsidian-jw-congregation/issues/1).
 
-  **Established on 17.09.2026**, from official sources rather than derived:
-  - MEPS locale symbol for the `wtlocale=` link parameter: **`KO`** — jw.org's media API
-    answers `langwritten=KO` with `한국어`;
-  - `Publication.MepsLanguageIndex`: **`129`** — read from the official `nwt_KO.jwpub`. The
-    method was validated first against a German file, which reports the `2` already recorded
-    here;
-  - the 66 book names — extracted from that file's `BibleBook` table
-    (`scripts/dump-book-names.mjs`).
-
-  **Confirmed by the reporter on 01.10.2026**, closing both questions that were left open:
-  - the extracted names really are the citation form, spacing included — `디모데 전서`, not
-    `디모데전서`. This could not be settled from the file alone, because the column they come
-    from holds the *formal* title in German and the short one in Korean, so the choice is
-    proven per language and never carried across;
-  - Korean abbreviations are literal prefixes of the full name: a gospel is shortened by
-    dropping `복음` (`마태복음` → `마태`), other books are typed out in full. The existing
-    prefix rule therefore carries Korean as it stands, and no abbreviation table is needed;
-  - eight note labels — `날짜` (Day), `시간` (Time), `성구` (Scriptures), `연사` (Speaker),
-    `다음 프로:` (Next), `개요` (overview note), `복습 질문` (review note), `표지 이미지`
-    (cover image).
-
-  **What still blocks it, and it is larger than those three facts.** `SupportedLang` and
-  `CongressLang` are one and the same set, so adding `'ko'` makes the compiler demand a
-  complete localisation: all 160 keys of `Strings` (`src/i18n.ts`), and `LANG_DISPLAY_NAMES`
-  grows from 49 to 64 entries because every existing language also needs its name in Korean.
-  There is no intermediate state where only the three data points are present.
-
-  **Where the parser anchors actually are — this entry named the wrong ones.** It used to
-  say that six keys of `src/i18n.ts` (`caFallbackDay`, `defaultSession`,
-  `reviewQuestionsSession`, `questionsTitle`, `bibleDramaFallback`, `song(n)`) are matched
-  against the file's own HTML. Re-read on 01.10.2026, none of them is: every one is only
-  ever *written*. `questionsTitle` is assigned as a note's title and later compared against
-  that same assignment — a round trip, not a detection. Left on the English fallback these
-  six produce visibly English words in a Korean note, which is a translation gap, not a
-  silent failure.
-
-  The real anchors are regular expressions that never went through `i18n.ts`, and there are
-  more of them than six:
-
-  | Anchor | What a missing Korean alternative costs |
-  |---|---|
-  | weekday in the day heading (`JwpubParser.extractDayName`) | **breaks a three-day convention** — no day is recognised, so the one-day fallback names all three alike |
-  | `dayOrder` | days come out unsorted |
-  | item-type markers: bible drama / talk series / baptism (`detectItemType`) | those items parse as ordinary talks |
-  | `QUESTIONS_RE` | the printed review-questions note is missing entirely |
-  | `MUSIC_VIDEO_RE`, `PAUSE_RE` | music and break lines each get a note of their own |
-  | `NoteBuilder.splitSongTitle` | the song link's label swallows the whole paragraph |
-
-  This is worse than the old description in one way and much better in another. Worse: the
-  weekday anchor fails loudly and wrongly rather than merely leaving a gap. Better: every
-  anchor is **printed in the programme itself** and can simply be read off in JW Library —
-  no terminal, no clone of this repository, which is exactly what the reporter said they
-  could not do. The earlier ask was shaped around a script run and need not have been.
-
-  **The path, then:** build `ko` as `{ ...L.en, <the known Korean values> }`, so untranslated
-  interface text falls back to English instead of blocking the feature, and add Korean
-  alternatives to the six anchor patterns above. The note labels are no longer part of the
-  ask — they arrived on 01.10.2026.
-
-  **The groundwork for that path is in place.** `LANG_DISPLAY_NAMES` rows are now partial
-  with an English fallback (`displayName()`), so a new language brings its own row instead of
-  first having to be written into all seven existing ones — which would have meant inventing
-  each language's name in Korean. `L` carries the recipe for a partly translated language,
-  including which six keys must not be left on the English fallback. Nothing is wired up:
-  `'ko'` is deliberately not in `SupportedLang` and `129` is deliberately not in
-  `MEPS_LANGUAGE_INDEX`, so a Korean file still behaves exactly as before (the convention
-  parser falls back to German — which is what the reporter is seeing).
-
-  Meeting Workbook import would additionally need the three Korean section headings and the
-  Congregation Bible Study title, which likewise double as detection anchors (see
-  "Meeting-Workbook support for languages other than German" below).
 - **`Phlm.` for Philemon still cannot be typed** — the one gap left, and a small one.
   The abbreviation table below is built only from what real publications were seen to
   print, and none of the eleven German files checked cites Philemon even once, so there is
@@ -105,10 +37,12 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   same decryption/crypto/scripture-link infrastructure is reusable for the
   Watchtower, but its document structure (paragraph-numbered study article,
   not a fixed weekly section layout) hasn't been examined yet.
-- **Meeting-Workbook support for languages other than German** — the parser
-  currently rejects any other detected file language outright, since the
-  three section-heading labels and the Congregation-Bible-Study title double
-  as parser detection anchors and only German real files have been verified.
+- **Meeting-Workbook support for languages beyond German and Korean** — the
+  parser rejects any other detected file language outright, since the three
+  section-heading labels and the Congregation-Bible-Study title double as
+  parser detection anchors. Korean shows what adding one takes: real issues in
+  that language, held against the German ones until weeks, items, durations,
+  songs and scripture references match exactly.
 - **Customizable note template** beyond the current per-field show/hide
   toggles — user-defined field order or additional structural elements.
 - **Periodic Notes integration**: link convention days into Obsidian's
@@ -123,6 +57,37 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   event whose date the user already knows by heart.
 
 ## Recently shipped
+
+- **Korean programme files** (requested in
+  [#1](https://github.com/RealSteelDeal/obsidian-jw-congregation/issues/1)) — all three
+  convention types, with Korean notes, folders, scripture references and songs.
+
+  Every value was read off a file or supplied by a native speaker, and the result was held
+  against a standard fixed before any code was written: since the same convention exists in
+  every language, everything that is not text — item types, the 78 items, 30 songs, every
+  scripture reference, the talk-series parts, the days — has to match the German programme.
+  It does, line for line.
+
+  Two things had to be handled rather than looked up: a song is written `노래 89번`, with a
+  counter suffix after the number, and the files put a zero-width space inside words as a
+  line-break hint, which is now removed on import before it can reach a file name.
+
+  The interface is Korean as well, and every function was then checked in Korean, which
+  found what a translation alone would have missed: Korean was missing from the language
+  choice (so a typed reference could not have been recognised), a song suggestion that
+  fought the Korean input method, and the Korean Bible's zero-width spaces ending up in
+  inserted quotes.
+
+  The Life and Ministry Meeting Workbook imports in Korean too, held against the same
+  standard: two Korean issues produce exactly the weeks, items, durations, songs and
+  scripture references of the German ones. A Korean issue is recognised by its
+  language-independent symbol, since the Korean file names itself `집교26`, not `mwb26`.
+
+  The work also exposed a bug that had been there since 1.9.0: the weekday pattern relied
+  on a word boundary JavaScript only understands for ASCII letters, so an Italian
+  convention's Friday and all three Russian days were never recognised. The item counts
+  were right, so it went unseen — and so did the standard used here at first, until it was
+  extended to count distinct days as well.
 
 - **A typed song number can be linked**, which closes the last gap in correcting a song: the
   link could be removed and the text typed over, but not linked again, because the id a song
@@ -314,7 +279,7 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   plugin installs through **Settings → Community plugins → Browse** instead of
   copying files into the vault by hand.
 - **Import of the Life and Ministry Meeting Workbook ("Leben und Dienst")**,
-  German only for now: one Markdown note per week — not one per assignment,
+  German at first, Korean since 1.29.0: one Markdown note per week — not one per assignment,
   since a week's schedule is read as a whole — covering all three fixed
   sections, every numbered item (duration, ministry-assignment label, source
   citation, discussion questions where present), the opening/mid-week/closing

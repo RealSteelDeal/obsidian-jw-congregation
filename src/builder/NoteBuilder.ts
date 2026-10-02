@@ -50,6 +50,10 @@ export interface BuildResult {
 	attachments: GeneratedAttachment[];
 }
 
+/** One pair of quotes enclosing a whole theme, as circuit-assembly
+ *  programmes print it — see congressFolderName(). */
+const QUOTED_THEME_RE = /^[„“”"«»]\s*([\s\S]*?)\s*[“”"«»]$/;
+
 export class NoteBuilder {
 
 	// Notes are generated in the language of the imported FILE (Congress.lang),
@@ -89,11 +93,17 @@ export class NoteBuilder {
 		this.lang = congress.lang;
 		const { year, theme, type } = congress;
 		const clean = this.sanitizeFolderName(theme);
+		// A circuit-assembly theme comes out of the file already in quotes
+		// („…“, “…”, « … »), and the folder template puts the language's own
+		// pair around it. Until 02.10.2026 that gave „„…““ in seven of the eight
+		// languages — only Russian themes come unquoted. The theme's own pair
+		// goes, the template's stays; util/legacyNames.ts finds the old folders.
+		const unquoted = this.sanitizeFolderName(theme.replace(QUOTED_THEME_RE, '$1'));
 		const season = `${year - 1}-${year}`;
 		switch (type) {
 			case 'CO':        return this.sanitizeFolderName(this.t.folderCO(year, clean));
-			case 'CA-copgm':  return this.sanitizeFolderName(this.t.folderCAco(season, clean));
-			case 'CA-brpgm':  return this.sanitizeFolderName(this.t.folderCAbr(season, clean));
+			case 'CA-copgm':  return this.sanitizeFolderName(this.t.folderCAco(season, unquoted));
+			case 'CA-brpgm':  return this.sanitizeFolderName(this.t.folderCAbr(season, unquoted));
 		}
 	}
 
@@ -311,7 +321,11 @@ export class NoteBuilder {
 		// the optional "No."/"no"/"№" infix only appears in some languages
 		// (English "No.", French "no", Russian "№"; Italian/Portuguese/Spanish
 		// have none, confirmed against real programme files of each language).
-		const match = /^((?:Lied|Song|Cantique|Cantico|Cântico|Песня|Canción)(?:\s+(?:No\.|no|№))?\s+\d+)[.,:;\s-]*(.*)$/iu.exec(title.trim());
+		//
+		// Korean is its own alternative because the number does not end the
+		// label there: "노래 89번 및 광고" — 번 is a counter suffix and belongs to
+		// the link. Read off all 30 song lines of the Korean programmes.
+		const match = /^((?:Lied|Song|Cantique|Cantico|Cântico|Песня|Canción)(?:\s+(?:No\.|no|№))?\s+\d+|노래\s+\d+번)[.,:;\s-]*(.*)$/iu.exec(title.trim());
 		if (!match || !match[1]) return { label: title };
 		return { label: match[1], remark: match[2]?.trim() || undefined };
 	}

@@ -25,7 +25,7 @@ export const jitiWithObsidianStub = createJiti(import.meta.url, {
 	},
 });
 
-export const { TFile, TFolder, Notice } = await import(pathToFileURL(path.resolve(ROOT, 'tests/obsidianStub.mjs')));
+export const { TFile, TFolder, Notice, moment } = await import(pathToFileURL(path.resolve(ROOT, 'tests/obsidianStub.mjs')));
 
 /**
  * An in-memory vault + fileManager + workspace, just enough of the real
@@ -42,12 +42,27 @@ export function createFakeApp() {
 	const trashed = [];
 	let failCreateOnCall = null; // 1-based call index at which `create()` throws
 
+	const renamed = []; // [from, to] per fileManager.renameFile() call
+	// A folder's direct children, as the real TFolder.children lists them —
+	// what main.ts reads to find a note or folder under an earlier name.
+	const folderAt = (p) => {
+		const folder = new TFolder(p);
+		const prefix = p === '' ? '' : `${p}/`;
+		const direct = (q) => q !== p && q.startsWith(prefix) && !q.slice(prefix.length).includes('/');
+		folder.children = [
+			...[...folders].filter(direct).map(q => new TFolder(q)),
+			...[...notes.keys(), ...binaries.keys()].filter(direct).map(q => new TFile(q)),
+		];
+		return folder;
+	};
+
 	const vault = {
 		getAbstractFileByPath(p) {
 			if (notes.has(p) || binaries.has(p)) return new TFile(p);
-			if (folders.has(p)) return new TFolder(p);
+			if (folders.has(p)) return folderAt(p);
 			return null;
 		},
+		getRoot() { return folderAt(''); },
 		async create(p, content) {
 			if (failCreateOnCall !== null && --failCreateOnCall === 0) {
 				throw new Error('simulated write failure');
@@ -59,6 +74,10 @@ export function createFakeApp() {
 		async read(file) { return notes.get(file.path); },
 		async createBinary(p, data) { binaries.set(p, data); return new TFile(p); },
 		async modifyBinary(file, data) { binaries.set(file.path, data); },
+		async readBinary(file) {
+			const data = binaries.get(file.path);
+			return data instanceof ArrayBuffer ? data : data?.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+		},
 		async createFolder(p) { folders.add(p); },
 		// Used by the speaker-name scan: the real vault hands back TFiles and
 		// reads them from Obsidian's own cache.
@@ -75,6 +94,16 @@ export function createFakeApp() {
 	};
 
 	const fileManager = {
+		// Moves a file, or a folder with everything inside it, like the real one
+		// (which would also update links to it — not modelled here).
+		async renameFile(file, newPath) {
+			renamed.push([file.path, newPath]);
+			const move = (p) => (p === file.path ? newPath : p.startsWith(`${file.path}/`) ? newPath + p.slice(file.path.length) : p);
+			for (const map of [notes, binaries]) {
+				for (const [p, v] of [...map]) { if (move(p) !== p) { map.delete(p); map.set(move(p), v); } }
+			}
+			for (const p of [...folders]) { if (move(p) !== p) { folders.delete(p); folders.add(move(p)); } }
+		},
 		async trashFile(file) {
 			trashed.push(file.path);
 			notes.delete(file.path);
@@ -92,6 +121,7 @@ export function createFakeApp() {
 		binaries,
 		folders,
 		trashed,
+		renamed,
 		/** Makes the Nth call to vault.create() throw, to exercise the rollback path. */
 		failCreateOnCall(n) { failCreateOnCall = n; },
 	};

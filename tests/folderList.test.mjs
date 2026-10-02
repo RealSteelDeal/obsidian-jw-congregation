@@ -54,3 +54,20 @@ test('findFoldersByName returns nothing when no folder carries that name', () =>
 	assert.deepEqual(findFoldersByName(app, 'Kongresse/2026'), []);
 	assert.deepEqual(findFoldersByName(app, 'Nicht vorhanden'), []);
 });
+
+test('findFoldersByName falls back to a folder named in an earlier spelling', () => {
+	// A convention imported before 02.10.2026 under ʺ…ʺ must still be paired.
+	const app = fakeApp(['Assemblea – ʺDio vivente e veroʺ']);
+	assert.deepEqual(
+		findFoldersByName(app, 'Assemblea – “Dio vivente e vero”').map(f => f.path),
+		['Assemblea – ʺDio vivente e veroʺ'],
+	);
+});
+
+test('findFoldersByName prefers the exact name over an earlier spelling', () => {
+	const app = fakeApp(['Assemblea – ʺDio vivente e veroʺ', 'Assemblea – “Dio vivente e vero”']);
+	assert.deepEqual(
+		findFoldersByName(app, 'Assemblea – “Dio vivente e vero”').map(f => f.path),
+		['Assemblea – “Dio vivente e vero”'],
+	);
+});

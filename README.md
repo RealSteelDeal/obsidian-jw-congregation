@@ -2,7 +2,7 @@
 
 An Obsidian community plugin that imports official convention program files of Jehovah's Witnesses and turns them into structured, linked Markdown notes in your vault.
 
-**Language note:** The plugin supports German, English, French, Italian, Portuguese, Russian and Spanish program files. Generated notes automatically follow the language of the imported file — a German jwpub file produces German notes, a French one French notes, and so on. The plugin interface itself (settings, import dialog, Bible-verse popup) can independently be switched between all seven languages.
+**Language note:** The plugin supports German, English, French, Italian, Portuguese, Russian, Spanish and Korean program files. Generated notes automatically follow the language of the imported file — a German jwpub file produces German notes, a French one French notes, and so on. The plugin interface itself (settings, import dialog, Bible-verse popup) can independently be switched between all eight languages. On a first start the interface follows Obsidian's own language, where the plugin has it.
 
 ## Features
 
@@ -10,7 +10,7 @@ An Obsidian community plugin that imports official convention program files of J
   - `CO` – Regional Convention (Friday / Saturday / Sunday)
   - `CA-copgm` – Circuit Assembly With Circuit Overseer (one day)
   - `CA-brpgm` – Circuit Assembly With Branch Representative (one day)
-- **Supported languages: German, English, French, Italian, Portuguese, Russian and Spanish** – the language of the program file is detected automatically (via its `MepsLanguageIndex`), and all generated notes, labels, file and folder names follow it. The plugin's own interface (settings, import dialog, Bible-verse popup) can independently be set to any of the same seven languages.
+- **Supported languages: German, English, French, Italian, Portuguese, Russian, Spanish and Korean** – the language of the program file is detected automatically (via its `MepsLanguageIndex`), and all generated notes, labels, file and folder names follow it. The plugin's own interface (settings, import dialog, Bible-verse popup) can independently be set to any of the same eight languages.
 - **Primary source: `.jwpub`** – full decryption (AES-128-CBC + zlib) and HTML parsing
 - **Fallback: RTF-ZIP** – used automatically when no jwpub is available (German exports only)
 - **One folder per convention**, named after type, year/season and theme – created directly in the vault root by default, without an extra wrapper folder
@@ -34,7 +34,7 @@ An Obsidian community plugin that imports official convention program files of J
   Instead, click the reference you already wrote, widen the passage in the popup with "verse after" (or "whole chapter") as he reads, and press **Extend reference** when he is done. A menu then offers to replace the reference or to keep the original and add the wider one beside it.
 
   Widening the popup deliberately never changes the note by itself — you follow along while reading and only commit to a range once you know where it ended. The button appears only when the passage really has been widened, never for a cross-reference you navigated to, and it leaves your own spelling of the book alone (`Phil. 4:` stays `Phil. 4:`). If the line holds several references, only the one you opened is rewritten.
-- **Type a song number and it offers to link it.** "Lied 45" becomes a finished, rendered JW Library link — trailing space and caret placed just as for a typed scripture reference — in all seven languages. The address comes from the official songbook's own data, not from a formula: for 12 of the 163 songs a formula gets it wrong, so those links used to open the wrong publication on the RTF import path. A song the songbook does not contain is left unlinked rather than guessed at.
+- **Type a song number and it offers to link it.** "Lied 45" becomes a finished, rendered JW Library link — trailing space and caret placed just as for a typed scripture reference — in all eight languages. The address comes from the official songbook's own data, not from a formula: for 12 of the 163 songs a formula gets it wrong, so those links used to open the wrong publication on the RTF import path. A song the songbook does not contain is left unlinked rather than guessed at.
 - **Start removing a link and the plugin offers to finish it.** Delete the space after a linked reference and a suggestion appears, offering to *delete* the link, to *adjust* it (the link goes, the text stays and the caret lands at its end, so a wrong verse or song number is corrected by typing over it), or to cancel. Covers everything the plugin writes — scripture references, songs, source citations — and nothing else. A correction made this way is flagged as yours, so the next update leaves it alone instead of restoring the generated value. This is also the route that works on a phone, where the link is rendered rather than shown as source.
 - **Remove a link without deleting its URL by hand.** A linked reference is one long markdown link; **"Remove the link under the cursor"** takes the whole thing out, from the command palette (shortcut-able) or the editor's right-click menu. It covers every link the plugin writes — scripture references, songs, source citations — and acts on the one the cursor is in, or, on a line holding only one, from anywhere on that line. With two links and the cursor in neither it does nothing rather than guess. The only tidying is the double space a mid-sentence removal would leave behind.
 - **Speaker names as wiki links, so the directory is Obsidian's own.** "Turn speaker names into links" scans the vault, proposes which spellings mean the same brother ("Br. Sieberer" / "Hannes Sieberer" / "Sieberer Hannes") and — once you confirm each group — writes `[[Hannes Sieberer|Br. Sieberer]]`, keeping your wording visible. His note then lists every talk in its backlinks, live and without any generation step. An optional setting writes new notes with `**Speaker:** [[]]` so completion opens as you type and a second spelling never arises.
@@ -42,10 +42,10 @@ An Obsidian community plugin that imports official convention program files of J
 - **Update every imported convention in one run.** A parser fix applies to all of them, so "Update several conventions at once" takes all the program files together and pairs each with the folder its first import created — matched by folder name anywhere in the vault, always shown as a changeable proposal before anything is written. One convention failing never abandons the rest.
 - **Optional YAML frontmatter** (stable English keys, e.g. for Dataview queries) can be added to every generated note – off by default, notes stay frontmatter-free otherwise.
 - **Type a scripture reference anywhere, in any note** (e.g. `Psalm 12:1`, or an abbreviation like `Matth. 5:2`) and a suggestion pops up right after typing it, offering up to four actions. Abbreviations are understood both when they are simply a shortened name (`Matth.`, `Ps`, `1 Mo`) and when they are not — `Phil.`, `Apg.`, `Offb.`, `Klg` and `Zeph.` are recognised because they were read out of real publications rather than assumed.
-- **Book names complete themselves as you type them.** `Apo` offers `Apostelgeschichte`; accept it and type the chapter and verse, at which point the suggestion above takes over. It only fires on a capitalised word of three letters or more, so ordinary prose does not keep interrupting you — a lowercase `mich` stays the word "mich" and does not offer `Micha`. Can be switched off in the settings. Every citation form is understood: a single verse, a range (`5:3-16`), a range running into a later chapter (`Hebräer 5:13-6:1`), and any number of comma-separated parts – each of them a verse or a range, adjacent (`Röm. 2:14,15`) or cited across a gap (`1. Tim. 4:12,15-17`), in which case only the verses actually cited are linked and shown – a gapped citation becomes one link per stretch of verses, since JW Library has no reference syntax covering a gap – both fully offline, using the loaded Bible file: link it, link it and open JW Library immediately, insert the verse text as a quote (replacing the typed reference), or insert the quote while turning the reference into a link instead. Each of the four can be individually enabled/disabled and freely reordered in the settings.
+- **Book names complete themselves as you type them.** `Apo` offers `Apostelgeschichte`; accept it and type the chapter and verse, at which point the suggestion above takes over. It only fires on a capitalised word of three letters or more, so ordinary prose does not keep interrupting you — a lowercase `mich` stays the word "mich" and does not offer `Micha`. Can be switched off in the settings. Not available in Korean, whose script has no capital letters to tell a book name from ordinary writing — a complete Korean reference such as `디모데 전서 4:12` is still recognised and linked. Every citation form is understood: a single verse, a range (`5:3-16`), a range running into a later chapter (`Hebräer 5:13-6:1`), and any number of comma-separated parts – each of them a verse or a range, adjacent (`Röm. 2:14,15`) or cited across a gap (`1. Tim. 4:12,15-17`), in which case only the verses actually cited are linked and shown – a gapped citation becomes one link per stretch of verses, since JW Library has no reference syntax covering a gap – both fully offline, using the loaded Bible file: link it, link it and open JW Library immediately, insert the verse text as a quote (replacing the typed reference), or insert the quote while turning the reference into a link instead. Each of the four can be individually enabled/disabled and freely reordered in the settings.
 - **Review note** (`Review.md`; `Wiederholung.md` for German imports) with the three standard reflection questions for the congregation's convention review
 - **Printed review questions** ("Find Answers to These Questions") become their own note with one heading per question, always numbered last
-- **Meeting Workbook ("Leben und Dienst") import — German only, new**: imports the Life-and-Ministry-Meeting-Workbook `.jwpub` file as one note per week (not one per assignment) — the three fixed sections, every numbered item with its actual descriptive text from the workbook (not just a metadata summary), the ministry-assignment label bolded in place, duration, discussion questions (with any embedded scripture reference kept clickable), the opening/mid-week/closing songs, and the always-last Congregation Bible Study. Every source-material citation (e.g. "th"/"Werde ein besserer Leser und Lehrer", "lmd"/"Liebt Menschen, macht sie zu Jüngern") links to its real jw.org/finder page, exactly like songs already do. Each week's own cover image is embedded at the top of its note, and notes are numbered chronologically (`01.`, `02.`, …) so the file explorer's default sort matches the actual week order. A "Bibelleseprogramm für das Gedächtnismahl" insert (appears in the Memorial-season issue) gets its own per-day reading checklist note. Has its own import/update commands, ribbon icon and settings section, fully independent of the convention-program feature above.
+- **Meeting Workbook ("Leben und Dienst") import — German and Korean**: imports the Life-and-Ministry-Meeting-Workbook `.jwpub` file as one note per week (not one per assignment) — the three fixed sections, every numbered item with its actual descriptive text from the workbook (not just a metadata summary), the ministry-assignment label bolded in place, duration, discussion questions (with any embedded scripture reference kept clickable), the opening/mid-week/closing songs, and the always-last Congregation Bible Study. Every source-material citation (e.g. "th"/"Werde ein besserer Leser und Lehrer", "lmd"/"Liebt Menschen, macht sie zu Jüngern") links to its real jw.org/finder page, exactly like songs already do. Each week's own cover image is embedded at the top of its note, and notes are numbered chronologically (`01.`, `02.`, …) so the file explorer's default sort matches the actual week order. A "Bibelleseprogramm für das Gedächtnismahl" insert (appears in the Memorial-season issue) gets its own per-day reading checklist note. Has its own import/update commands, ribbon icon and settings section, fully independent of the convention-program feature above.
 
 ### Tip: pairs well with JW Library Linker
 
@@ -81,7 +81,7 @@ Listed in Obsidian's official community plugin directory: **Settings → Communi
 4. Check the preview (convention type, theme, detected days/program items)
 5. **Import** – the convention folder with all notes is created
 
-Re-importing into an existing convention folder only refreshes purely derived files (overview, cover image). Notes with your own entries (speaker, personal notes) are never overwritten.
+Re-importing into an existing convention folder only refreshes purely derived files (overview, cover image), and even there a line you corrected through the plugin is kept. Notes with your own entries (speaker, personal notes) are never overwritten. A folder or note that an earlier plugin version named differently is found and renamed instead of being duplicated.
 
 ### Updating notes after a plugin fix
 
@@ -129,7 +129,7 @@ The **"Prepare the Speaker field as a link"** setting (off by default) closes th
 
 A second, independent ribbon icon (calendar symbol), command palette entry, or the **"Import & update Meeting Workbook"** settings section imports a Life-and-Ministry-Meeting-Workbook `.jwpub` file the same way — pick the file, pick a target folder, check the preview, **Import**. One folder per issue is created, with one Markdown note per week (not one per assignment, unlike the convention feature above — a week's schedule is meant to be read as a whole). "Update Meeting Workbook notes" re-parses the same file and patches an already-imported issue folder in place, exactly like "Update convention notes" does, via the same invisible-marker mechanism — every numbered item keeps its own marker (the Congregation Bible Study gets a dedicated one), so anything typed underneath it is preserved.
 
-Currently supports German workbook files only — the three section headings and the Congregation-Bible-Study title double as both display text and parser detection anchors, and only German real files have been verified so far. Picking a file in another language, or a convention-program file by mistake, is rejected with a clear message rather than silently misparsed.
+Currently supports German and Korean workbook files. The three section headings and the Congregation-Bible-Study title are used both as display text and as anchors for recognising the file, so a language is only added once real workbooks in that language have been checked against the German ones: same weeks, items, durations, songs and scripture references. Picking a file in another language, or a convention-program file by mistake, is rejected with a clear message instead of being parsed wrongly without notice.
 
 ## Settings
 
@@ -138,7 +138,7 @@ The very top of the tab, **"Import & update convention programs"**, explains the
 | Setting | Default | Description |
 |---|---|---|
 | Target folder | *(vault root)* | Parent folder for new convention folders (overridable per import); empty = no wrapper folder |
-| Language of the interface and Bible-verse popup | `Deutsch` | Plugin labels and Bible book names in the popup, selectable from all 7 supported languages independently of any note's own language. Generated notes follow the imported file's language automatically |
+| Language of the interface and Bible-verse popup | Obsidian's language, else `Deutsch` | Plugin labels and Bible book names in the popup, selectable from all 8 supported languages independently of any note's own language. Recognising a typed scripture reference also uses this language. Generated notes follow the imported file's language automatically |
 | Create review note | on | Creates the additional review note |
 | Note fields | all on | Show/hide the Day/Time/Scriptures/Speaker fields individually, plus free-form extra fields |
 | Add frontmatter (properties) | off | Adds YAML frontmatter with stable English keys (`convention`, `type`, `day`, `time`) to every generated note, independent of the note's own language – e.g. for Dataview queries |
@@ -183,7 +183,7 @@ By default (target folder = vault root), each convention is its own top-level fo
 
 (Examples show English imports; a German program file produces German names throughout — e.g. `Regionaler Kongress 2026 – …`, `00. Übersicht.md`, `Titelbild.jpg`, `Wiederholung.md`.)
 
-A Meeting Workbook issue is its own top-level folder too, with one numbered note per week (German only, so always German names):
+A Meeting Workbook issue is its own top-level folder too, with one numbered note per week (names follow the workbook's language — German shown here; a Korean issue becomes `생활과 봉사 2026년 1-2월/` with `01. 1월 5-11일.md`):
 
 ```
 Leben und Dienst 2026 Jan⁄Feb/
@@ -202,7 +202,7 @@ Leben und Dienst 2026 Jan⁄Feb/
 - **ZIP handling:** `fflate` (pure JS)
 - **sql.js runs with an embedded WASM binary**: the `.wasm` file is embedded into `main.js` as base64 at build time (esbuild `binary` loader) – no network access, no separate file
 - **Parsing strategy:** `DOMParser` over the decrypted HTML content
-- **Language detection:** `Publication.MepsLanguageIndex` (0 = English, 1 = Spanish, 2 = German, 3 = French, 4 = Italian, 207 = Russian, 785 = Portuguese); parsing patterns (session headings, type markers such as `SYMPOSIUM:`/`VORTRAGSREIHE:`/`SIMPOSIO:`, music/break lines) accept all seven languages
+- **Language detection:** `Publication.MepsLanguageIndex` (0 = English, 1 = Spanish, 2 = German, 3 = French, 4 = Italian, 129 = Korean, 207 = Russian, 785 = Portuguese); parsing patterns (weekdays, type markers such as `SYMPOSIUM:`/`VORTRAGSREIHE:`/`심포지엄:`, music/break lines) accept all eight languages
 - **Scriptures:** taken directly from `<a href="jwpub://b/NWTR/...">` links in the HTML
 - **Songs:** recognized via `<a href="jwpub://p/…">` links without an accompanying Bible link; the real jw.org `docid` is read from that very href (never computed – the docid is not a linear function of the song number)
 - **Cover images:** resolved per day document via the `Multimedia`/`DocumentMultimedia` tables (`CategoryType 8`)
@@ -240,20 +240,20 @@ Adding a language needs three facts, none of which should be guessed: the MEPS l
 src/
   main.ts                    # plugin entry point
   settings.ts                # settings
-  i18n.ts                    # UI strings (de/en) + note-generation strings (all 7 languages)
+  i18n.ts                    # UI and note-generation strings (all 8 languages)
   models/
     congress.ts              # data model (Congress, Day, ProgramItem, …)
     mwb.ts                   # data model for the Meeting Workbook import (Mwb, MwbWeek, MwbItem, …)
   normalizer/
     ScriptureNormalizer.ts   # scripture normalization & link generation
     ScriptureTextParser.ts   # recognizes a scripture reference typed as plain text
-    bookNames.ts             # Bible book names for all 7 supported languages
+    bookNames.ts             # Bible book names for all 8 supported languages
     songDocIds.ts            # song number → JW Library id, read from the songbook (never computed)
   parser/
     JwpubParser.ts           # jwpub → data model (primary)
     RtfParser.ts             # RTF-ZIP → data model (fallback, German only)
     SourceRouter.ts          # format detection & routing
-    MwbParser.ts             # jwpub → Mwb (Meeting Workbook, German only)
+    MwbParser.ts             # jwpub → Mwb (Meeting Workbook, German and Korean)
     MwbSourceRouter.ts       # Meeting-Workbook format/publication-type detection
   builder/
     NoteBuilder.ts           # data model → Markdown notes (wraps derived fields in merge markers)

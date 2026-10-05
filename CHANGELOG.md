@@ -44,6 +44,8 @@
   Russian and Spanish — "Nuestra vida y ministerio", "apostila", and so on. It now uses the
   publication's own name.
 
+## 1.29.0
+
 ### New
 
 - **Korean programme files** (requested in

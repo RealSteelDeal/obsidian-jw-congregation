@@ -92,6 +92,7 @@ scripts/
   dump-song-docids.mjs       # Entwickler-Tool: Liednummer→docid aus einem Liederbuch lesen; --check prüft die 4 belegten Fälle
   dump-structure.mjs         # Entwickler-Tool: Publication-Zeile + h1/h2/li-Struktur je Dokument ausgeben (nutzt util/jwpubCrypto)
   test-parse.mjs             # Entwickler-Test: importiert den echten JwpubParser per jiti und parst übergebene .jwpub-Dateien
+  measure-parse.mjs          # Entwickler-Tool: misst Gesamtzeit und längste Blockade der Event-Loop beim Einlesen (Kongress, Arbeitsheft, Bibel)
   extract-changelog.mjs      # Release-Tool: extrahiert den Abschnitt einer Version aus CHANGELOG.md für die GitHub-Release-Notes
 ```
 
@@ -262,6 +263,9 @@ nicht hier duplizieren. Historische Entscheidungen dazu:
   im Haupt-Thread; Obsidian friert dabei 1–3 s ein. Mit dem Nutzer besprochen (Juli 2026) und
   bewusst zurückgestellt, bis es bei großen Dateien real stört — der Umbau (Worker-Bundling in
   main.js, sql.js/WASM im Worker) wäre unverhältnismäßig zum aktuellen Leidensdruck.
+  ⚠️ Die „1–3 s“ sind eine Schätzung, keine Messung. Gemessen wird mit
+  `scripts/measure-parse.mjs` (Node + linkedom, also Größenordnung, nicht die exakte Zahl in
+  Obsidian). Kongress- und Arbeitsheft-Import lesen die Datei zweimal: Vorschau und Import.
 
 ## Wichtige Implementierungsdetails
 
@@ -1033,6 +1037,7 @@ Skripte (Node, ohne Obsidian):
 ```bash
 node scripts/dump-structure.mjs <datei.jwpub>
 node scripts/test-parse.mjs <datei1.jwpub> [datei2.jwpub ...]
+node scripts/measure-parse.mjs [--runs=5] <datei.jwpub> [weitere ...]
 node scripts/dump-book-names.mjs [--compare=<lang>] <datei.jwpub>
 node scripts/dump-book-abbreviations.mjs <lang> <datei.jwpub> [weitere ...]
 ```

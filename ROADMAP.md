@@ -99,7 +99,7 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   neither in the document title nor given by position. It is `Document.ChapterNumber`.
 
   The ids turned out to be **language-independent** (36 songs, identical across the German,
-  English and Russian programmes), so one table serves all seven languages. It also fixed a
+  English and Russian programmes), so one table serves all eight languages. It also fixed a
   standing defect: the RTF import path had been computing ids, wrong for 12 of the 163 songs.
 
 - **The overview note became mergeable**, closing the last hole in "a correction stays

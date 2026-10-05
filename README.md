@@ -228,6 +228,7 @@ Analysis scripts for development & debugging:
 ```bash
 node scripts/dump-structure.mjs <file.jwpub>   # DB metadata + per-document structure
 node scripts/test-parse.mjs <file.jwpub> ...   # parse real files with the actual parser
+node scripts/measure-parse.mjs <file.jwpub> ... # how long reading a file blocks the main thread
 node scripts/dump-book-names.mjs <file.jwpub>  # Bible book names out of an nwt/nwtsty file
 node scripts/dump-book-abbreviations.mjs <lang> <file.jwpub> ...   # abbreviations a publication prints
 ```

@@ -11,7 +11,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { jiti } from './_setup.mjs';
 
-const { MwbParser } = await jiti.import('../src/parser/MwbParser.ts');
+const { MwbParser, MEMORIAL_READING_TITLE_RE } = await jiti.import('../src/parser/MwbParser.ts');
+const { NL } = await jiti.import('../src/i18n.ts');
 
 function parser() {
 	return new MwbParser(new Uint8Array());
@@ -360,4 +361,114 @@ test('Korean song headings carry prayer and introduction like German ones', () =
 test('a workbook file has its zero-width spaces removed before parsing, in every language', () => {
 	assert.equal(koreanParser()['clean']('성경\u200b에 담긴 보물'), '성경에 담긴 보물');
 	assert.equal(parser()['clean']('Text\u200bmit'), 'Textmit');
+});
+
+// ── The other six languages (fictional text; structure words as the
+// January-February and March-April 2026 issues print them) ──────────────────
+
+function parserFor(lang) {
+	const p = parser();
+	p['lang'] = lang;
+	return p;
+}
+
+function paragraph(text) {
+	return parseHtml(`<p>${text}</p>`).querySelector('p');
+}
+
+test('every language\u2019s duration marker is read, as its own issue prints it', () => {
+	const cases = [['(10 Min.)', 10], ['(10 min.)', 10], ['(10 min)', 10], ['(10 mins.)', 10], ['(1 min.)', 1], ['(10 мин.)', 10], ['(10분)', 10]];
+	for (const [marker, minutes] of cases) {
+		assert.equal(parser()['extractDuration']([paragraph(`${marker} Text.`)]), minutes, marker);
+	}
+	assert.equal(parser()['extractDuration']([paragraph('(Isa 17:12; w18.06 7 ¶16)')]), undefined);
+});
+
+test('a French period right behind the duration bracket goes with it', () => {
+	// "(10 min). Discussion." — German never closes the sentence there.
+	const paragraphs = [[{ type: 'text', markdown: '(10 min). Discussion. Texte.' }]];
+	parser()['stripLeadingMetadataText'](paragraphs, 10, undefined);
+	assert.equal(paragraphs[0][0].markdown, 'Discussion. Texte.');
+});
+
+test('an assignment label is read in capitals of any script, with or without its period', () => {
+	const cases = [
+		['en', '(3 min.) HOUSE TO HOUSE. Text.', 'HOUSE TO HOUSE'],
+		['fr', '(4 min) DE MAISON EN MAISON (lmd leçon 5 idée 5).', 'DE MAISON EN MAISON'],
+		['fr', '(4 min) TÉMOIGNAGE INFORMEL. Texte.', 'TÉMOIGNAGE INFORMEL'],
+		['ru', '(3 мин.) ПРОПОВЕДЬ ПО ДОМАМ. Текст.', 'ПРОПОВЕДЬ ПО ДОМАМ'],
+		['ru', '(4 мин.) НЕФОРМАЛЬНОЕ СЛУЖЕНИЕ (lmd урок 3, пункт 5).', 'НЕФОРМАЛЬНОЕ СЛУЖЕНИЕ'],
+		['es', '(1 min.) PREDICACIÓN INFORMAL. Texto.', 'PREDICACIÓN INFORMAL'],
+		['pt', '(4 min.) TESTEMUNHO PÚBLICO. Texto.', 'TESTEMUNHO PÚBLICO'],
+	];
+	for (const [lang, text, label] of cases) {
+		assert.equal(parserFor(lang)['extractAssignmentType']([paragraph(text)]), label, text);
+	}
+	assert.equal(parserFor('fr')['extractAssignmentType']([paragraph('(5 min). Discussion.')]), undefined);
+});
+
+test('the bold label keeps its period only where the file has one', () => {
+	const without = [[{ type: 'text', markdown: '(4 min) DE MAISON EN MAISON (lmd leçon 5 idée 5).' }]];
+	parserFor('fr')['stripLeadingMetadataText'](without, 4, 'DE MAISON EN MAISON');
+	assert.equal(without[0][0].markdown, '**DE MAISON EN MAISON** (lmd leçon 5 idée 5).');
+	const withPeriod = [[{ type: 'text', markdown: '(3 min.) HOUSE TO HOUSE. Text.' }]];
+	parserFor('en')['stripLeadingMetadataText'](withPeriod, 3, 'HOUSE TO HOUSE');
+	assert.equal(withPeriod[0][0].markdown, '**HOUSE TO HOUSE.** Text.');
+});
+
+const RUSSIAN_WEEK_HTML = `
+<header><h1>5—11 ЯНВАРЯ</h1><h2><a href="jwpub://b/NWTR/23:17:1-23:20:6">ИСАЙЯ 17—20</a></h2></header>
+<div class="bodyTxt">
+<h3><a href="jwpub://p/U:1102016953/"><strong>Песня 153</strong></a> <strong>и молитва | Вступительные слова</strong> (1 мин.)</h3>
+<h2>СОКРОВИЩА ИЗ СЛОВА БОГА</h2>
+<h3>1. Пример</h3><p>(10 мин.) Текст.</p><p>ОПРЕДЕЛЕНИЕ. Текст рамки.</p>
+<h2>ОТТАЧИВАЕМ НАВЫКИ СЛУЖЕНИЯ</h2>
+<h3>2. Начинайте разговор</h3><p>(3 мин.) ПРОПОВЕДЬ ПО ДОМАМ. Текст.</p>
+<h2>ХРИСТИАНСКАЯ ЖИЗНЬ</h2>
+<h3><a href="jwpub://p/U:1102016948/"><strong>Песня 148</strong></a></h3>
+<h3>3. Изучение Библии в собрании</h3><p>(30 мин.) Пример.</p>
+<h3>Заключительные слова (3 мин.) | <a href="jwpub://p/U:1102016873/"><strong>Песня 73</strong></a> и молитва</h3>
+</div>`;
+
+test('only ministry items carry an assignment type', () => {
+	// The Russian March 2026 issue opens a box in a Treasures item with
+	// "ОПРЕДЕЛЕНИЕ." (definition) — capitals, a period, and no assignment.
+	const week = parserFor('ru')['parseWeekDocument'](parseHtml(RUSSIAN_WEEK_HTML));
+	assert.deepEqual(week.items.map(i => i.section), ['treasures', 'ministry', 'living']);
+	assert.deepEqual(week.items.map(i => i.assignmentType), [undefined, 'ПРОПОВЕДЬ ПО ДОМАМ', undefined]);
+	assert.equal(week.items[2].isCongregationBibleStudy, true);
+	assert.equal(week.openingSong.includesPrayer, true);
+	assert.equal(week.openingSong.includesIntroWords, true);
+	assert.equal(week.closingSong.includesPrayer, true);
+});
+
+test('every language\u2019s section headings and study title are recognised', () => {
+	for (const lang of ['de', 'en', 'fr', 'it', 'pt', 'ru', 'es', 'ko']) {
+		const p = parserFor(lang);
+		const t = NL[lang];
+		assert.deepEqual([t.treasuresLabel, t.ministryLabel, t.livingLabel].map(h => p['matchSection'](h)), ['treasures', 'ministry', 'living'], lang);
+		assert.equal(p['cleanText'](t.cbsLabel).toUpperCase(), t.cbsLabel.toUpperCase(), lang);
+	}
+});
+
+test('song headings carry prayer and introduction in every language', () => {
+	const headings = {
+		en: 'and Prayer | Opening Comments', fr: 'et prière | Paroles d’introduction', it: 'e preghiera | Commenti introduttivi',
+		pt: 'e oração | Comentários iniciais', ru: 'и молитва | Вступительные слова', es: 'y oración | Palabras de introducción',
+	};
+	for (const [lang, rest] of Object.entries(headings)) {
+		const h3 = parseHtml(`<h3><a href="jwpub://p/E:1102016953/">X 153</a> ${rest} (1 min)</h3>`).querySelector('h3');
+		const song = parserFor(lang)['parseSongHeading'](h3);
+		assert.equal(song.includesPrayer, true, lang);
+		assert.equal(song.includesIntroWords, true, lang);
+	}
+});
+
+test('the Memorial reading schedule is recognised by each language\u2019s own title', () => {
+	for (const title of ['Bibelleseprogramm für das Gedächtnismahl 2026', '2026 Memorial Bible Reading Schedule', 'Mémorial 2026 : programme de lecture biblique',
+		'Lettura della Bibbia per la Commemorazione del 2026', 'Programa de Leitura da Bíblia para o Memorial de 2026',
+		'График чтения Библии в период Вечери в 2026 году', 'Lectura bíblica para la Conmemoración del 2026', '2026 기념식 성서 읽기 계획표']) {
+		assert.match(title, MEMORIAL_READING_TITLE_RE);
+	}
+	assert.doesNotMatch('March 2-8', MEMORIAL_READING_TITLE_RE);
 });

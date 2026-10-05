@@ -37,12 +37,6 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   same decryption/crypto/scripture-link infrastructure is reusable for the
   Watchtower, but its document structure (paragraph-numbered study article,
   not a fixed weekly section layout) hasn't been examined yet.
-- **Meeting-Workbook support for languages beyond German and Korean** — the
-  parser rejects any other detected file language outright, since the three
-  section-heading labels and the Congregation-Bible-Study title double as
-  parser detection anchors. Korean shows what adding one takes: real issues in
-  that language, held against the German ones until weeks, items, durations,
-  songs and scripture references match exactly.
 - **Customizable note template** beyond the current per-field show/hide
   toggles — user-defined field order or additional structural elements.
 - **Periodic Notes integration**: link convention days into Obsidian's
@@ -57,6 +51,12 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   event whose date the user already knows by heart.
 
 ## Recently shipped
+
+- **The Meeting Workbook in all eight languages**, and an interface that uses Obsidian's own
+  words in each of them. Every language's 2026 issues match the German ones week by week;
+  every language was then run through in a real Obsidian set to that language — settings,
+  every dialog, the verse popup, quotes, typed references and songs — with an automatic
+  check that no text of another language shows up anywhere.
 
 - **Korean programme files** (requested in
   [#1](https://github.com/RealSteelDeal/obsidian-jw-congregation/issues/1)) — all three

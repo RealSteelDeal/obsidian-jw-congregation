@@ -67,7 +67,7 @@ src/
     JwpubParser.ts           # .jwpub → Congress (primär, nutzt util/jwpubCrypto.ts + DOMParser)
     RtfParser.ts             # RTF-ZIP → Congress (Fallback)
     SourceRouter.ts          # Dateiformat erkennen, Router jwpub → rtf
-    MwbParser.ts             # .jwpub (Leben-und-Dienst-Arbeitsheft) → Mwb; Deutsch und Koreanisch (siehe eigener Abschnitt unten)
+    MwbParser.ts             # .jwpub (Leben-und-Dienst-Arbeitsheft) → Mwb; alle acht Sprachen (siehe eigener Abschnitt unten)
     MwbSourceRouter.ts       # eigenständig (nicht Teil von SourceRouter/ParseResult) — prüft Publication.EnglishSymbol auf "mwb"-Präfix vor dem vollen Parse (Symbol ist lokalisiert, siehe unten)
   builder/
     NoteBuilder.ts           # Congress → GeneratedNote[] (Ordnernamen, Nummerierung, Übersicht, Notiz-Rendering, unsichtbare Marker)
@@ -202,6 +202,26 @@ Obsidian und die Publikationen:
   nachschlagen. Für Koreanisch z. B. `보관함` (Vault), `보관함 최상위 폴더` (Vault-Wurzel),
   `읽기 화면`, `실시간 미리보기`, `원본 모드`, `편집`, `리본 메뉴`, `모바일 툴바`, `백링크`,
   `링크되지 않은 언급`, `속성`, `인용`, `콜아웃`; `Frontmatter` bleibt dort unübersetzt.
+  **Englisch steht nicht in `/i18n/`** (`en-GB.txt` enthält nur Abweichungen): Der
+  Ausgangstext ist ein JavaScript-Objekt im App-Bundle (`optionChoiceVaultRoot:"Vault
+  folder"` usw.); seine camelCase-Schlüssel entsprechen den kebab-case-Schlüsseln von
+  `mapping.txt` (2573 von 2596 ließen sich am 02.10.2026 zuordnen). Erst damit wird aus den
+  Dateien eine Tabelle „englischer Begriff → acht Sprachen“. Obsidians eigene Übersetzungen
+  sind nicht einheitlich (Portugiesisch „vault“ 93× neben „cofre“ 81×) — dann gilt die
+  überwiegende Form, gezählt, nicht gefühlt; einen offensichtlichen Tippfehler Obsidians
+  („Raíz“) nicht übernehmen.
+  So abgeglichen am 02.10.2026, Deutsch eingeschlossen: „Erweiterung“ statt „Plugin“,
+  „Vault-Hauptordner“ statt „Vault-Wurzel“, „der Vault“; Spanisch „bóveda“, „complemento“,
+  „ajustes“; Französisch „paramètres“, „module“; Italienisch „cartella principale del
+  vault“, „riquadro comandi“; Russisch „Wiki-ссылка“, „режим просмотра/редактирования“;
+  Englisch „vault folder“, „wikilink“. `tests/i18n.test.mjs` hält die verworfenen Formen
+  fest.
+- **Portugiesisch ist europäisches Portugiesisch.** Obsidians `pt` ist europäisch
+  („ficheiro“ 153× gegen „arquivo“ 2×, „eliminar“, „guardar“, „utilizador“), und die
+  portugiesischen Notizen kommen aus dem Programm für Portugal (MEPS 785, `TPO`). Die
+  Oberfläche war bis 1.29.0 brasilianisch geschrieben. Brasilianisches Portugiesisch (`T`)
+  wäre eine eigene Sprache; Obsidians `pt-BR` landet über `interfaceLangFor` bis dahin bei
+  dieser europäischen Oberfläche.
 - **Die Publikationen selbst** für alles, was sie benennen — Dateien per `dump-structure.mjs`
   oder eine kleine Textsuche; `wol.jw.org/<sprache>/` für die Studienbibel (Fußnoten,
   Querverweise, Studienanmerkungen heißen dort `각주`, `상호 참조 성구`, `연구 노트`); die
@@ -763,7 +783,8 @@ klickbar und öffnet dabei wieder das Vers-Popup – nicht nur die Titelzeile:
 
 ### Leben-und-Dienst-Arbeitsheft (MwbParser, MwbNoteBuilder)
 
-Seit 1.29.0 **Deutsch und Koreanisch**. Eine Sprache gilt als unterstützt, sobald
+Seit 1.30.0 **alle acht Sprachen** (Koreanisch kam mit 1.29.0, Englisch, Französisch,
+Italienisch, Portugiesisch, Russisch und Spanisch mit 1.30.0). Eine Sprache gilt als unterstützt, sobald
 `NL[lang].treasuresLabel` gesetzt ist — `MwbParser` prüft genau das und lehnt jede andere
 erkannte Sprache mit `mwbLanguageNotSupported` ab, statt unbelegte Überschriften zu raten.
 Die drei Abschnittsüberschriften und `cbsLabel` sind **Erkennungsanker** (müssen exakt dem
@@ -782,13 +803,29 @@ aus der Medien-API (`GETPUBMEDIALINKS?pub=mwb&issue=202601&langwritten=<Symbol>`
   `집교26`. Erkennung und Schlüssel-unabhängige Prüfungen nutzen deshalb `EnglishSymbol`
   (`jwpubLinks.ts`s `englishSymbol()`) — für die Schlüsselableitung bleibt `Symbol` richtig,
   die gehört zur Datei selbst. Gilt vermutlich für jede nicht-lateinische Sprache.
-- **Sprachtolerante Muster** wie beim Kongress: `DURATION_RE` (`Min.` | `분`),
-  `SONG_PRAYER_RE`, `SONG_INTRO_WORDS_RE`, `MEMORIAL_READING_TITLE_RE`. Ausnahme ist die
-  Aufgabenart: Deutsch erkennt sie an Großbuchstaben (`ASSIGNMENT_TYPE_RE`), Hangul hat keine
-  — daher die belegte Liste `KOREAN_ASSIGNMENT_TYPE_RE` (`호별 방문`, `비공식 증거`,
-  `공개 증거`), gewählt nach `this.lang`.
-- **U+200B**: das koreanische Heft hat 981 je Ausgabe; `clean()` entfernt sie wie beim
-  Kongress nur für Koreanisch.
+- **Sprachtolerante Muster** wie beim Kongress, alle aus den Heften Jan/Feb und Mär/Apr 2026
+  jeder Sprache abgelesen: `DURATION_RE` (`Min.`, `min.`, `min` ohne Punkt in FR/IT, `mins.`
+  im Spanischen bei mehr als einer Minute, `мин.`, `분` — Groß-/Kleinschreibung egal),
+  `SONG_PRAYER_RE`, `SONG_INTRO_WORDS_RE`, `MEMORIAL_READING_TITLE_RE`. Französisch setzt
+  den Punkt manchmal hinter die Klammer — `(10 min). Discussion.` —, `LEADING_DURATION_RE`
+  nimmt ihn mit.
+- **Aufgabenart** (`ASSIGNMENT_TYPE_RE`): Großbuchstaben jeder Schrift (`\p{Lu}`, vorher
+  nur `A–Z`/`ÄÖÜß`), beendet durch einen Punkt **oder** eine folgende Klammer — Französisch
+  und Russisch lassen den Punkt weg, wenn direkt die Quellenangabe folgt (`DE MAISON EN
+  MAISON (lmd leçon 5 idée 5).`); der Fettdruck übernimmt den Punkt nur, wo er steht.
+  **Nur im Dienst-Abschnitt gelesen**: Das russische März-Heft beginnt einen Kasten in einem
+  Schätze-Punkt mit `ОПРЕДЕЛЕНИЕ.` (Definition) — groß, mit Punkt, keine Aufgabenart.
+  Hangul hat keine Großbuchstaben, deshalb dort die belegte Liste `KOREAN_ASSIGNMENT_TYPE_RE`
+  (`호별 방문`, `비공식 증거`, `공개 증거`), gewählt nach `this.lang`.
+- **Ordnername**: `{Kurzname} {Jahr} {Monat}-{Monat}`, die Monatsnamen der sechs neuen
+  Sprachen aus `Intl.DateTimeFormat` (CLDR der Plattform, `monthName()` in `i18n.ts`) statt
+  aus einer Liste im Code; Deutsch behält seine Kürzel, Koreanisch seine Zahlen.
+- **„Wochenlesung“ steht in keinem Heft**, es ist eine eigene Beschriftung. Fünf Sprachen
+  haben die passende Wendung in der Frage zu den geistigen Schätzen („this week’s Bible
+  reading“, „la lectura bíblica de esta semana“, …) und übernehmen sie; Russisch fragt nach
+  „этих главах“, dort ist `Чтение Библии на неделю` gewählt, nicht abgelesen.
+- **U+200B**: das koreanische Heft hat 981 je Ausgabe, das englische einige vor
+  Gedankenstrichen; `clean()` entfernt sie wie beim Kongress in jeder Sprache.
 - **Leerzeichen an Link-Grenzen**: `renderParagraphSegments` trimmt nur die beiden Enden
   des Absatzes, nicht jeden Textlauf. Bis 02.10.2026 wurde jeder Lauf einzeln getrimmt, und
   das Wort vor oder nach einem Bibelstellen-/Quellen-Link klebte daran (86 von 91
@@ -796,9 +833,15 @@ aus der Medien-API (`GETPUBMEDIALINKS?pub=mwb&issue=202601&langwritten=<Symbol>`
   Notiztext je Absatz — bei einer neuen Sprache wiederholen.
 - **Prüfverfahren**: wie beim Kongress über die Struktur-Signatur — Wochen, Punkte, Minuten,
   Aufgabenart ja/nein, Versammlungsbibelstudium, Lieder (+ Gebet/Einleitung), Bibelstellen,
-  Quellen-docids, Gedächtnismahl-Tage. `mwb_KO_202601`/`202603` (unter `.dateien\Koreanisch\`)
-  sind gegen die deutschen Hefte derselben Monate **identisch**; die deutsche Ausgabe vor/nach
-  der Umstellung byte-identisch (bis auf die gewollte Leerzeichen-Korrektur).
+  Quellen-docids, Gedächtnismahl-Tage. Die Hefte `mwb_<Symbol>_202601`/`202603` liegen in
+  jedem Sprachordner unter `.dateien\`. Englisch, Italienisch und Koreanisch sind gegen
+  Deutsch **identisch**; die übrigen weichen nur dort ab, wo die Publikation selbst anders
+  verlinkt, je am Text geprüft: „lfb 52, 53“ als zwei Links statt „52-53“ als einer (PT, RU,
+  ES), eine Wochenlesung über zwei Kapitel kapitelweise verlinkt (RU, ES), eine andere Quelle
+  in einem Punkt (IT), ein Vers mehr in einem anderen (RU). Kein Absatz verliert ein
+  Leerzeichen an einem Link. Die deutsche und koreanische Ausgabe blieb bei der Erweiterung
+  byte-identisch. **Diese Abweichungen sind die bekannten** — taucht bei einem neuen Heft eine
+  andere auf, ist sie zu erklären, bevor sie hingenommen wird.
 
 ### Notiz- & Ordnerbenennung (NoteBuilder)
 
@@ -958,6 +1001,23 @@ per WebSocket `Runtime.evaluate` gegen `app`. Hinweise:
   CDP-Aufruf in den Timeout (die Seite arbeitet trotzdem weiter).
 - Dateipfade in Schritt-JSON mit `/`, nicht `\` — Backslashes kommen durch die
   Werkzeugkette nicht heil an.
+- **Je Sprache durchlaufen (so am 02.10.2026 für alle acht):** Obsidian selbst mit
+  umstellen — `localStorage.setItem('language', '<code>')`, dann neu laden —, dazu
+  `settings.lang` des Plugins. Datenteil: alle drei Programme und beide Arbeitshefte in einen
+  eigenen Ordner importieren, direkt danach aktualisieren (muss „0 aktualisiert“ melden),
+  `metadataCache.unresolvedLinks` muss leer sein. Oberflächenteil: Einstellungsfenster, jeder
+  Befehl mit Dialog, Popup aus der Live-Vorschau (nur dort gibt es „Als Zitat einfügen“ —
+  aus der Leseansicht fehlt der Knopf zu Recht), Zitat, getippte Bibelstelle, Lied und
+  Buchname mit echten Tasten, „Link entfernen“.
+- **Fremdsprachen-Prüfung:** sichtbaren Text gegen alle Strings der sieben anderen Sprachen
+  halten (`plugin.tr` liefert sie, wenn man `settings.lang` kurz umstellt; nur Strings ab 12
+  Zeichen, die sich von der eigenen Sprache unterscheiden). Fand am 02.10.2026 in keiner
+  der acht Sprachen etwas.
+- Das Einstellungsfenster hat die URL `about:blank` und kein `app`; das Plugin erreicht man
+  über `window.opener.app`. Dialoge schließen in 1.13 über `.modal-header-button`, nicht
+  `.modal-close-button`.
+- Nach einer Änderung im Editor steht sie erst nach Obsidians Speicherpause auf der Platte:
+  `editor.getValue()` lesen, nicht `vault.read()`.
 
 Manuell in Obsidian:
 

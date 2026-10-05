@@ -23,20 +23,29 @@ import { assertPlatformSupport, BIBLE_HREF_RE, MEPS_LANGUAGE_INDEX, SONG_DOCID_H
 // already stable in the source and numbering continues across all 3 sections
 // (not restarted per section).
 const NUMBERED_ITEM_RE = /^(\d+)\.\s*(.+)$/;
-// Trailing "(N Min.)" duration marker — German "(10 Min.)", Korean "(10분)".
+// Trailing "(N Min.)" duration marker, as each language prints it: "(10 Min.)",
+// "(10 min.)" (English, Portuguese), "(10 min)" (French, Italian), "(10 mins.)"
+// (Spanish, "min." for one), "(10 мин.)", "(10분)" — read off the 2026 issues.
 // Like every detection pattern here, the languages are combined in one
 // expression rather than switched on; only output text comes from i18n.ts.
-const DURATION_RE = /\((\d{1,3})\s*(?:Min\.?|분)\)/;
-// The same marker at the very start of a text, to be cut off it.
-const LEADING_DURATION_RE = /^\((\d{1,3})\s*(?:Min\.?|분)\)\s*/;
+const DURATION_RE = /\((\d{1,3})\s*(?:mins?\.?|мин\.?|분)\)/iu;
+// The same marker at the very start of a text, to be cut off it. French
+// sometimes closes the sentence right after it — "(10 min). Discussion." —
+// so a period directly behind the bracket goes with it.
+const LEADING_DURATION_RE = /^\((\d{1,3})\s*(?:mins?\.?|мин\.?|분)\)\.?\s*/iu;
 // A leading run of ALL-CAPS words followed by a period, e.g. "VON HAUS ZU
-// HAUS." / "INFORMELL." — the assignment-type label some ministry items
-// carry inline. Captured verbatim (not mapped to a closed vocabulary): only
+// HAUS." / "INFORMELL." / "DE MAISON EN MAISON." / "ПРОПОВЕДЬ ПО ДОМАМ." —
+// the assignment-type label some ministry items carry inline. Capitals of any
+// script count (\p{Lu}); until 02.10.2026 only A–Z and ÄÖÜß did, which is all
+// German needed. Captured verbatim (not mapped to a closed vocabulary): only
 // 3 distinct labels have been confirmed across 6 real files spanning half a
 // year, nowhere near enough to trust a hardcoded list for the other ~20
 // weeks/year not yet seen — a missed/mismatched label would silently drop
 // real information, where verbatim capture loses nothing.
-const ASSIGNMENT_TYPE_RE = /^([A-ZÄÖÜß][A-ZÄÖÜß\s]{2,40})\./;
+// French and Russian leave the period out when the citation follows straight
+// away — "DE MAISON EN MAISON (lmd leçon 5 idée 5)." where German writes "VON
+// HAUS ZU HAUS. (lmd Lektion 5 Punkt 5)" — so a bracket ends the label too.
+const ASSIGNMENT_TYPE_RE = /^(\p{Lu}[\p{Lu}ß\s]{2,40}?)(?:\.|\s+(?=\())/u;
 // Korean has no capitals, so the German rule above cannot carry over, and a
 // shape rule ("a short phrase and a period") would also catch "실연."
 // (demonstration) and "연설." (talk), which sit in the same position and are
@@ -50,14 +59,19 @@ const KOREAN_ASSIGNMENT_TYPE_RE = /^(호별 방문|비공식 증거|공개 증�
 // A paragraph whose ENTIRE text is just the duration marker, e.g. "(10 Min.)"
 // on its own line — excluded from MwbItem.paragraphs (already surfaced via
 // durationMin) rather than shown as a redundant, content-free paragraph.
-const DURATION_ONLY_RE = /^\(\d{1,3}\s*(?:Min\.?|분)\)$/;
-// The Memorial-season Bible reading insert, recognised by its document title:
-// "Bibelleseprogramm für das Gedächtnismahl 2026" / "2026 기념식 성서 읽기 계획표".
-const MEMORIAL_READING_TITLE_RE = /Bibelleseprogramm|성서 읽기 계획표/;
-// Additions in a song heading: "Lied 153 und Gebet | Einleitende Worte" /
-// "노래 153 및 기도 | 소개말".
-const SONG_PRAYER_RE = /und Gebet|및 기도/i;
-const SONG_INTRO_WORDS_RE = /Einleitende Worte|소개말/i;
+const DURATION_ONLY_RE = /^\(\d{1,3}\s*(?:mins?\.?|мин\.?|분)\)\.?$/iu;
+// The Memorial-season Bible reading insert, recognised by its document title
+// as each language's March-April 2026 issue prints it: "Bibelleseprogramm für
+// das Gedächtnismahl 2026", "2026 Memorial Bible Reading Schedule", "Mémorial
+// 2026 : programme de lecture biblique", "Lettura della Bibbia per la
+// Commemorazione del 2026", "Programa de Leitura da Bíblia para o Memorial de
+// 2026", "График чтения Библии в период Вечери в 2026 году", "Lectura bíblica
+// para la Conmemoración del 2026", "2026 기념식 성서 읽기 계획표".
+export const MEMORIAL_READING_TITLE_RE = /Bibelleseprogramm|Memorial Bible Reading|programme de lecture biblique|Lettura della Bibbia per la Commemorazione|Leitura da Bíblia para o Memorial|чтения Библии в период Вечери|Lectura bíblica para la Conmemoración|성서 읽기 계획표/iu;
+// Additions in a song heading: "Lied 153 und Gebet | Einleitende Worte",
+// "Song 153 and Prayer | Opening Comments", "노래 153 및 기도 | 소개말", …
+const SONG_PRAYER_RE = /und Gebet|and Prayer|et prière|e preghiera|e oração|и молитва|y oración|및 기도/iu;
+const SONG_INTRO_WORDS_RE = /Einleitende Worte|Opening Comments|Paroles d[’']introduction|Commenti introduttivi|Comentários iniciais|Вступительные слова|Palabras de introducción|소개말/iu;
 // Any jwpub://p/ publication cross-reference (source-material citation),
 // e.g. "jwpub://p/X:1102018451/" or "jwpub://p/X:1102023302/13-13" (with a
 // trailing paragraph-range anchor — not preserved in the resulting link,
@@ -78,14 +92,14 @@ const CITATION_HREF_RE = /^jwpub:\/\/p\/[^:/]+:(\d+)(?:\/.*)?$/;
  * headers with a sequence of numbered h3 items, not a congress's
  * `ul.noMarker > li` list) is structurally unrelated to JwpubParser's.
  *
- * German and Korean only: the three section-heading labels and the
+ * All eight languages of the plugin: the three section-heading labels and the
  * Congregation-Bible-Study title (NoteStrings.treasuresLabel/ministryLabel/
  * livingLabel/cbsLabel) double as both display text AND parser detection
- * anchors, so a language is supported exactly when its NoteStrings carry
- * them — read off real files, never translated. Korean was added on
- * 02.10.2026 against the German issues of the same months (same weeks,
- * items, durations, songs, scriptures and citations). Any other detected
- * MepsLanguageIndex is rejected with a clear ParseError rather than guessed.
+ * anchors — read off real files, never translated. Each language was held
+ * against the German issues of the same months (same weeks, items,
+ * durations, assignment labels, songs, scriptures and citations): Korean on
+ * 02.10.2026, the other six later that day. A file in a language the plugin
+ * does not know is rejected with a clear ParseError rather than guessed.
  */
 export class MwbParser {
 
@@ -368,7 +382,10 @@ export class MwbParser {
 		const title = partial.title;
 		const isCongregationBibleStudy = !!t.cbsLabel && this.cleanText(title).toUpperCase() === t.cbsLabel.toUpperCase();
 		const durationMin = this.extractDuration(partial.contentEls);
-		const assignmentType = this.extractAssignmentType(partial.contentEls);
+		// Only ministry items carry an assignment type. Elsewhere a capitalised
+		// lead-in is something else — the Russian issue of March 2026 opens a
+		// box in a Treasures item with "ОПРЕДЕЛЕНИЕ." (definition).
+		const assignmentType = partial.section === 'ministry' ? this.extractAssignmentType(partial.contentEls) : undefined;
 		const paragraphs = this.extractParagraphs(partial.contentEls);
 		this.stripLeadingMetadataText(paragraphs, durationMin, assignmentType);
 		return {
@@ -407,7 +424,8 @@ export class MwbParser {
 		}
 		if (assignmentType) {
 			const escaped = assignmentType.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-			text = text.replace(new RegExp(`^${escaped}\\.\\s*`), `**${assignmentType}.** `);
+			// The period is kept only where the file has one (see ASSIGNMENT_TYPE_RE).
+			text = text.replace(new RegExp(`^${escaped}(\\.?)\\s*`), (_, period: string) => `**${assignmentType}${period}** `);
 		}
 		firstSegment.markdown = text;
 	}

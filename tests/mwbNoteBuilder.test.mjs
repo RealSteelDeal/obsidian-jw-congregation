@@ -292,3 +292,40 @@ test('a German week note is written exactly as before', () => {
 	assert.match(note, /\[Lied 1\]\(https:\/\/www\.jw\.org\/finder\?[^)]*wtlocale=X/);
 	assert.match(note, /\*\*Schlussworte\*\* \| \[Lied 3\]/);
 });
+
+// ── The other six languages ─────────────────────────────────────────────────
+
+test('each language\u2019s issue folder names the months as the platform\u2019s own locale data does', () => {
+	const issue = (lang, tag = '20260100') => builder().issueFolderName(mwb({ lang, issueTagNumber: tag }));
+	assert.equal(issue('en'), 'Life and Ministry 2026 January-February');
+	assert.equal(issue('fr'), 'Vie et ministère 2026 janvier-février');
+	assert.equal(issue('it'), 'Vita e ministero 2026 gennaio-febbraio');
+	assert.equal(issue('pt'), 'Vida e Ministério 2026 janeiro-fevereiro');
+	assert.equal(issue('ru'), 'Жизнь и служение 2026 январь-февраль');
+	assert.equal(issue('es'), 'Vida y Ministerio 2026 enero-febrero');
+	assert.equal(issue('en', '20261100'), 'Life and Ministry 2026 November-December');
+	assert.equal(issue('en', 'x'), 'Life and Ministry 2026');
+});
+
+test('a week note is written in the language of its workbook', () => {
+	const words = {
+		en: ['## TREASURES FROM GOD’S WORD', '**Duration:** 10 min.', '[Song 153]', 'and Prayer | Opening Comments', '**Concluding Comments**'],
+		fr: ['## JOYAUX DE LA PAROLE DE DIEU', '**Durée:** 10 min', '[Cantique 153]', 'et prière | Paroles d’introduction', '**Paroles de conclusion**'],
+		ru: ['## СОКРОВИЩА ИЗ СЛОВА БОГА', '**Продолжительность:** 10 мин.', '[Песня 153]', 'и молитва | Вступительные слова', '**Заключительные слова**'],
+		es: ['## TESOROS DE LA BIBLIA', '**Duración:** 10 mins.', '[Canción 153]', 'y oración | Palabras de introducción', '**Palabras de conclusión**'],
+	};
+	for (const [lang, expected] of Object.entries(words)) {
+		const issue = koreanMwb();
+		issue.lang = lang;
+		const note = builder().buildNotes(issue).notes[0].content;
+		for (const text of expected) assert.ok(note.includes(text), `${lang}: ${text}`);
+		assert.doesNotMatch(note, /Lied|Gebet|Schlussworte|Wochenlesung|Dauer|노래/, lang);
+	}
+});
+
+test('Spanish writes one minute in the singular', () => {
+	const issue = koreanMwb();
+	issue.lang = 'es';
+	issue.weeks[0].items[0].durationMin = 1;
+	assert.match(builder().buildNotes(issue).notes[0].content, /\*\*Duración:\*\* 1 min\.\n/);
+});

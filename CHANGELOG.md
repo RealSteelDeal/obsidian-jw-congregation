@@ -1,6 +1,48 @@
 # Changelog
 
-## 1.29.0
+## 1.30.0
+
+### New
+
+- **The Life and Ministry Meeting Workbook imports in all eight languages**, not only German
+  and Korean: English, French, Italian, Portuguese, Russian and Spanish issues now become
+  weekly notes in their own language — sections, durations, assignment labels, songs, the
+  Memorial reading schedule, and folders such as `Life and Ministry 2026 January-February`.
+
+  The detection words were read off the January-February and March-April 2026 issue of
+  every language, and each issue was held against the German one of the same months: the
+  same weeks, items, durations, assignment labels, songs, scripture references and source
+  citations. Where they differ, the difference is in the publication itself, and each case
+  was checked against its text — Portuguese, Russian and Spanish link "lfb 52, 53" as two
+  stories where German links "52-53" as one, Russian and Spanish link a two-chapter Bible
+  reading chapter by chapter, Italian cites a different source in one item, Russian reads
+  one verse more in another. Not a single paragraph loses a space next to a link.
+
+  Two things only showed up in other languages. French and Russian drop the period after an
+  assignment label when the citation follows straight away (`DE MAISON EN MAISON (lmd …)`),
+  and the Russian March issue opens a box in a Treasures item with a capitalised
+  `ОПРЕДЕЛЕНИЕ.` (definition), which is now not mistaken for one: assignment labels are only
+  read in the ministry section. Month names in the folder come from the platform's own
+  locale data rather than from a list in the plugin.
+
+### Changes
+
+- **The interface uses Obsidian's own words in every language.** Wherever the plugin names
+  something Obsidian names — the vault and its top folder, plugins and their settings, the
+  command palette, reading and editing view, wikilinks — it now says what Obsidian itself
+  says in that language, read off Obsidian's own translation files. Among them: German
+  "Erweiterung" and "Vault-Hauptordner" instead of "Plugin" and "Vault-Wurzel", Spanish
+  "bóveda", "complemento" and "ajustes", French "paramètres" and "module", Italian
+  "cartella principale del vault" and "riquadro comandi", English "vault folder".
+- **Portuguese is now European Portuguese throughout** ("ficheiro", "definições",
+  "eliminar", "guardar"), like Obsidian's own Portuguese and the Portugal programmes the
+  Portuguese notes come from. It used to be Brazilian.
+
+### Fixes
+
+- **The error for a file that is not a workbook named it wrongly** in Italian, Portuguese,
+  Russian and Spanish — "Nuestra vida y ministerio", "apostila", and so on. It now uses the
+  publication's own name.
 
 ### New
 

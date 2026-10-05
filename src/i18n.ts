@@ -17,6 +17,13 @@ function oneFr(count: number, singular: string, plural: string): string {
 	return count < 2 ? singular : plural;
 }
 
+/** A month's name as the platform's own locale data (CLDR, via Intl) writes
+ *  it — so no month name in this file is typed from memory. Only the workbook
+ *  folder of the languages without hand-picked abbreviations uses it. */
+function monthName(locale: string, month: number): string {
+	return new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(2026, month - 1, 15)));
+}
+
 /**
  * Strings needed to generate notes from an imported programme file — driven by
  * Congress.lang (detected from the file's own `MepsLanguageIndex`, see
@@ -55,9 +62,10 @@ export interface NoteStrings {
 	folderCAco: (season: string, theme: string) => string;
 	folderCAbr: (season: string, theme: string) => string;
 
-	// ── Meeting workbook parser/notes (Congress.lang) — German and Korean
-	// so far, so these are optional: only NL.de and NL.ko fill them, and
-	// MwbParser refuses any other
+	// ── Meeting workbook parser/notes (Congress.lang) — filled for all eight
+	// languages since 1.30.0, but still optional: a language added later for
+	// its conventions must not have to guess workbook anchors, and MwbParser
+	// refuses any language without them
 	// detected language rather than matching unverified section-heading text
 	// against them (see util/parseErrors.ts's 'mwbLanguageNotSupported'). The
 	// heading labels double as parser detection anchors, so they must match
@@ -482,13 +490,13 @@ export const L: Record<SupportedLang, Strings> = {
 		scriptureSuggestLinkAndOpen: 'Verlinken & JW Library öffnen',
 		scriptureSuggestQuoteKeepLink: 'Zitat einfügen & Verlinkung behalten',
 
-		noticeUpdated: version => `JW Kongressprogramm wurde auf Version ${version} aktualisiert.\n\nVerbesserungen an den Notiz-Vorlagen erreichen bereits importierte Kongresse nicht automatisch: Dafür „Kongress-Notizen aktualisieren" (Befehlspalette) mit derselben Programmdatei ausführen – eigene Einträge (Redner, Notizen) bleiben dabei erhalten. Nur bei Notizen aus einer sehr alten Plugin-Version hilft das nicht; dort den Kongress-Ordner löschen und neu importieren.\n\n(Zum Schließen klicken)`,
+		noticeUpdated: version => `JW Kongressprogramm wurde auf Version ${version} aktualisiert.\n\nVerbesserungen an den Notiz-Vorlagen erreichen bereits importierte Kongresse nicht automatisch: Dafür „Kongress-Notizen aktualisieren" (Befehlspalette) mit derselben Programmdatei ausführen – eigene Einträge (Redner, Notizen) bleiben dabei erhalten. Nur bei Notizen aus einer sehr alten Version der Erweiterung hilft das nicht; dort den Kongress-Ordner löschen und neu importieren.\n\n(Zum Schließen klicken)`,
 		noticeBibleSaved: 'Bibel-Datei gespeichert.',
 		noticeBibleSaveFailed: err => `Bibel-Datei konnte nicht gespeichert werden: ${err}`,
 		noticeBibleRemoveFailed: err => `Bibel-Datei konnte nicht entfernt werden: ${err}`,
-		noticeBibleMissingOnDevice: 'Die Bibel-Datei fehlt auf diesem Gerät (Einstellungen werden synchronisiert, die Datei selbst nicht). Bitte in den Plugin-Einstellungen unter „Bibel-Datei" neu auswählen.',
+		noticeBibleMissingOnDevice: 'Die Bibel-Datei fehlt auf diesem Gerät (Einstellungen werden synchronisiert, die Datei selbst nicht). Bitte in den Erweiterungs-Einstellungen unter „Bibel-Datei" neu auswählen.',
 		noticeBibleLoadFailed: err => `Bibel-Datei konnte nicht geladen werden: ${err}`,
-		noticeQuoteNeedsBibleFile: 'Keine Bibel-Datei geladen – die Bibelstelle wurde stattdessen verlinkt. Für den Direkt-Zitat-Modus in den Plugin-Einstellungen eine Bibel-Datei hinterlegen.',
+		noticeQuoteNeedsBibleFile: 'Keine Bibel-Datei geladen – die Bibelstelle wurde stattdessen verlinkt. Für den Direkt-Zitat-Modus in den Erweiterungs-Einstellungen eine Bibel-Datei hinterlegen.',
 		describeParseError: (code, detail) => {
 			switch (code) {
 				case 'unknownFormat': return `Unbekanntes Dateiformat: „${detail}". Bitte eine .jwpub- oder .rtf/.zip-Datei wählen.`;
@@ -501,11 +509,11 @@ export const L: Record<SupportedLang, Strings> = {
 				case 'fileTooLarge': return `Die Datei ist mit ${detail} ungewöhnlich groß und wurde sicherheitshalber abgelehnt.`;
 				case 'decompressedTooLarge': return `Der entpackte Inhalt ist mit ${detail} ungewöhnlich groß und wurde sicherheitshalber abgelehnt.`;
 				case 'notMwbPublication': return `Diese Datei ist kein Leben-und-Dienst-Arbeitsheft: „${detail}".`;
-				case 'mwbLanguageNotSupported': return 'Der Import von Arbeitsheftern wird bisher nur für deutsche und koreanische Dateien unterstützt.';
+				case 'mwbLanguageNotSupported': return 'Arbeitshefter in der Sprache dieser Datei werden noch nicht unterstützt.';
 				case 'mwbNoWeekDocuments': return 'In dieser Datei wurden keine Wochenprogramme gefunden.';
 			}
 		},
-		noticeBibleHint: 'Tipp: Hinterlege in den Plugin-Einstellungen eine Bibel-jwpub-Datei (z. B. die Studienbibel von jw.org), dann öffnet ein Klick auf eine Bibelstelle den Vers-Text samt Querverweisen und Studienanmerkungen direkt als Popup in Obsidian. (Klicken öffnet die Einstellungen)',
+		noticeBibleHint: 'Tipp: Hinterlege in den Erweiterungs-Einstellungen eine Bibel-jwpub-Datei (z. B. die Studienbibel von jw.org), dann öffnet ein Klick auf eine Bibelstelle den Vers-Text samt Querverweisen und Studienanmerkungen direkt als Popup in Obsidian. (Klicken öffnet die Einstellungen)',
 		noticeImportFailed: err => `Import fehlgeschlagen: ${err}`,
 		noticeRtfFallback: 'Jwpub-Parsing fehlgeschlagen – RTF-Fallback verwendet.',
 		noticeImportProgress: (done, total) => `Import läuft … ${done}/${total}`,
@@ -522,15 +530,15 @@ export const L: Record<SupportedLang, Strings> = {
 		noticeNotAFolder: path => `„${path}" ist keine Ordner-Datei.`,
 
 		headImport: 'Kongressprogramm importieren & aktualisieren',
-		headImportDesc: 'Zwei Wege, ein Kongressprogramm einzuspielen: „Kongressprogramm importieren" legt einen neuen Kongress-Ordner an – bei erneutem Import in denselben Ordner werden nur rein automatisch erzeugte Dateien aufgefrischt (Übersicht, Titelbild), Notizen mit eigenen Einträgen bleiben unangetastet. „Kongress-Notizen aktualisieren" gleicht stattdessen einen bereits importierten Ordner Feld für Feld ab (Tag, Uhrzeit, Bibelstellen, Überschriften) – auch innerhalb bereits bearbeiteter Notizen, ohne eigene Einträge zu verlieren. Praktisch z. B. nach einem Plugin-Update, das einen Fehler in den Notizen behebt. Für Notizen aus einer sehr alten Plugin-Version (ohne unsichtbare Marker) bietet „Kongress-Notizen aktualisieren" stattdessen ein Prüffenster mit vorgeschlagenen Korrekturen an, die einzeln bestätigt werden können.',
+		headImportDesc: 'Zwei Wege, ein Kongressprogramm einzuspielen: „Kongressprogramm importieren" legt einen neuen Kongress-Ordner an – bei erneutem Import in denselben Ordner werden nur rein automatisch erzeugte Dateien aufgefrischt (Übersicht, Titelbild), Notizen mit eigenen Einträgen bleiben unangetastet. „Kongress-Notizen aktualisieren" gleicht stattdessen einen bereits importierten Ordner Feld für Feld ab (Tag, Uhrzeit, Bibelstellen, Überschriften) – auch innerhalb bereits bearbeiteter Notizen, ohne eigene Einträge zu verlieren. Praktisch z. B. nach einem Update der Erweiterung, das einen Fehler in den Notizen behebt. Für Notizen aus einer sehr alten Version der Erweiterung (ohne unsichtbare Marker) bietet „Kongress-Notizen aktualisieren" stattdessen ein Prüffenster mit vorgeschlagenen Korrekturen an, die einzeln bestätigt werden können.',
 		setImportActionDesc: 'Wählt eine Programmdatei und legt daraus Notizen an (siehe Erklärung oben).',
 		btnOpen: 'Öffnen',
 		headGeneral: 'Allgemein',
 		setTargetFolder: 'Zielordner',
-		setTargetFolderDesc: 'Übergeordneter Ordner, in dem der Kongressordner angelegt wird. Leer lassen, damit jeder Kongress direkt als eigener Ordner in der Vault-Wurzel entsteht (kein zusätzlicher Wrapper-Ordner).',
-		setTargetFolderPlaceholder: '(Vault-Wurzel)',
+		setTargetFolderDesc: 'Übergeordneter Ordner, in dem der Kongressordner angelegt wird. Leer lassen, damit jeder Kongress direkt als eigener Ordner im Vault-Hauptordner entsteht (kein zusätzlicher Wrapper-Ordner).',
+		setTargetFolderPlaceholder: '(Vault-Hauptordner)',
 		setLang: 'Sprache der Oberfläche und des Bibeltext-Popups',
-		setLangDesc: 'Beschriftungen des Plugins und Bibelbuch-Namen im Popup. Notizen folgen automatisch der Sprache der importierten Programmdatei.',
+		setLangDesc: 'Beschriftungen der Erweiterung und Bibelbuch-Namen im Popup. Notizen folgen automatisch der Sprache der importierten Programmdatei.',
 		headScripture: 'Bibelstellen',
 		setScriptureLinks: 'Bibelstellen verlinken',
 		setScriptureLinksDesc: 'Erzeugt klickbare JW-Library-Links auf jede Bibelstelle.',
@@ -554,7 +562,7 @@ export const L: Record<SupportedLang, Strings> = {
 		setFrontmatterDesc: 'Fügt jeder erzeugten Notiz YAML-Frontmatter mit stabilen englischen Schlüsseln hinzu (convention, type, day, time) – z. B. für Dataview-Abfragen. Die Schlüssel sind bewusst sprachunabhängig.',
 		setBibleFile: 'Bibel-Datei',
 		bibleDescLoaded: 'Bibel-Datei ist geladen. Ein Klick auf eine Bibelstelle zeigt den Vers-Text direkt in Obsidian an (mit einem Button zum Öffnen in JW Library).',
-		bibleDescMissing: 'Optional: eine Bibel-jwpub-Datei auswählen (z. B. von jw.org heruntergeladen), damit ein Klick auf eine Bibelstelle den Vers-Text direkt in Obsidian anzeigt, statt nur JW Library zu öffnen. Die Studienbibel (nwtsty) bietet Studienanmerkungen und mehr Fußnoten; auf Mobilgeräten mit wenig Arbeitsspeicher ist die deutlich kleinere einfache Ausgabe (nwt) die speicherschonendere Wahl. Die Datei wird lokal im Plugin-Ordner gespeichert, nicht ins Vault kopiert.',
+		bibleDescMissing: 'Optional: eine Bibel-jwpub-Datei auswählen (z. B. von jw.org heruntergeladen), damit ein Klick auf eine Bibelstelle den Vers-Text direkt in Obsidian anzeigt, statt nur JW Library zu öffnen. Die Studienbibel (nwtsty) bietet Studienanmerkungen und mehr Fußnoten; auf Mobilgeräten mit wenig Arbeitsspeicher ist die deutlich kleinere einfache Ausgabe (nwt) die speicherschonendere Wahl. Die Datei wird lokal im Ordner der Erweiterung gespeichert, nicht in den Vault kopiert.',
 		btnChooseFile: 'Datei wählen …',
 		btnReplaceFile: 'Datei ersetzen …',
 		btnRemoveBible: 'Bibel-Datei entfernen',
@@ -569,8 +577,8 @@ export const L: Record<SupportedLang, Strings> = {
 		importFileDesc: 'Wähle eine .jwpub-Datei oder ein RTF-ZIP.',
 		btnPickFile: 'Datei wählen …',
 		importTarget: 'Zielordner',
-		importTargetDesc: 'Standard: Vault-Wurzel – der Kongress wird direkt als eigener Ordner angelegt, ohne Wrapper-Ordner. Alternativ einen bestehenden Ordner wählen oder einen neuen anlegen.',
-		optVaultRoot: 'Vault-Wurzel (kein Unterordner)',
+		importTargetDesc: 'Standard: Vault-Hauptordner – der Kongress wird direkt als eigener Ordner angelegt, ohne Wrapper-Ordner. Alternativ einen bestehenden Ordner wählen oder einen neuen anlegen.',
+		optVaultRoot: 'Vault-Hauptordner (kein Unterordner)',
 		optNewFolder: '➕ Neuer Ordner …',
 		importNewFolder: 'Name des neuen Ordners',
 		importNewFolderPlaceholder: 'z. B. Kongress',
@@ -595,7 +603,7 @@ export const L: Record<SupportedLang, Strings> = {
 
 		updateCommand: 'Kongress-Notizen aktualisieren',
 		updateTitle: 'Kongress-Notizen aktualisieren',
-		updateExplanation: 'Wählt dieselbe Programmdatei erneut aus und gleicht einen bereits importierten Kongress-Ordner damit ab – nützlich nach einem Plugin-Update, das einen Fehler in den Notizen behebt (z. B. bei Tag, Uhrzeit oder Bibelstellen). Bereits geschriebener Text (Rednername, eigene Notizen) bleibt dabei unangetastet; nur die automatisch erzeugten Felder werden aufgefrischt.',
+		updateExplanation: 'Wählt dieselbe Programmdatei erneut aus und gleicht einen bereits importierten Kongress-Ordner damit ab – nützlich nach einem Update der Erweiterung, das einen Fehler in den Notizen behebt (z. B. bei Tag, Uhrzeit oder Bibelstellen). Bereits geschriebener Text (Rednername, eigene Notizen) bleibt dabei unangetastet; nur die automatisch erzeugten Felder werden aufgefrischt.',
 		updateTargetFolder: 'Zu aktualisierender Kongress-Ordner',
 		updateTargetFolderDesc: 'Der Ordner, der beim ursprünglichen Import angelegt wurde.',
 		updateNoFoldersFound: 'Keine Ordner im Vault gefunden.',
@@ -633,7 +641,7 @@ export const L: Record<SupportedLang, Strings> = {
 
 		previewUpdateCommand: 'Änderungen vor dem Aktualisieren anzeigen',
 		previewUpdateTitle: 'Änderungen vor dem Aktualisieren anzeigen',
-		previewUpdateExplanation: 'Berechnet dieselbe Aktualisierung wie „Kongress-Notizen aktualisieren", schreibt aber nichts – du siehst zuerst Feld für Feld, was sich ändern würde, und entscheidest danach. Nützlich nach einem Plugin-Update, um zu sehen, ob deine Notizen überhaupt betroffen sind, und wenn mehrere Kongresse auf einmal drankommen.',
+		previewUpdateExplanation: 'Berechnet dieselbe Aktualisierung wie „Kongress-Notizen aktualisieren", schreibt aber nichts – du siehst zuerst Feld für Feld, was sich ändern würde, und entscheidest danach. Nützlich nach einem Update der Erweiterung, um zu sehen, ob deine Notizen überhaupt betroffen sind, und wenn mehrere Kongresse auf einmal drankommen.',
 		btnShowChanges: 'Änderungen anzeigen',
 		previewNoChanges: 'Keine Änderungen – alle Notizen sind bereits auf dem aktuellen Stand.',
 		previewSummary: (changed, created, unchanged, needsReimport) => {
@@ -669,9 +677,9 @@ export const L: Record<SupportedLang, Strings> = {
 		},
 
 		removeLinkCommand: 'Verlinkung unter dem Cursor entfernen',
-		noticeNoLinkAtCursor: 'An dieser Stelle steht keine Verlinkung dieses Plugins.',
+		noticeNoLinkAtCursor: 'An dieser Stelle steht keine Verlinkung dieser Erweiterung.',
 						setUnderlineLinks: 'Verlinkungen unterstreichen',
-		setUnderlineLinksDesc: 'Betrifft nur die Verlinkungen dieses Plugins – Bibelstellen, Lieder und Quellenangaben. Ausgeschaltet bleiben sie farbig, aber ohne Unterstreichung und werden erst beim Überfahren unterstrichen; das liest sich in einer Notiz voller Bibelstellen ruhiger. Wirkt in der Leseansicht: im Bearbeitungsmodus stellt Obsidian Links ohne Ziel dar, dort sind unsere Verlinkungen nicht von anderen unterscheidbar.',
+		setUnderlineLinksDesc: 'Betrifft nur die Verlinkungen dieser Erweiterung – Bibelstellen, Lieder und Quellenangaben. Ausgeschaltet bleiben sie farbig, aber ohne Unterstreichung und werden erst beim Überfahren unterstrichen; das liest sich in einer Notiz voller Bibelstellen ruhiger. Wirkt in der Leseansicht: im Bearbeitungsmodus stellt Obsidian Links ohne Ziel dar, dort sind unsere Verlinkungen nicht von anderen unterscheidbar.',
 setSongSuggest: 'Lieder verlinken',
 		setSongSuggestDesc: 'Wenn du eine Liednummer als Text tippst („Lied 45"), wird angeboten, sie mit JW Library zu verlinken – wie bei einer getippten Bibelstelle. Die Zieladresse stammt aus dem offiziellen Liederbuch, nicht aus einer Formel; Lieder, die dort nicht vorkommen, werden bewusst nicht angeboten.',
 		songSuggestLink: 'Lied verlinken',
@@ -679,7 +687,7 @@ suggestRemoveLink: 'Verlinkung löschen',
 		suggestEditLink: 'Verlinkung anpassen',
 
 		legacyModalTitle: 'Mögliche Korrekturen für alte Notizen',
-		legacyModalDesc: 'Diese Notizen wurden mit einer Plugin-Version vor 1.9.0 erstellt und haben keine unsichtbaren Marker – deshalb werden hier nur Zeilen vorgeschlagen, die eindeutig einem bekannten Feld zugeordnet werden können. Nur Notizen mit aktiviertem Schalter werden beim Klick auf „Übernehmen" geändert; alles andere in jeder Notiz bleibt unangetastet.',
+		legacyModalDesc: 'Diese Notizen wurden mit einer Version der Erweiterung vor 1.9.0 erstellt und haben keine unsichtbaren Marker – deshalb werden hier nur Zeilen vorgeschlagen, die eindeutig einem bekannten Feld zugeordnet werden können. Nur Notizen mit aktiviertem Schalter werden beim Klick auf „Übernehmen" geändert; alles andere in jeder Notiz bleibt unangetastet.',
 		noticeLegacyCorrectionsFound: count => `${count} ${one(count, 'alte Notiz', 'alte Notizen')} mit möglichen Korrekturen gefunden. (Klicken zum Prüfen)`,
 		noticeLegacyApplied: (count, failed) => {
 			const parts = [`${count} ${one(count, 'Notiz', 'Notizen')} aktualisiert`];
@@ -689,7 +697,7 @@ suggestRemoveLink: 'Verlinkung löschen',
 		btnApply: 'Übernehmen',
 
 		headImportMwb: 'Leben und Dienst importieren & aktualisieren',
-		headImportMwbDesc: 'Importiert Arbeitshefter-Dateien (.jwpub) als Wochennotizen für die Zusammenkunft „Leben und Dienst als Christ" – eine Notiz pro Woche mit den drei festen Programmabschnitten. „Leben-und-Dienst-Notizen importieren" legt einen neuen Ordner an; „Leben-und-Dienst-Notizen aktualisieren" gleicht einen bereits importierten Ordner Feld für Feld ab, ohne eigene Einträge zu verlieren – wie beim Kongressprogramm. Unterstützt deutsche und koreanische Arbeitshefter-Dateien.',
+		headImportMwbDesc: 'Importiert Arbeitshefter-Dateien (.jwpub) als Wochennotizen für die Zusammenkunft „Leben und Dienst als Christ" – eine Notiz pro Woche mit den drei festen Programmabschnitten. „Leben-und-Dienst-Notizen importieren" legt einen neuen Ordner an; „Leben-und-Dienst-Notizen aktualisieren" gleicht einen bereits importierten Ordner Feld für Feld ab, ohne eigene Einträge zu verlieren – wie beim Kongressprogramm. Unterstützt Arbeitshefter in allen acht Sprachen der Erweiterung.',
 		setImportMwbActionDesc: 'Wählt eine Arbeitshefter-Datei und legt daraus Wochennotizen an.',
 		importMwbCommand: 'Leben-und-Dienst-Notizen importieren',
 		importMwbTitle: 'Leben-und-Dienst-Notizen importieren',
@@ -698,8 +706,8 @@ suggestRemoveLink: 'Verlinkung löschen',
 		updateMwbTitle: 'Leben-und-Dienst-Notizen aktualisieren',
 		updateMwbExplanation: 'Wählt dieselbe Arbeitshefter-Datei erneut aus und gleicht einen bereits importierten Ordner damit ab – bereits geschriebener Text bleibt dabei unangetastet, nur die automatisch erzeugten Felder werden aufgefrischt.',
 		setMwbTargetFolder: 'Zielordner für Leben-und-Dienst-Notizen',
-		setMwbTargetFolderDesc: 'Übergeordneter Ordner, in dem der Ausgaben-Ordner angelegt wird. Leer lassen, damit jede Ausgabe direkt als eigener Ordner in der Vault-Wurzel entsteht.',
-		importMwbTargetDesc: 'Standard: Vault-Wurzel – die Ausgabe wird direkt als eigener Ordner angelegt, ohne Wrapper-Ordner. Alternativ einen bestehenden Ordner wählen oder einen neuen anlegen.',
+		setMwbTargetFolderDesc: 'Übergeordneter Ordner, in dem der Ausgaben-Ordner angelegt wird. Leer lassen, damit jede Ausgabe direkt als eigener Ordner im Vault-Hauptordner entsteht.',
+		importMwbTargetDesc: 'Standard: Vault-Hauptordner – die Ausgabe wird direkt als eigener Ordner angelegt, ohne Wrapper-Ordner. Alternativ einen bestehenden Ordner wählen oder einen neuen anlegen.',
 		noticeImportMwbResult: (folder, created, updated, skipped) => {
 			const parts = [`${created} neu`];
 			if (updated > 0) parts.push(`${updated} aktualisiert`);
@@ -749,6 +757,23 @@ suggestRemoveLink: 'Verlinkung löschen',
 		folderCAco: (season, theme) => `${season} Circuit Assembly – With Circuit Overseer – “${theme}”`,
 		folderCAbr: (season, theme) => `${season} Circuit Assembly – With Branch Representative – “${theme}”`,
 
+		// ── Meeting Workbook ───────────────────────────────────────────────
+		// Section headings and the Congregation Bible Study title are parser
+		// anchors (see NoteStrings), read off the January-February and
+		// March-April 2026 issues and held against the German ones, week by week.
+		treasuresLabel: 'TREASURES FROM GOD’S WORD',
+		ministryLabel: 'APPLY YOURSELF TO THE FIELD MINISTRY',
+		livingLabel: 'LIVING AS CHRISTIANS',
+		cbsLabel: 'Congregation Bible Study',
+		weeklyBibleReadingLabel: 'This week’s Bible reading',
+		durationLabel: 'Duration',
+		mwbFolder: (year, month) => month ? `Life and Ministry ${year} ${monthName('en', month)}-${monthName('en', month % 12 + 1)}` : `Life and Ministry ${year}`,
+		mwbDuration: minutes => `${minutes} min.`,
+		mwbSong: n => `Song ${n}`,
+		mwbPrayer: 'and Prayer',
+		mwbIntroWords: 'Opening Comments',
+		mwbClosingWords: 'Concluding Comments',
+
 		popupLoading: 'Loading Bible text …',
 		popupMissing: 'No verse text available (this passage is not indexed in the loaded Bible file).',
 		popupLoadFailed: 'The Bible file could not be loaded. The button below opens the passage in JW Library instead.',
@@ -796,7 +821,7 @@ suggestRemoveLink: 'Verlinkung löschen',
 				case 'fileTooLarge': return `The file is unusually large (${detail}) and was rejected as a precaution.`;
 				case 'decompressedTooLarge': return `The unpacked content is unusually large (${detail}) and was rejected as a precaution.`;
 				case 'notMwbPublication': return `This file is not a Meeting Workbook: "${detail}".`;
-				case 'mwbLanguageNotSupported': return 'Importing Meeting Workbooks is currently only supported for German and Korean files.';
+				case 'mwbLanguageNotSupported': return 'Meeting Workbooks in the language of this file are not supported yet.';
 				case 'mwbNoWeekDocuments': return 'No week programs were found in this file.';
 			}
 		},
@@ -822,8 +847,8 @@ suggestRemoveLink: 'Verlinkung löschen',
 		btnOpen: 'Open',
 		headGeneral: 'General',
 		setTargetFolder: 'Target folder',
-		setTargetFolderDesc: 'Parent folder in which convention folders are created. Leave empty so each convention becomes its own top-level folder in the vault root (no extra wrapper folder).',
-		setTargetFolderPlaceholder: '(vault root)',
+		setTargetFolderDesc: 'Parent folder in which convention folders are created. Leave empty so each convention becomes its own top-level folder in the vault folder (no extra wrapper folder).',
+		setTargetFolderPlaceholder: '(vault folder)',
 		setLang: 'Language of the interface and Bible-verse popup',
 		setLangDesc: 'Plugin labels and Bible book names in the popup. Notes automatically follow the language of the imported program file.',
 		headScripture: 'Scripture references',
@@ -864,8 +889,8 @@ suggestRemoveLink: 'Verlinkung löschen',
 		importFileDesc: 'Pick a .jwpub file or an RTF ZIP.',
 		btnPickFile: 'Choose file …',
 		importTarget: 'Target folder',
-		importTargetDesc: 'Default: vault root – the convention is created directly as its own folder, without a wrapper folder. Alternatively pick an existing folder or create a new one.',
-		optVaultRoot: 'Vault root (no subfolder)',
+		importTargetDesc: 'Default: vault folder – the convention is created directly as its own folder, without a wrapper folder. Alternatively pick an existing folder or create a new one.',
+		optVaultRoot: 'Vault folder (no subfolder)',
 		optNewFolder: '➕ New folder …',
 		importNewFolder: 'Name of the new folder',
 		importNewFolderPlaceholder: 'e.g. Conventions',
@@ -946,7 +971,7 @@ suggestRemoveLink: 'Verlinkung löschen',
 		previewMarkerOnly: 'Only invisible markers are refreshed — nothing in the visible text changes.',
 
 		setSpeakerLink: 'Prepare the Speaker field as a link',
-		setSpeakerLinkDesc: 'Writes the Speaker field of new notes as an empty wiki link (**Speaker:** [[]]). Clicking between the brackets opens Obsidian’s own completion, so the same brother is spelled the same way every time — and his note then lists all his talks under its backlinks. Off by default; existing notes are left as they are, since the Speaker field is yours and no update ever touches it.',
+		setSpeakerLinkDesc: 'Writes the Speaker field of new notes as an empty wikilink (**Speaker:** [[]]). Clicking between the brackets opens Obsidian’s own completion, so the same brother is spelled the same way every time — and his note then lists all his talks under its backlinks. Off by default; existing notes are left as they are, since the Speaker field is yours and no update ever touches it.',
 		speakerLinkCommand: 'Turn speaker names into links',
 		speakerLinkTitle: 'Turn speaker names into links',
 		speakerLinkDesc: 'Searches the whole vault for hand-typed speaker names and proposes which spellings mean the same person. Proposed, not decided: the name and the grouping can be changed per person, and nothing is written until you apply. The original wording stays visible — only what Obsidian resolves underneath changes. Names written somewhere other than the Speaker field are deliberately left alone; Obsidian finds those itself under "unlinked mentions" once the person’s note exists.',
@@ -983,7 +1008,7 @@ suggestRemoveLink: 'Delete link',
 		},
 		btnApply: 'Apply',
 		headImportMwb: 'Import & update Life and Ministry',
-		headImportMwbDesc: 'Imports Meeting Workbook files (.jwpub) as weekly notes for the "Our Christian Life and Ministry" meeting – one note per week with the three fixed sections of the meeting. "Import Life and Ministry notes" creates a new folder; "Update Life and Ministry notes" reconciles an already-imported folder field by field without losing anything you typed – just like the convention program. German and Korean workbook files are supported.',
+		headImportMwbDesc: 'Imports Meeting Workbook files (.jwpub) as weekly notes for the "Our Christian Life and Ministry" meeting – one note per week with the three fixed sections of the meeting. "Import Life and Ministry notes" creates a new folder; "Update Life and Ministry notes" reconciles an already-imported folder field by field without losing anything you typed – just like the convention program. Workbook files in all eight languages of the plugin are supported.',
 		setImportMwbActionDesc: 'Pick a workbook file and create weekly notes from it.',
 		importMwbCommand: 'Import Life and Ministry notes',
 		importMwbTitle: 'Import Life and Ministry notes',
@@ -992,8 +1017,8 @@ suggestRemoveLink: 'Delete link',
 		updateMwbTitle: 'Update Life and Ministry notes',
 		updateMwbExplanation: 'Pick the same workbook file again and reconcile it against an already-imported folder – text you already typed is left untouched; only the automatically generated fields are refreshed.',
 		setMwbTargetFolder: 'Target folder for Life and Ministry notes',
-		setMwbTargetFolderDesc: 'Parent folder in which the folder for each issue is created. Leave empty so each issue becomes its own folder in the vault root.',
-		importMwbTargetDesc: 'Default: vault root – the issue is created directly as its own folder, without a wrapper folder. Alternatively pick an existing folder or create a new one.',
+		setMwbTargetFolderDesc: 'Parent folder in which the folder for each issue is created. Leave empty so each issue becomes its own folder in the vault folder.',
+		importMwbTargetDesc: 'Default: vault folder – the issue is created directly as its own folder, without a wrapper folder. Alternatively pick an existing folder or create a new one.',
 		noticeImportMwbResult: (folder, created, updated, skipped) => {
 			const parts = [`${created} new`];
 			if (updated > 0) parts.push(`${updated} updated`);
@@ -1041,6 +1066,23 @@ suggestRemoveLink: 'Delete link',
 		folderCAco: (season, theme) => `Programme de l’assemblée de circonscription ${season} – avec le responsable de circonscription – « ${theme} »`,
 		folderCAbr: (season, theme) => `Programme de l’assemblée de circonscription ${season} – avec un représentant de la filiale – « ${theme} »`,
 
+		// ── Meeting Workbook ───────────────────────────────────────────────
+		// Section headings and the Congregation Bible Study title are parser
+		// anchors (see NoteStrings), read off the January-February and
+		// March-April 2026 issues and held against the German ones, week by week.
+		treasuresLabel: 'JOYAUX DE LA PAROLE DE DIEU',
+		ministryLabel: 'APPLIQUE-TOI AU MINISTÈRE',
+		livingLabel: 'VIE CHRÉTIENNE',
+		cbsLabel: 'Étude biblique de l’assemblée',
+		weeklyBibleReadingLabel: 'Lecture de la Bible de cette semaine',
+		durationLabel: 'Durée',
+		mwbFolder: (year, month) => month ? `Vie et ministère ${year} ${monthName('fr', month)}-${monthName('fr', month % 12 + 1)}` : `Vie et ministère ${year}`,
+		mwbDuration: minutes => `${minutes} min`,
+		mwbSong: n => `Cantique ${n}`,
+		mwbPrayer: 'et prière',
+		mwbIntroWords: 'Paroles d’introduction',
+		mwbClosingWords: 'Paroles de conclusion',
+
 		popupLoading: 'Chargement du texte biblique …',
 		popupMissing: 'Aucun texte de verset disponible (ce passage n’est pas indexé dans le fichier biblique chargé).',
 		popupLoadFailed: 'Le fichier biblique n’a pas pu être chargé. Le bouton ci-dessous ouvre le passage dans JW Library à la place.',
@@ -1069,13 +1111,13 @@ suggestRemoveLink: 'Delete link',
 		scriptureSuggestLinkAndOpen: 'Lier et ouvrir JW Library',
 		scriptureSuggestQuoteKeepLink: 'Insérer comme citation et conserver le lien',
 
-		noticeUpdated: version => `JW Programme d’assemblée a été mis à jour vers la version ${version}.\n\nLes améliorations apportées aux modèles de notes n’atteignent pas automatiquement les assemblées déjà importées : exécutez « Mettre à jour les notes de l’assemblée » (palette de commandes) avec le même fichier de programme pour les appliquer — ce que vous avez déjà saisi (orateur, notes) est conservé. Seules les notes créées avec une version très ancienne du plugin ne peuvent pas être mises à jour ainsi ; dans ce cas, supprimez le dossier de l’assemblée et réimportez-le.\n\n(Cliquer pour fermer)`,
+		noticeUpdated: version => `JW Programme d’assemblée a été mis à jour vers la version ${version}.\n\nLes améliorations apportées aux modèles de notes n’atteignent pas automatiquement les assemblées déjà importées : exécutez « Mettre à jour les notes de l’assemblée » (palette de commandes) avec le même fichier de programme pour les appliquer — ce que vous avez déjà saisi (orateur, notes) est conservé. Seules les notes créées avec une version très ancienne du module ne peuvent pas être mises à jour ainsi ; dans ce cas, supprimez le dossier de l’assemblée et réimportez-le.\n\n(Cliquer pour fermer)`,
 		noticeBibleSaved: 'Fichier biblique enregistré.',
 		noticeBibleSaveFailed: err => `Le fichier biblique n’a pas pu être enregistré : ${err}`,
 		noticeBibleRemoveFailed: err => `Le fichier biblique n’a pas pu être supprimé : ${err}`,
-		noticeBibleMissingOnDevice: 'Le fichier biblique est absent sur cet appareil (les réglages se synchronisent entre les appareils, pas le fichier lui-même). Veuillez le sélectionner à nouveau sous « Fichier biblique » dans les réglages du plugin.',
+		noticeBibleMissingOnDevice: 'Le fichier biblique est absent sur cet appareil (les paramètres se synchronisent entre les appareils, pas le fichier lui-même). Veuillez le sélectionner à nouveau sous « Fichier biblique » dans les paramètres du module.',
 		noticeBibleLoadFailed: err => `Le fichier biblique n’a pas pu être chargé : ${err}`,
-		noticeQuoteNeedsBibleFile: 'Aucun fichier biblique chargé – le texte biblique a été lié à la place. Ajoutez un fichier biblique dans les réglages du plugin pour insérer directement les citations.',
+		noticeQuoteNeedsBibleFile: 'Aucun fichier biblique chargé – le texte biblique a été lié à la place. Ajoutez un fichier biblique dans les paramètres du module pour insérer directement les citations.',
 		describeParseError: (code, detail) => {
 			switch (code) {
 				case 'unknownFormat': return `Format de fichier inconnu : « ${detail} ». Veuillez choisir un fichier .jwpub ou .rtf/.zip.`;
@@ -1088,11 +1130,11 @@ suggestRemoveLink: 'Delete link',
 				case 'fileTooLarge': return `Le fichier est inhabituellement volumineux (${detail}) et a été rejeté par précaution.`;
 				case 'decompressedTooLarge': return `Le contenu décompressé est inhabituellement volumineux (${detail}) et a été rejeté par précaution.`;
 				case 'notMwbPublication': return `Ce fichier n'est pas un cahier « Vie et ministère » : « ${detail} ».`;
-				case 'mwbLanguageNotSupported': return 'L’importation des cahiers « Vie et ministère » n’est actuellement prise en charge que pour les fichiers en allemand et en coréen.';
+				case 'mwbLanguageNotSupported': return 'Les cahiers pour la réunion dans la langue de ce fichier ne sont pas encore pris en charge.';
 				case 'mwbNoWeekDocuments': return 'Aucun programme hebdomadaire n’a été trouvé dans ce fichier.';
 			}
 		},
-		noticeBibleHint: 'Astuce : ajoutez un fichier jwpub de la Bible (par ex. l’édition d’étude de jw.org) dans les réglages du plugin — un clic sur un texte biblique ouvrira alors le texte du verset avec les références croisées et les notes d’étude directement en popup dans Obsidian. (Cliquer pour ouvrir les réglages)',
+		noticeBibleHint: 'Astuce : ajoutez un fichier jwpub de la Bible (par ex. l’édition d’étude de jw.org) dans les paramètres du module — un clic sur un texte biblique ouvrira alors le texte du verset avec les références croisées et les notes d’étude directement en popup dans Obsidian. (Cliquer pour ouvrir les paramètres)',
 		noticeImportFailed: err => `Échec de l’importation : ${err}`,
 		noticeRtfFallback: 'Échec de l’analyse du fichier jwpub – recours au RTF.',
 		noticeImportProgress: (done, total) => `Importation en cours … ${done}/${total}`,
@@ -1109,7 +1151,7 @@ suggestRemoveLink: 'Delete link',
 		noticeNotAFolder: path => `« ${path} » n’est pas un dossier.`,
 
 		headImport: 'Importer et mettre à jour les programmes d’assemblée',
-		headImportDesc: 'Deux façons d’intégrer un programme d’assemblée : « Importer le programme de l’assemblée » crée un nouveau dossier d’assemblée — une réimportation dans le même dossier ne rafraîchit que les fichiers générés purement automatiquement (aperçu, image de couverture), les notes contenant vos propres saisies restent intactes. « Mettre à jour les notes de l’assemblée » réconcilie au contraire un dossier déjà importé champ par champ (jour, heure, textes bibliques, titres) — même à l’intérieur de notes déjà modifiées à la main, sans perdre ce qui y a été saisi. Utile par ex. après une mise à jour du plugin corrigeant une erreur dans les notes. Pour les notes provenant d’une version très ancienne du plugin (sans marqueurs invisibles), « Mettre à jour les notes de l’assemblée » propose à la place une fenêtre de vérification avec des corrections suggérées, à confirmer individuellement.',
+		headImportDesc: 'Deux façons d’intégrer un programme d’assemblée : « Importer le programme de l’assemblée » crée un nouveau dossier d’assemblée — une réimportation dans le même dossier ne rafraîchit que les fichiers générés purement automatiquement (aperçu, image de couverture), les notes contenant vos propres saisies restent intactes. « Mettre à jour les notes de l’assemblée » réconcilie au contraire un dossier déjà importé champ par champ (jour, heure, textes bibliques, titres) — même à l’intérieur de notes déjà modifiées à la main, sans perdre ce qui y a été saisi. Utile par ex. après une mise à jour du module corrigeant une erreur dans les notes. Pour les notes provenant d’une version très ancienne du module (sans marqueurs invisibles), « Mettre à jour les notes de l’assemblée » propose à la place une fenêtre de vérification avec des corrections suggérées, à confirmer individuellement.',
 		setImportActionDesc: 'Choisit un fichier de programme et crée des notes à partir de celui-ci (voir l’explication ci-dessus).',
 		btnOpen: 'Ouvrir',
 		headGeneral: 'Général',
@@ -1117,7 +1159,7 @@ suggestRemoveLink: 'Delete link',
 		setTargetFolderDesc: 'Dossier parent dans lequel le dossier de l’assemblée est créé. Laissez vide pour que chaque assemblée devienne son propre dossier de premier niveau à la racine du coffre (sans dossier englobant supplémentaire).',
 		setTargetFolderPlaceholder: '(racine du coffre)',
 		setLang: 'Langue de l’interface et du popup de texte biblique',
-		setLangDesc: 'Libellés du plugin et noms des livres bibliques dans le popup. Les notes suivent automatiquement la langue du fichier de programme importé.',
+		setLangDesc: 'Libellés du module et noms des livres bibliques dans le popup. Les notes suivent automatiquement la langue du fichier de programme importé.',
 		headScripture: 'Textes bibliques',
 		setScriptureLinks: 'Lier les textes bibliques',
 		setScriptureLinksDesc: 'Génère des liens JW Library cliquables pour chaque texte biblique.',
@@ -1141,7 +1183,7 @@ suggestRemoveLink: 'Delete link',
 		setFrontmatterDesc: 'Ajoute à chaque note générée un frontmatter YAML avec des clés anglaises stables (convention, type, day, time) – par ex. pour les requêtes Dataview. Les clés sont volontairement indépendantes de la langue.',
 		setBibleFile: 'Fichier biblique',
 		bibleDescLoaded: 'Le fichier biblique est chargé. Un clic sur un texte biblique affiche le texte du verset directement dans Obsidian (avec un bouton pour l’ouvrir dans JW Library).',
-		bibleDescMissing: 'Facultatif : choisissez un fichier jwpub de la Bible (par ex. téléchargé depuis jw.org) pour qu’un clic sur un texte biblique affiche le texte du verset directement dans Obsidian, au lieu d’ouvrir seulement JW Library. L’édition d’étude (nwtsty) propose des notes d’étude et davantage de notes ; sur les appareils mobiles à mémoire limitée, l’édition courante (nwt), bien plus légère, est le choix le plus économe en mémoire. Le fichier est enregistré localement dans le dossier du plugin, pas copié dans le coffre.',
+		bibleDescMissing: 'Facultatif : choisissez un fichier jwpub de la Bible (par ex. téléchargé depuis jw.org) pour qu’un clic sur un texte biblique affiche le texte du verset directement dans Obsidian, au lieu d’ouvrir seulement JW Library. L’édition d’étude (nwtsty) propose des notes d’étude et davantage de notes ; sur les appareils mobiles à mémoire limitée, l’édition courante (nwt), bien plus légère, est le choix le plus économe en mémoire. Le fichier est enregistré localement dans le dossier du module, pas copié dans le coffre.',
 		btnChooseFile: 'Choisir un fichier …',
 		btnReplaceFile: 'Remplacer le fichier …',
 		btnRemoveBible: 'Supprimer le fichier biblique',
@@ -1182,7 +1224,7 @@ suggestRemoveLink: 'Delete link',
 
 		updateCommand: 'Mettre à jour les notes de l’assemblée',
 		updateTitle: 'Mettre à jour les notes de l’assemblée',
-		updateExplanation: 'Choisissez à nouveau le même fichier de programme et comparez-le à un dossier d’assemblée déjà importé — utile après une mise à jour du plugin qui corrige une erreur dans les notes (par ex. jour, heure ou textes bibliques). Tout ce que vous avez déjà saisi (nom de l’orateur, notes personnelles) reste intact ; seuls les champs générés automatiquement sont rafraîchis.',
+		updateExplanation: 'Choisissez à nouveau le même fichier de programme et comparez-le à un dossier d’assemblée déjà importé — utile après une mise à jour du module qui corrige une erreur dans les notes (par ex. jour, heure ou textes bibliques). Tout ce que vous avez déjà saisi (nom de l’orateur, notes personnelles) reste intact ; seuls les champs générés automatiquement sont rafraîchis.',
 		updateTargetFolder: 'Dossier d’assemblée à mettre à jour',
 		updateTargetFolderDesc: 'Le dossier créé par l’importation d’origine.',
 		updateNoFoldersFound: 'Aucun dossier trouvé dans le coffre.',
@@ -1220,7 +1262,7 @@ suggestRemoveLink: 'Delete link',
 
 		previewUpdateCommand: 'Afficher les modifications avant la mise à jour',
 		previewUpdateTitle: 'Afficher les modifications avant la mise à jour',
-		previewUpdateExplanation: 'Calcule exactement la même mise à jour que « Mettre à jour les notes de l’assemblée », mais n’écrit rien : vous voyez d’abord champ par champ ce qui changerait, puis vous décidez. Utile après une mise à jour du plugin, pour voir si vos notes sont concernées, et lorsque plusieurs assemblées sont à traiter en même temps.',
+		previewUpdateExplanation: 'Calcule exactement la même mise à jour que « Mettre à jour les notes de l’assemblée », mais n’écrit rien : vous voyez d’abord champ par champ ce qui changerait, puis vous décidez. Utile après une mise à jour du module, pour voir si vos notes sont concernées, et lorsque plusieurs assemblées sont à traiter en même temps.',
 		btnShowChanges: 'Afficher les modifications',
 		previewNoChanges: 'Aucune modification — toutes les notes sont déjà à jour.',
 		previewSummary: (changed, created, unchanged, needsReimport) => {
@@ -1238,7 +1280,7 @@ suggestRemoveLink: 'Delete link',
 		previewMarkerOnly: 'Seuls des marqueurs invisibles sont rafraîchis — le texte visible ne change pas.',
 
 		setSpeakerLink: 'Préparer le champ Orateur comme lien',
-		setSpeakerLinkDesc: 'Écrit le champ Orateur des nouvelles notes sous forme de lien wiki vide (**Orateur:** [[]]). Un clic entre les crochets ouvre la complétion d’Obsidian, si bien que le même frère s’écrit toujours de la même façon — et sa note liste ensuite tous ses discours via ses liens entrants. Désactivé par défaut ; les notes existantes restent inchangées, le champ Orateur vous appartient et aucune mise à jour n’y touche.',
+		setSpeakerLinkDesc: 'Écrit le champ Orateur des nouvelles notes sous forme de wikilink vide (**Orateur:** [[]]). Un clic entre les crochets ouvre la complétion d’Obsidian, si bien que le même frère s’écrit toujours de la même façon — et sa note liste ensuite tous ses discours via ses liens entrants. Désactivé par défaut ; les notes existantes restent inchangées, le champ Orateur vous appartient et aucune mise à jour n’y touche.',
 		speakerLinkCommand: 'Convertir les noms d’orateurs en liens',
 		speakerLinkTitle: 'Convertir les noms d’orateurs en liens',
 		speakerLinkDesc: 'Recherche dans tout le coffre les noms d’orateurs saisis à la main et propose quelles graphies désignent la même personne. Proposé, non décidé : le nom et le regroupement sont modifiables pour chaque personne, et rien n’est écrit avant validation. La graphie d’origine reste visible — seul ce qu’Obsidian résout en dessous change. Les noms écrits ailleurs que dans le champ Orateur ne sont volontairement pas touchés ; Obsidian les trouve lui-même sous « mentions non liées » dès que la note de la personne existe.',
@@ -1256,9 +1298,9 @@ suggestRemoveLink: 'Delete link',
 		},
 
 		removeLinkCommand: 'Supprimer le lien sous le curseur',
-		noticeNoLinkAtCursor: 'Aucun lien de ce plugin à cet endroit.',
+		noticeNoLinkAtCursor: 'Aucun lien de ce module à cet endroit.',
 						setUnderlineLinks: 'Souligner les liens',
-		setUnderlineLinksDesc: 'Ne concerne que les liens de ce plugin : textes bibliques, cantiques et références. Désactivé, ils restent colorés mais sans soulignement, qui réapparaît au survol ; dans une note pleine de références, la lecture est plus calme. En mode lecture uniquement : en mode édition, Obsidian affiche les liens sans cible, les nôtres y sont donc indiscernables des autres.',
+		setUnderlineLinksDesc: 'Ne concerne que les liens de ce module : textes bibliques, cantiques et références. Désactivé, ils restent colorés mais sans soulignement, qui réapparaît au survol ; dans une note pleine de références, la lecture est plus calme. En mode lecture uniquement : en mode édition, Obsidian affiche les liens sans cible, les nôtres y sont donc indiscernables des autres.',
 setSongSuggest: 'Lier les cantiques',
 		setSongSuggestDesc: 'Si vous tapez un numéro de cantique en texte (« Cantique 45 »), il vous est proposé de le lier à JW Library, comme pour un texte biblique saisi. L’adresse provient du recueil de cantiques officiel et non d’une formule ; les cantiques qui n’y figurent pas ne sont volontairement pas proposés.',
 		songSuggestLink: 'Lier le cantique',
@@ -1266,7 +1308,7 @@ suggestRemoveLink: 'Supprimer le lien',
 		suggestEditLink: 'Modifier le lien',
 
 		legacyModalTitle: 'Corrections possibles pour les anciennes notes',
-		legacyModalDesc: 'Ces notes ont été créées avec une version du plugin antérieure à la 1.9.0 et ne contiennent aucun marqueur invisible — seules les lignes pouvant être associées sans ambiguïté à un champ connu sont donc proposées ici. Seules les notes dont l’interrupteur est activé sont modifiées en cliquant sur « Appliquer » ; tout le reste de chaque note reste inchangé.',
+		legacyModalDesc: 'Ces notes ont été créées avec une version du module antérieure à la 1.9.0 et ne contiennent aucun marqueur invisible — seules les lignes pouvant être associées sans ambiguïté à un champ connu sont donc proposées ici. Seules les notes dont l’interrupteur est activé sont modifiées en cliquant sur « Appliquer » ; tout le reste de chaque note reste inchangé.',
 		noticeLegacyCorrectionsFound: count => `${count} ${oneFr(count, 'ancienne note avec des corrections possibles trouvée', 'anciennes notes avec des corrections possibles trouvées')}. (Cliquer pour vérifier)`,
 		noticeLegacyApplied: (count, failed) => {
 			const parts = [`${count} ${oneFr(count, 'note mise à jour', 'notes mises à jour')}`];
@@ -1275,7 +1317,7 @@ suggestRemoveLink: 'Supprimer le lien',
 		},
 		btnApply: 'Appliquer',
 		headImportMwb: 'Importer et mettre à jour Vie chrétienne et ministère',
-		headImportMwbDesc: 'Importe les fichiers du cahier pour la réunion (.jwpub) sous forme de notes hebdomadaires pour la réunion Vie chrétienne et ministère – une note par semaine avec les trois parties fixes de la réunion. « Importer les notes Vie chrétienne et ministère » crée un nouveau dossier ; « Mettre à jour les notes Vie chrétienne et ministère » réconcilie un dossier déjà importé champ par champ, sans perdre ce que vous y avez saisi – comme pour le programme d’assemblée. Les cahiers en allemand et en coréen sont pris en charge.',
+		headImportMwbDesc: 'Importe les fichiers du cahier pour la réunion (.jwpub) sous forme de notes hebdomadaires pour la réunion Vie chrétienne et ministère – une note par semaine avec les trois parties fixes de la réunion. « Importer les notes Vie chrétienne et ministère » crée un nouveau dossier ; « Mettre à jour les notes Vie chrétienne et ministère » réconcilie un dossier déjà importé champ par champ, sans perdre ce que vous y avez saisi – comme pour le programme d’assemblée. Les cahiers dans les huit langues du module sont pris en charge.',
 		setImportMwbActionDesc: 'Choisit un fichier du cahier et crée des notes hebdomadaires à partir de celui-ci.',
 		importMwbCommand: 'Importer les notes Vie chrétienne et ministère',
 		importMwbTitle: 'Importer les notes Vie chrétienne et ministère',
@@ -1333,6 +1375,23 @@ suggestRemoveLink: 'Supprimer le lien',
 		folderCAco: (season, theme) => `Programma dell’assemblea di circoscrizione ${season} – con il sorvegliante di circoscrizione – “${theme}”`,
 		folderCAbr: (season, theme) => `Programma dell’assemblea di circoscrizione ${season} – con il rappresentante della filiale – “${theme}”`,
 
+		// ── Meeting Workbook ───────────────────────────────────────────────
+		// Section headings and the Congregation Bible Study title are parser
+		// anchors (see NoteStrings), read off the January-February and
+		// March-April 2026 issues and held against the German ones, week by week.
+		treasuresLabel: 'TESORI DELLA PAROLA DI DIO',
+		ministryLabel: 'EFFICACI NEL MINISTERO',
+		livingLabel: 'VITA CRISTIANA',
+		cbsLabel: 'Studio biblico di congregazione',
+		weeklyBibleReadingLabel: 'Lettura biblica di questa settimana',
+		durationLabel: 'Durata',
+		mwbFolder: (year, month) => month ? `Vita e ministero ${year} ${monthName('it', month)}-${monthName('it', month % 12 + 1)}` : `Vita e ministero ${year}`,
+		mwbDuration: minutes => `${minutes} min`,
+		mwbSong: n => `Cantico ${n}`,
+		mwbPrayer: 'e preghiera',
+		mwbIntroWords: 'Commenti introduttivi',
+		mwbClosingWords: 'Commenti conclusivi',
+
 		popupLoading: 'Caricamento del testo biblico …',
 		popupMissing: 'Nessun testo del versetto disponibile (questo passo non è indicizzato nel file della Bibbia caricato).',
 		popupLoadFailed: 'Non è stato possibile caricare il file della Bibbia. Il pulsante qui sotto apre il passo in JW Library.',
@@ -1361,7 +1420,7 @@ suggestRemoveLink: 'Supprimer le lien',
 		scriptureSuggestLinkAndOpen: 'Collega e apri JW Library',
 		scriptureSuggestQuoteKeepLink: 'Inserisci come citazione e mantieni il collegamento',
 
-		noticeUpdated: version => `JW Programma del congresso è stato aggiornato alla versione ${version}.\n\nI miglioramenti ai modelli di nota non raggiungono automaticamente i congressi già importati: esegui "Aggiorna le note del congresso" (palette dei comandi) con lo stesso file del programma per applicarli — quanto hai già scritto (oratore, note) viene mantenuto. Solo le note create con una versione molto vecchia del plugin non possono essere aggiornate in questo modo; in tal caso elimina la cartella del congresso e reimportala.\n\n(Clicca per chiudere)`,
+		noticeUpdated: version => `JW Programma del congresso è stato aggiornato alla versione ${version}.\n\nI miglioramenti ai modelli di nota non raggiungono automaticamente i congressi già importati: esegui "Aggiorna le note del congresso" (riquadro comandi) con lo stesso file del programma per applicarli — quanto hai già scritto (oratore, note) viene mantenuto. Solo le note create con una versione molto vecchia del plugin non possono essere aggiornate in questo modo; in tal caso elimina la cartella del congresso e reimportala.\n\n(Clicca per chiudere)`,
 		noticeBibleSaved: 'File della Bibbia salvato.',
 		noticeBibleSaveFailed: err => `Non è stato possibile salvare il file della Bibbia: ${err}`,
 		noticeBibleRemoveFailed: err => `Non è stato possibile rimuovere il file della Bibbia: ${err}`,
@@ -1379,8 +1438,8 @@ suggestRemoveLink: 'Supprimer le lien',
 				case 'jwpubEmptyPublication': return 'Il file jwpub è danneggiato: la tabella Publication è vuota.';
 				case 'fileTooLarge': return `Il file è insolitamente grande (${detail}) ed è stato rifiutato per precauzione.`;
 				case 'decompressedTooLarge': return `Il contenuto estratto è insolitamente grande (${detail}) ed è stato rifiutato per precauzione.`;
-				case 'notMwbPublication': return `Questo file non è un opuscolo "Vita e ministero": "${detail}".`;
-				case 'mwbLanguageNotSupported': return 'L’importazione degli opuscoli "Vita e ministero" è al momento supportata solo per i file in tedesco e in coreano.';
+				case 'notMwbPublication': return `Questo file non è una Guida alle attività "Vita cristiana e ministero": "${detail}".`;
+				case 'mwbLanguageNotSupported': return 'La Guida alle attività nella lingua di questo file non è ancora supportata.';
 				case 'mwbNoWeekDocuments': return 'In questo file non è stato trovato alcun programma settimanale.';
 			}
 		},
@@ -1406,8 +1465,8 @@ suggestRemoveLink: 'Supprimer le lien',
 		btnOpen: 'Apri',
 		headGeneral: 'Generale',
 		setTargetFolder: 'Cartella di destinazione',
-		setTargetFolderDesc: 'Cartella principale in cui vengono create le cartelle dei congressi. Lascia vuoto in modo che ogni congresso diventi una propria cartella di primo livello nella radice del vault (senza cartella contenitore aggiuntiva).',
-		setTargetFolderPlaceholder: '(radice del vault)',
+		setTargetFolderDesc: 'Cartella principale in cui vengono create le cartelle dei congressi. Lascia vuoto in modo che ogni congresso diventi una propria cartella di primo livello nella cartella principale del vault (senza cartella contenitore aggiuntiva).',
+		setTargetFolderPlaceholder: '(cartella principale del vault)',
 		setLang: 'Lingua dell’interfaccia e del popup dei versetti biblici',
 		setLangDesc: 'Le etichette del plugin e i nomi dei libri biblici nel popup. Le note seguono automaticamente la lingua del file del programma importato.',
 		headScripture: 'Testi biblici',
@@ -1448,8 +1507,8 @@ suggestRemoveLink: 'Supprimer le lien',
 		importFileDesc: 'Seleziona un file .jwpub o uno ZIP RTF.',
 		btnPickFile: 'Scegli file …',
 		importTarget: 'Cartella di destinazione',
-		importTargetDesc: 'Predefinito: radice del vault – il congresso viene creato direttamente come propria cartella, senza cartella contenitore. In alternativa, seleziona una cartella esistente o creane una nuova.',
-		optVaultRoot: 'Radice del vault (nessuna sottocartella)',
+		importTargetDesc: 'Predefinito: cartella principale del vault – il congresso viene creato direttamente come propria cartella, senza cartella contenitore. In alternativa, seleziona una cartella esistente o creane una nuova.',
+		optVaultRoot: 'Cartella principale del vault (nessuna sottocartella)',
 		optNewFolder: '➕ Nuova cartella …',
 		importNewFolder: 'Nome della nuova cartella',
 		importNewFolderPlaceholder: 'ad es. Congressi',
@@ -1567,7 +1626,7 @@ suggestRemoveLink: 'Elimina il collegamento',
 		},
 		btnApply: 'Applica',
 		headImportMwb: 'Importa e aggiorna Vita cristiana e ministero',
-		headImportMwbDesc: 'Importa i file della Guida alle attività (.jwpub) come note settimanali per l’adunanza Vita cristiana e ministero – una nota per settimana con le tre parti fisse dell’adunanza. "Importa le note Vita cristiana e ministero" crea una nuova cartella; "Aggiorna le note Vita cristiana e ministero" riconcilia campo per campo una cartella già importata, senza perdere nulla di quanto scritto – come per il programma del congresso. Sono supportati i file in tedesco e in coreano.',
+		headImportMwbDesc: 'Importa i file della Guida alle attività (.jwpub) come note settimanali per l’adunanza Vita cristiana e ministero – una nota per settimana con le tre parti fisse dell’adunanza. "Importa le note Vita cristiana e ministero" crea una nuova cartella; "Aggiorna le note Vita cristiana e ministero" riconcilia campo per campo una cartella già importata, senza perdere nulla di quanto scritto – come per il programma del congresso. Sono supportati i file in tutte le otto lingue del plugin.',
 		setImportMwbActionDesc: 'Seleziona un file della Guida alle attività e crea a partire da esso le note settimanali.',
 		importMwbCommand: 'Importa le note Vita cristiana e ministero',
 		importMwbTitle: 'Importa le note Vita cristiana e ministero',
@@ -1576,8 +1635,8 @@ suggestRemoveLink: 'Elimina il collegamento',
 		updateMwbTitle: 'Aggiorna le note Vita cristiana e ministero',
 		updateMwbExplanation: 'Seleziona di nuovo lo stesso file della Guida alle attività e confrontalo con una cartella già importata – il testo già scritto resta intatto; vengono aggiornati solo i campi generati automaticamente.',
 		setMwbTargetFolder: 'Cartella di destinazione per le note Vita cristiana e ministero',
-		setMwbTargetFolderDesc: 'Cartella principale in cui viene creata la cartella di ogni fascicolo. Lascia vuoto in modo che ogni fascicolo diventi una propria cartella nella radice del vault.',
-		importMwbTargetDesc: 'Predefinito: radice del vault – il fascicolo viene creato direttamente come propria cartella, senza cartella contenitore. In alternativa, seleziona una cartella esistente o creane una nuova.',
+		setMwbTargetFolderDesc: 'Cartella principale in cui viene creata la cartella di ogni fascicolo. Lascia vuoto in modo che ogni fascicolo diventi una propria cartella nella cartella principale del vault.',
+		importMwbTargetDesc: 'Predefinito: cartella principale del vault – il fascicolo viene creato direttamente come propria cartella, senza cartella contenitore. In alternativa, seleziona una cartella esistente o creane una nuova.',
 		noticeImportMwbResult: (folder, created, updated, skipped) => {
 			const parts = [`${created} ${one(created, 'nuovo', 'nuovi')}`];
 			if (updated > 0) parts.push(`${updated} ${one(updated, 'aggiornato', 'aggiornati')}`);
@@ -1625,9 +1684,26 @@ suggestRemoveLink: 'Elimina il collegamento',
 		folderCAco: (season, theme) => `Assembleia de Circuito ${season} – com o Superintendente de Circuito – “${theme}”`,
 		folderCAbr: (season, theme) => `Assembleia de Circuito ${season} – com o Representante da Filial – “${theme}”`,
 
-		popupLoading: 'Carregando o texto bíblico …',
-		popupMissing: 'Nenhum texto do versículo disponível (esta passagem não está indexada no arquivo da Bíblia carregado).',
-		popupLoadFailed: 'Não foi possível carregar o arquivo da Bíblia. O botão abaixo abre a passagem no JW Library.',
+		// ── Meeting Workbook ───────────────────────────────────────────────
+		// Section headings and the Congregation Bible Study title are parser
+		// anchors (see NoteStrings), read off the January-February and
+		// March-April 2026 issues and held against the German ones, week by week.
+		treasuresLabel: 'TESOUROS DA PALAVRA DE DEUS',
+		ministryLabel: 'EMPENHE-SE NO MINISTÉRIO',
+		livingLabel: 'VIVER COMO CRISTÃOS',
+		cbsLabel: 'Estudo bíblico de congregação',
+		weeklyBibleReadingLabel: 'Leitura da Bíblia desta semana',
+		durationLabel: 'Duração',
+		mwbFolder: (year, month) => month ? `Vida e Ministério ${year} ${monthName('pt-PT', month)}-${monthName('pt-PT', month % 12 + 1)}` : `Vida e Ministério ${year}`,
+		mwbDuration: minutes => `${minutes} min.`,
+		mwbSong: n => `Cântico ${n}`,
+		mwbPrayer: 'e oração',
+		mwbIntroWords: 'Comentários iniciais',
+		mwbClosingWords: 'Comentários finais',
+
+		popupLoading: 'A carregar o texto bíblico …',
+		popupMissing: 'Nenhum texto do versículo disponível (esta passagem não está indexada no ficheiro da Bíblia carregado).',
+		popupLoadFailed: 'Não foi possível carregar o ficheiro da Bíblia. O botão abaixo abre a passagem no JW Library.',
 		popupOpenJwLibrary: 'Abrir no JW Library',
 		popupFootnotes: 'Notas de rodapé',
 		popupCrossRefs: 'Referências cruzadas',
@@ -1643,72 +1719,72 @@ suggestRemoveLink: 'Elimina il collegamento',
 		noticeNoActiveNote: 'Nenhuma nota ativa para inserir. Abra primeiro uma nota.',
 		btnRemoveQuote: 'Remover citação',
 		noticeQuoteRemoved: 'Citação removida.',
-		noticeQuoteRemoveNotFound: 'Citação não encontrada – foi editada ou excluída nesse meio tempo?',
+		noticeQuoteRemoveNotFound: 'Citação não encontrada – foi editada ou eliminada entretanto?',
 		btnAlignReference: 'Ampliar a referência',
 		alignReplace: 'Substituir a referência',
 		alignAdd: 'Adicionar ao lado',
 		noticeReferenceAligned: 'Referência atualizada na nota.',
-		noticeReferenceNotFound: 'Referência não encontrada na nota – foi editada nesse meio tempo?',
+		noticeReferenceNotFound: 'Referência não encontrada na nota – foi editada entretanto?',
 		scriptureSuggestLink: 'Vincular',
 		scriptureSuggestLinkAndOpen: 'Vincular e abrir no JW Library',
 		scriptureSuggestQuoteKeepLink: 'Inserir como citação e manter o link',
 
-		noticeUpdated: version => `O JW Programa do Congresso foi atualizado para a versão ${version}.\n\nAs melhorias nos modelos de nota não chegam automaticamente aos congressos já importados: execute "Atualizar as notas do congresso" (paleta de comandos) com o mesmo arquivo do programa para aplicá-las — tudo o que você já escreveu (orador, notas) é mantido. Somente notas criadas com uma versão muito antiga do plugin não podem ser atualizadas dessa forma; nesse caso, exclua a pasta do congresso e reimporte-a.\n\n(Clique para fechar)`,
-		noticeBibleSaved: 'Arquivo da Bíblia salvo.',
-		noticeBibleSaveFailed: err => `Não foi possível salvar o arquivo da Bíblia: ${err}`,
-		noticeBibleRemoveFailed: err => `Não foi possível remover o arquivo da Bíblia: ${err}`,
-		noticeBibleMissingOnDevice: 'O arquivo da Bíblia não está presente neste dispositivo (as configurações são sincronizadas entre dispositivos, mas o arquivo em si não). Selecione-o novamente em "Arquivo da Bíblia" nas configurações do plugin.',
-		noticeBibleLoadFailed: err => `Não foi possível carregar o arquivo da Bíblia: ${err}`,
-		noticeQuoteNeedsBibleFile: 'Nenhum arquivo da Bíblia carregado – o texto bíblico foi vinculado em vez disso. Adicione um arquivo da Bíblia nas configurações do plugin para inserir as citações diretamente.',
+		noticeUpdated: version => `O JW Programa do Congresso foi atualizado para a versão ${version}.\n\nAs melhorias nos modelos de nota não chegam automaticamente aos congressos já importados: execute "Atualizar as notas do congresso" (paleta de comandos) com o mesmo ficheiro do programa para aplicá-las — tudo o que já escreveu (orador, notas) é mantido. Somente notas criadas com uma versão muito antiga do plugin não podem ser atualizadas dessa forma; nesse caso, elimine a pasta do congresso e reimporte-a.\n\n(Clique para fechar)`,
+		noticeBibleSaved: 'Ficheiro da Bíblia guardado.',
+		noticeBibleSaveFailed: err => `Não foi possível guardar o ficheiro da Bíblia: ${err}`,
+		noticeBibleRemoveFailed: err => `Não foi possível remover o ficheiro da Bíblia: ${err}`,
+		noticeBibleMissingOnDevice: 'O ficheiro da Bíblia não está presente neste dispositivo (as definições são sincronizadas entre dispositivos, mas o ficheiro em si não). Selecione-o novamente em "Ficheiro da Bíblia" nas definições do plugin.',
+		noticeBibleLoadFailed: err => `Não foi possível carregar o ficheiro da Bíblia: ${err}`,
+		noticeQuoteNeedsBibleFile: 'Nenhum ficheiro da Bíblia carregado – o texto bíblico foi vinculado em vez disso. Adicione um ficheiro da Bíblia nas definições do plugin para inserir as citações diretamente.',
 		describeParseError: (code, detail) => {
 			switch (code) {
-				case 'unknownFormat': return `Formato de arquivo desconhecido: "${detail}". Selecione um arquivo .jwpub ou .rtf/.zip.`;
+				case 'unknownFormat': return `Formato de ficheiro desconhecido: "${detail}". Selecione um ficheiro .jwpub ou .rtf/.zip.`;
 				case 'noWebCrypto': return 'Este dispositivo não é compatível com a API Web Crypto (crypto.subtle), necessária para a descriptografia do jwpub. Atualize o Obsidian ou use a importação RTF-ZIP.';
-				case 'noWebAssembly': return 'Este dispositivo não é compatível com WebAssembly, necessário para o sql.js ler o banco de dados jwpub. Atualize o Obsidian ou use a importação RTF-ZIP.';
-				case 'rtfNoFiles': return 'O ZIP RTF não contém nenhum arquivo .rtf.';
-				case 'jwpubMissingContents': return 'O arquivo jwpub está corrompido ou incompleto: falta a entrada "contents".';
-				case 'jwpubNoDatabase': return 'O arquivo jwpub está corrompido ou incompleto: nenhum arquivo de banco de dados foi encontrado.';
-				case 'jwpubEmptyPublication': return 'O arquivo jwpub está corrompido: a tabela Publication está vazia.';
-				case 'fileTooLarge': return `O arquivo é incomumente grande (${detail}) e foi rejeitado por precaução.`;
-				case 'decompressedTooLarge': return `O conteúdo descompactado é incomumente grande (${detail}) e foi rejeitado por precaução.`;
-				case 'notMwbPublication': return `Este arquivo não é uma apostila "Vida e Ministério": "${detail}".`;
-				case 'mwbLanguageNotSupported': return 'A importação de apostilas "Vida e Ministério" atualmente só é compatível com arquivos em alemão e coreano.';
-				case 'mwbNoWeekDocuments': return 'Nenhum programa semanal foi encontrado neste arquivo.';
+				case 'noWebAssembly': return 'Este dispositivo não é compatível com WebAssembly, necessário para o sql.js ler o base de dados jwpub. Atualize o Obsidian ou use a importação RTF-ZIP.';
+				case 'rtfNoFiles': return 'O ZIP RTF não contém nenhum ficheiro .rtf.';
+				case 'jwpubMissingContents': return 'O ficheiro jwpub está corrompido ou incompleto: falta a entrada "contents".';
+				case 'jwpubNoDatabase': return 'O ficheiro jwpub está corrompido ou incompleto: nenhum ficheiro de base de dados foi encontrado.';
+				case 'jwpubEmptyPublication': return 'O ficheiro jwpub está corrompido: a tabela Publication está vazia.';
+				case 'fileTooLarge': return `O ficheiro é invulgarmente grande (${detail}) e foi rejeitado por precaução.`;
+				case 'decompressedTooLarge': return `O conteúdo descomprimido é invulgarmente grande (${detail}) e foi rejeitado por precaução.`;
+				case 'notMwbPublication': return `Este ficheiro não é um Manual de Atividades "Vida e Ministério Cristãos": "${detail}".`;
+				case 'mwbLanguageNotSupported': return 'O Manual de Atividades no idioma deste ficheiro ainda não é suportado.';
+				case 'mwbNoWeekDocuments': return 'Nenhum programa semanal foi encontrado neste ficheiro.';
 			}
 		},
-		noticeBibleHint: 'Dica: adicione um arquivo jwpub da Bíblia (por ex. a edição de estudo de jw.org) nas configurações do plugin — um clique em um texto bíblico abrirá o texto do versículo com referências cruzadas e notas de estudo diretamente em um popup no Obsidian. (Clique para abrir as configurações)',
+		noticeBibleHint: 'Dica: adicione um ficheiro jwpub da Bíblia (por ex. a edição de estudo de jw.org) nas definições do plugin — um clique num texto bíblico abrirá o texto do versículo com referências cruzadas e notas de estudo diretamente num popup no Obsidian. (Clique para abrir as definições)',
 		noticeImportFailed: err => `Falha na importação: ${err}`,
-		noticeRtfFallback: 'Falha ao analisar o arquivo jwpub – usado o fallback RTF.',
-		noticeImportProgress: (done, total) => `Importando … ${done}/${total}`,
-		noticeUpdateProgress: (done, total) => `Atualizando … ${done}/${total}`,
+		noticeRtfFallback: 'Falha ao analisar o ficheiro jwpub – usado o fallback RTF.',
+		noticeImportProgress: (done, total) => `A importar … ${done}/${total}`,
+		noticeUpdateProgress: (done, total) => `A atualizar … ${done}/${total}`,
 		noticeImportResult: (folder, created, updated, skipped) => {
 			const parts = [`${created} ${one(created, 'novo', 'novos')}`];
 			if (updated > 0) parts.push(`${updated} ${one(updated, 'atualizado', 'atualizados')}`);
 			if (skipped > 0) parts.push(`${skipped} ${one(skipped, 'ignorado (já existente)', 'ignorados (já existentes)')}`);
 			return `"${folder}": ${parts.join(', ')}.`;
 		},
-		noticeImportRolledBack: err => `Falha na importação; os arquivos criados até agora foram desfeitos: ${err}`,
-		noticePickFileFirst: 'Selecione um arquivo primeiro.',
+		noticeImportRolledBack: err => `Falha na importação; os ficheiros criados até agora foram desfeitos: ${err}`,
+		noticePickFileFirst: 'Selecione um ficheiro primeiro.',
 		noticeOpenOverviewHint: '(Clique para abrir a visão geral)',
 		noticeNotAFolder: path => `"${path}" não é uma pasta.`,
 
 		headImport: 'Importar e atualizar programas de congresso',
-		headImportDesc: 'Duas formas de importar um programa de congresso: "Importar programa do congresso" cria uma nova pasta de congresso — uma nova importação na mesma pasta atualiza apenas os arquivos gerados automaticamente (visão geral, imagem de capa); notas com anotações próprias permanecem intactas. "Atualizar as notas do congresso", por sua vez, reconcilia uma pasta já importada campo por campo (dia, hora, textos bíblicos, títulos) — mesmo dentro de notas já editadas manualmente, sem perder nada do que foi escrito. Útil, por exemplo, após uma atualização do plugin que corrige um erro nas notas. Para notas de uma versão muito antiga do plugin (sem marcadores invisíveis), "Atualizar as notas do congresso" oferece, em vez disso, uma janela de revisão com correções propostas, que podem ser confirmadas individualmente.',
-		setImportActionDesc: 'Selecione um arquivo do programa e crie as notas a partir dele (veja a explicação acima).',
+		headImportDesc: 'Duas formas de importar um programa de congresso: "Importar programa do congresso" cria uma nova pasta de congresso — uma nova importação na mesma pasta atualiza apenas os ficheiros gerados automaticamente (visão geral, imagem de capa); notas com anotações próprias permanecem intactas. "Atualizar as notas do congresso", por sua vez, reconcilia uma pasta já importada campo por campo (dia, hora, textos bíblicos, títulos) — mesmo dentro de notas já editadas manualmente, sem perder nada do que foi escrito. Útil, por exemplo, após uma atualização do plugin que corrige um erro nas notas. Para notas de uma versão muito antiga do plugin (sem marcadores invisíveis), "Atualizar as notas do congresso" oferece, em vez disso, uma janela de revisão com correções propostas, que podem ser confirmadas individualmente.',
+		setImportActionDesc: 'Selecione um ficheiro do programa e crie as notas a partir dele (veja a explicação acima).',
 		btnOpen: 'Abrir',
 		headGeneral: 'Geral',
 		setTargetFolder: 'Pasta de destino',
 		setTargetFolderDesc: 'Pasta principal onde as pastas dos congressos são criadas. Deixe em branco para que cada congresso se torne sua própria pasta de nível superior na raiz do vault (sem pasta contentora adicional).',
 		setTargetFolderPlaceholder: '(raiz do vault)',
 		setLang: 'Idioma da interface e do popup de versículos bíblicos',
-		setLangDesc: 'Rótulos do plugin e nomes dos livros bíblicos no popup. As notas seguem automaticamente o idioma do arquivo do programa importado.',
+		setLangDesc: 'Rótulos do plugin e nomes dos livros bíblicos no popup. As notas seguem automaticamente o idioma do ficheiro do programa importado.',
 		headScripture: 'Textos bíblicos',
 		setScriptureLinks: 'Vincular textos bíblicos',
 		setScriptureLinksDesc: 'Gera links clicáveis do JW Library para cada texto bíblico.',
 		setBiblePopupEnabled: 'Ativar popup de versículos bíblicos',
-		setBiblePopupEnabledDesc: 'Abre o texto do versículo diretamente no Obsidian ao clicar ou tocar em um texto bíblico, em vez de abrir apenas o JW Library. Pode ser desativado independentemente do arquivo da Bíblia carregado.',
+		setBiblePopupEnabledDesc: 'Abre o texto do versículo diretamente no Obsidian ao clicar ou tocar num texto bíblico, em vez de abrir apenas o JW Library. Pode ser desativado independentemente do ficheiro da Bíblia carregado.',
 		setBookNameSuggest: 'Completar nomes de livros',
-		setBookNameSuggestDesc: 'Sugere o nome completo do livro enquanto você digita («Ato» → «Atos»). Só é acionado em palavras com inicial maiúscula e pelo menos três letras, para que o texto comum não gere sugestões o tempo todo. O capítulo e o versículo você digita depois.',
+		setBookNameSuggestDesc: 'Sugere o nome completo do livro enquanto digita («Ato» → «Atos»). Só é acionado em palavras com inicial maiúscula e pelo menos três letras, para que o texto comum não gere sugestões o tempo todo. O capítulo e o versículo digitam-se depois.',
 		setReviewNote: 'Criar nota de revisão',
 		setReviewNoteDesc: 'Cria adicionalmente uma nota "Revisão" com as três perguntas de reflexão padrão (para assembleias de circuito com link para as perguntas de revisão impressas; para congressos regionais com menção ao vídeo com os destaques).',
 		headNoteFields: 'Campos da nota',
@@ -1722,13 +1798,13 @@ suggestRemoveLink: 'Elimina il collegamento',
 		setExtraFieldsPlaceholder: '**Notas:**',
 		setExplanationName: 'Como funciona',
 		setFrontmatter: 'Adicionar frontmatter (propriedades)',
-		setFrontmatterDesc: 'Adiciona a cada nota gerada um frontmatter YAML com chaves fixas em inglês (convention, type, day, time) – por ex. para consultas do Dataview. As chaves são propositalmente independentes do idioma.',
-		setBibleFile: 'Arquivo da Bíblia',
-		bibleDescLoaded: 'O arquivo da Bíblia está carregado. Clicar em um texto bíblico mostra o texto do versículo diretamente no Obsidian (com um botão para abri-lo no JW Library).',
-		bibleDescMissing: 'Opcional: selecione um arquivo jwpub da Bíblia (por ex. baixado de jw.org) para que, ao clicar em um texto bíblico, o texto do versículo seja exibido diretamente no Obsidian, em vez de abrir apenas o JW Library. A edição de estudo (nwtsty) oferece notas de estudo e mais notas de rodapé; em dispositivos móveis com pouca memória, a edição normal (nwt), bem menor, é a escolha mais adequada. O arquivo é salvo localmente na pasta do plugin, não é copiado para o vault.',
-		btnChooseFile: 'Escolher arquivo …',
-		btnReplaceFile: 'Substituir arquivo …',
-		btnRemoveBible: 'Remover arquivo da Bíblia',
+		setFrontmatterDesc: 'Adiciona a cada nota gerada um frontmatter YAML com chaves fixas em inglês (convention, type, day, time) – por ex. para consultas do Dataview. As chaves são propositadamente independentes do idioma.',
+		setBibleFile: 'Ficheiro da Bíblia',
+		bibleDescLoaded: 'O ficheiro da Bíblia está carregado. Clicar num texto bíblico mostra o texto do versículo diretamente no Obsidian (com um botão para abri-lo no JW Library).',
+		bibleDescMissing: 'Opcional: selecione um ficheiro jwpub da Bíblia (por ex. transferido de jw.org) para que, ao clicar num texto bíblico, o texto do versículo seja exibido diretamente no Obsidian, em vez de abrir apenas o JW Library. A edição de estudo (nwtsty) oferece notas de estudo e mais notas de rodapé; em dispositivos móveis com pouca memória, a edição normal (nwt), bem menor, é a escolha mais adequada. O ficheiro é guardado localmente na pasta do plugin, não é copiado para o vault.',
+		btnChooseFile: 'Escolher ficheiro …',
+		btnReplaceFile: 'Substituir ficheiro …',
+		btnRemoveBible: 'Remover ficheiro da Bíblia',
 		headScriptureSuggest: 'Sugestões ao digitar textos bíblicos',
 		headScriptureSuggestDesc: 'Quais ações são sugeridas ao digitar uma referência bíblica (por ex. "Salmo 12:1") e em que ordem. As ações desativadas não são exibidas.',
 		btnMoveUp: 'Mover para cima',
@@ -1736,9 +1812,9 @@ suggestRemoveLink: 'Elimina il collegamento',
 
 		importTitle: 'Importar programa do congresso',
 		importCommand: 'Importar programa do congresso',
-		importFileName: 'Arquivo do programa',
-		importFileDesc: 'Selecione um arquivo .jwpub ou um ZIP RTF.',
-		btnPickFile: 'Escolher arquivo …',
+		importFileName: 'Ficheiro do programa',
+		importFileDesc: 'Selecione um ficheiro .jwpub ou um ZIP RTF.',
+		btnPickFile: 'Escolher ficheiro …',
 		importTarget: 'Pasta de destino',
 		importTargetDesc: 'Padrão: raiz do vault – o congresso é criado diretamente como sua própria pasta, sem pasta contentora. Como alternativa, selecione uma pasta existente ou crie uma nova.',
 		optVaultRoot: 'Raiz do vault (sem subpasta)',
@@ -1766,7 +1842,7 @@ suggestRemoveLink: 'Elimina il collegamento',
 
 		updateCommand: 'Atualizar as notas do congresso',
 		updateTitle: 'Atualizar as notas do congresso',
-		updateExplanation: 'Selecione novamente o mesmo arquivo do programa e compare-o com uma pasta de congresso já importada — útil após uma atualização do plugin que corrige um erro nas notas (por ex. dia, hora ou textos bíblicos). Tudo o que você já escreveu (nome do orador, notas pessoais) permanece intacto; apenas os campos gerados automaticamente são atualizados.',
+		updateExplanation: 'Selecione novamente o mesmo ficheiro do programa e compare-o com uma pasta de congresso já importada — útil após uma atualização do plugin que corrige um erro nas notas (por ex. dia, hora ou textos bíblicos). Tudo o que já escreveu (nome do orador, notas pessoais) permanece intacto; apenas os campos gerados automaticamente são atualizados.',
 		updateTargetFolder: 'Pasta do congresso a atualizar',
 		updateTargetFolderDesc: 'A pasta criada pela importação original.',
 		updateNoFoldersFound: 'Nenhuma pasta encontrada no vault.',
@@ -1782,17 +1858,17 @@ suggestRemoveLink: 'Elimina il collegamento',
 
 		bulkUpdateCommand: 'Atualizar vários congressos de uma vez',
 		bulkUpdateTitle: 'Atualizar vários congressos de uma vez',
-		bulkUpdateExplanation: 'Selecione vários arquivos de programa de uma vez: cada um é comparado com a pasta do congresso criada pela sua importação original — a mesma mesclagem de “Atualizar as notas do congresso”, para todos os congressos numa única execução. Tudo o que você mesmo escreveu permanece intacto. A pasta de destino é sugerida pelo nome que a importação lhe teria dado; cada associação ainda pode ser alterada antes de iniciar.',
-		bulkUpdatePickFiles: 'Arquivos de programa',
-		bulkUpdatePickFilesDesc: 'Vários arquivos podem ser selecionados de uma vez — um por congresso (.jwpub, .zip ou .rtf).',
-		btnPickFiles: 'Selecionar arquivos',
-		bulkUpdateColFile: 'Arquivo',
+		bulkUpdateExplanation: 'Selecione vários ficheiros de programa de uma vez: cada um é comparado com a pasta do congresso criada pela sua importação original — a mesma mesclagem de “Atualizar as notas do congresso”, para todos os congressos numa única execução. Tudo o que escreveu permanece intacto. A pasta de destino é sugerida pelo nome que a importação lhe teria dado; cada associação ainda pode ser alterada antes de iniciar.',
+		bulkUpdatePickFiles: 'Ficheiros de programa',
+		bulkUpdatePickFilesDesc: 'Vários ficheiros podem ser selecionados de uma vez — um por congresso (.jwpub, .zip ou .rtf).',
+		btnPickFiles: 'Selecionar ficheiros',
+		bulkUpdateColFile: 'Ficheiro',
 		bulkUpdateColFolder: 'Pasta de destino',
 		bulkUpdateSkip: '— não atualizar —',
 		bulkUpdateNoMatch: 'Nenhuma pasta correspondente encontrada — selecione uma.',
-		bulkUpdateFileFailed: err => `Não foi possível ler o arquivo: ${err}`,
-		noticeBulkUpdateNothingSelected: 'Nenhuma pasta de destino foi selecionada para nenhum arquivo.',
-		noticeBulkUpdateDuplicateFolder: path => `A pasta “${path}” está associada mais de uma vez — apenas um arquivo por pasta.`,
+		bulkUpdateFileFailed: err => `Não foi possível ler o ficheiro: ${err}`,
+		noticeBulkUpdateNothingSelected: 'Nenhuma pasta de destino foi selecionada para nenhum ficheiro.',
+		noticeBulkUpdateDuplicateFolder: path => `A pasta “${path}” está associada mais de uma vez — apenas um ficheiro por pasta.`,
 		noticeBulkUpdateResult: (folders, merged, created, needsReimport, unchanged, failed) => {
 			const parts = [`${merged} ${one(merged, 'nota atualizada', 'notas atualizadas')}`];
 			if (created > 0) parts.push(`${created} ${one(created, 'criada', 'criadas')}`);
@@ -1804,7 +1880,7 @@ suggestRemoveLink: 'Elimina il collegamento',
 
 		previewUpdateCommand: 'Mostrar as alterações antes de atualizar',
 		previewUpdateTitle: 'Mostrar as alterações antes de atualizar',
-		previewUpdateExplanation: 'Calcula exatamente a mesma atualização que “Atualizar as notas do congresso”, mas não escreve nada: primeiro você vê campo a campo o que mudaria e só depois decide. Útil após uma atualização do plugin, para ver se as suas notas são afetadas, e quando há vários congressos a atualizar de uma vez.',
+		previewUpdateExplanation: 'Calcula exatamente a mesma atualização que “Atualizar as notas do congresso”, mas não escreve nada: primeiro vê campo a campo o que mudaria e só depois decide. Útil após uma atualização do plugin, para ver se as suas notas são afetadas, e quando há vários congressos a atualizar de uma vez.',
 		btnShowChanges: 'Mostrar as alterações',
 		previewNoChanges: 'Nenhuma alteração — todas as notas já estão atualizadas.',
 		previewSummary: (changed, created, unchanged, needsReimport) => {
@@ -1817,32 +1893,32 @@ suggestRemoveLink: 'Elimina il collegamento',
 		previewSectionChanged: 'Será alterado',
 		previewSectionCreated: 'Será criado',
 		previewSectionNeedsReimport: 'Permanece intacto (formato mais antigo)',
-		previewRegenerated: 'Será gerado novamente por completo (arquivo puramente derivado).',
-		previewRenamed: 'O nome do arquivo é ajustado à grafia atual.',
+		previewRegenerated: 'Será gerado novamente por completo (ficheiro puramente derivado).',
+		previewRenamed: 'O nome do ficheiro é ajustado à grafia atual.',
 		previewMarkerOnly: 'Apenas marcadores invisíveis são atualizados — o texto visível não muda.',
 
 		setSpeakerLink: 'Preparar o campo Orador como link',
 		setSpeakerLinkDesc: 'Escreve o campo Orador das novas notas como um link wiki vazio (**Orador:** [[]]). Um clique entre os colchetes abre o preenchimento do próprio Obsidian, de modo que o mesmo irmão seja escrito sempre da mesma forma — e a nota dele passa a listar todos os seus discursos nos links de retorno. Desativado por padrão; as notas existentes permanecem como estão, pois o campo Orador é seu e nenhuma atualização mexe nele.',
 		speakerLinkCommand: 'Converter nomes de oradores em links',
 		speakerLinkTitle: 'Converter nomes de oradores em links',
-		speakerLinkDesc: 'Procura em todo o cofre nomes de oradores digitados à mão e propõe quais grafias se referem à mesma pessoa. Proposto, não decidido: o nome e o agrupamento podem ser alterados por pessoa e nada é escrito até você aplicar. A grafia original permanece visível — muda apenas o que o Obsidian resolve por baixo. Nomes escritos fora do campo Orador não são tocados de propósito; o próprio Obsidian os encontra em “menções não vinculadas” assim que a nota da pessoa existir.',
+		speakerLinkDesc: 'Procura em todo o vault nomes de oradores digitados à mão e propõe quais grafias se referem à mesma pessoa. Proposto, não decidido: o nome e o agrupamento podem ser alterados por pessoa e nada é escrito até aplicar. A grafia original permanece visível — muda apenas o que o Obsidian resolve por baixo. Nomes escritos fora do campo Orador não são tocados de propósito; o próprio Obsidian os encontra em “menções não vinculadas” assim que a nota da pessoa existir.',
 		speakerLinkTarget: 'Vincular a',
 		speakerLinkTargetDesc: 'A grafia sob a qual esta pessoa fica registrada. Editável — esta é a única decisão que deve ser sua.',
 		speakerLinkConvert: 'Converter',
 		speakerLinkAmbiguous: 'Esta abreviação corresponde a mais de uma pessoa, por isso não foi atribuída a nenhuma e começa desativada.',
-		speakerLinkFound: (variants, count) => `Grafias encontradas: ${variants} (${count}× no cofre)`,
+		speakerLinkFound: (variants, count) => `Grafias encontradas: ${variants} (${count}× no vault)`,
 		noticeSpeakerLinkNothingFound: 'Nenhum nome de orador digitado à mão foi encontrado.',
 		noticeSpeakerLinkNothingSelected: 'Nenhum grupo selecionado para conversão.',
 		noticeSpeakerLinksApplied: (converted, skipped) => {
 			const parts = [`${converted} ${one(converted, 'nome de orador vinculado', 'nomes de oradores vinculados')}`];
-			if (skipped > 0) parts.push(`${skipped} ${one(skipped, 'ignorado', 'ignorados')} (nota alterada nesse meio-tempo)`);
+			if (skipped > 0) parts.push(`${skipped} ${one(skipped, 'ignorado', 'ignorados')} (nota alterada entretanto)`);
 			return `${parts.join(', ')}.`;
 		},
 
 		removeLinkCommand: 'Remover o link sob o cursor',
 		noticeNoLinkAtCursor: 'Não há nenhum link deste plugin nesta posição.',
 						setUnderlineLinks: 'Sublinhar os links',
-		setUnderlineLinksDesc: 'Aplica-se apenas aos links deste plugin: textos bíblicos, cânticos e citações de fontes. Desativado, eles permanecem coloridos mas sem sublinhado, que volta ao passar o mouse; numa nota cheia de referências a leitura fica mais tranquila. Somente no modo de leitura: na edição o Obsidian desenha os links sem destino, de modo que os nossos não se distinguem dos demais.',
+		setUnderlineLinksDesc: 'Aplica-se apenas aos links deste plugin: textos bíblicos, cânticos e citações de fontes. Desativado, eles permanecem coloridos mas sem sublinhado, que volta ao passar o rato; numa nota cheia de referências a leitura fica mais tranquila. Somente no modo de leitura: na vista de edição o Obsidian desenha os links sem destino, de modo que os nossos não se distinguem dos demais.',
 setSongSuggest: 'Vincular cânticos',
 		setSongSuggestDesc: 'Ao digitar o número de um cântico como texto (“Cântico 45”), é oferecido vinculá-lo ao JW Library, como acontece com um texto bíblico digitado. O endereço vem do cancioneiro oficial e não de uma fórmula; cânticos que não constam dele não são oferecidos, de propósito.',
 		songSuggestLink: 'Vincular cântico',
@@ -1859,14 +1935,14 @@ suggestRemoveLink: 'Excluir o link',
 		},
 		btnApply: 'Aplicar',
 		headImportMwb: 'Importar e atualizar Vida e Ministério Cristãos',
-		headImportMwbDesc: 'Importa os arquivos do Manual de Atividades (.jwpub) como notas semanais para a reunião Vida e Ministério Cristãos – uma nota por semana com as três partes fixas da reunião. "Importar notas Vida e Ministério Cristãos" cria uma nova pasta; "Atualizar notas Vida e Ministério Cristãos" reconcilia campo por campo uma pasta já importada, sem perder nada do que foi escrito – tal como no programa do congresso. São suportados arquivos em alemão e em coreano.',
-		setImportMwbActionDesc: 'Selecione um arquivo do Manual de Atividades e crie notas semanais a partir dele.',
+		headImportMwbDesc: 'Importa os ficheiros do Manual de Atividades (.jwpub) como notas semanais para a reunião Vida e Ministério Cristãos – uma nota por semana com as três partes fixas da reunião. "Importar notas Vida e Ministério Cristãos" cria uma nova pasta; "Atualizar notas Vida e Ministério Cristãos" reconcilia campo por campo uma pasta já importada, sem perder nada do que foi escrito – tal como no programa do congresso. São suportados ficheiros nos oito idiomas do plugin.',
+		setImportMwbActionDesc: 'Selecione um ficheiro do Manual de Atividades e crie notas semanais a partir dele.',
 		importMwbCommand: 'Importar notas Vida e Ministério Cristãos',
 		importMwbTitle: 'Importar notas Vida e Ministério Cristãos',
-		importMwbFileDesc: 'Selecione um arquivo .jwpub do Manual de Atividades.',
+		importMwbFileDesc: 'Selecione um ficheiro .jwpub do Manual de Atividades.',
 		updateMwbCommand: 'Atualizar notas Vida e Ministério Cristãos',
 		updateMwbTitle: 'Atualizar notas Vida e Ministério Cristãos',
-		updateMwbExplanation: 'Selecione novamente o mesmo arquivo do Manual de Atividades e compare-o com uma pasta já importada – o texto já escrito permanece intacto; apenas os campos gerados automaticamente são atualizados.',
+		updateMwbExplanation: 'Selecione novamente o mesmo ficheiro do Manual de Atividades e compare-o com uma pasta já importada – o texto já escrito permanece intacto; apenas os campos gerados automaticamente são atualizados.',
 		setMwbTargetFolder: 'Pasta de destino das notas Vida e Ministério Cristãos',
 		setMwbTargetFolderDesc: 'Pasta principal onde a pasta de cada edição é criada. Deixe em branco para que cada edição se torne sua própria pasta na raiz do vault.',
 		importMwbTargetDesc: 'Padrão: raiz do vault – a edição é criada diretamente como sua própria pasta, sem pasta contentora. Como alternativa, selecione uma pasta existente ou crie uma nova.',
@@ -1917,6 +1993,26 @@ suggestRemoveLink: 'Excluir o link',
 		folderCAco: (season, theme) => `Программа районного конгресса ${season} – с районным старейшиной – «${theme}»`,
 		folderCAbr: (season, theme) => `Программа районного конгресса ${season} – с представителем филиала – «${theme}»`,
 
+		// ── Meeting Workbook ───────────────────────────────────────────────
+		// Section headings and the Congregation Bible Study title are parser
+		// anchors (see NoteStrings), read off the January-February and
+		// March-April 2026 issues and held against the German ones, week by week.
+		treasuresLabel: 'СОКРОВИЩА ИЗ СЛОВА БОГА',
+		ministryLabel: 'ОТТАЧИВАЕМ НАВЫКИ СЛУЖЕНИЯ',
+		livingLabel: 'ХРИСТИАНСКАЯ ЖИЗНЬ',
+		cbsLabel: 'Изучение Библии в собрании',
+		// The Russian workbook asks about "these chapters" (в этих главах), not
+		// "this week's reading", so unlike the other languages this label is not
+		// lifted from the file.
+		weeklyBibleReadingLabel: 'Чтение Библии на неделю',
+		durationLabel: 'Продолжительность',
+		mwbFolder: (year, month) => month ? `Жизнь и служение ${year} ${monthName('ru', month)}-${monthName('ru', month % 12 + 1)}` : `Жизнь и служение ${year}`,
+		mwbDuration: minutes => `${minutes} мин.`,
+		mwbSong: n => `Песня ${n}`,
+		mwbPrayer: 'и молитва',
+		mwbIntroWords: 'Вступительные слова',
+		mwbClosingWords: 'Заключительные слова',
+
 		popupLoading: 'Загрузка текста Библии…',
 		popupMissing: 'Текст стиха недоступен (этот отрывок не проиндексирован в загруженном файле Библии).',
 		popupLoadFailed: 'Не удалось загрузить файл Библии. Кнопка ниже откроет отрывок в JW Library.',
@@ -1963,8 +2059,8 @@ suggestRemoveLink: 'Excluir o link',
 				case 'jwpubEmptyPublication': return 'Файл jwpub повреждён: таблица Publication пуста.';
 				case 'fileTooLarge': return `Файл необычно большой (${detail}) и был отклонён из соображений безопасности.`;
 				case 'decompressedTooLarge': return `Распакованное содержимое необычно велико (${detail}) и было отклонено из соображений безопасности.`;
-				case 'notMwbPublication': return `Этот файл не является тетрадью «Наша жизнь и служение»: «${detail}».`;
-				case 'mwbLanguageNotSupported': return 'Импорт тетрадей «Наша жизнь и служение» пока поддерживается только для файлов на немецком и корейском языках.';
+				case 'notMwbPublication': return `Этот файл не является рабочей тетрадью «Наша христианская жизнь и служение»: «${detail}».`;
+				case 'mwbLanguageNotSupported': return 'Рабочие тетради на языке этого файла пока не поддерживаются.';
 				case 'mwbNoWeekDocuments': return 'В этом файле не найдено ни одной программы на неделю.';
 			}
 		},
@@ -2114,7 +2210,7 @@ suggestRemoveLink: 'Excluir o link',
 		previewMarkerOnly: 'Обновляются только невидимые маркеры — видимый текст не меняется.',
 
 		setSpeakerLink: 'Готовить поле «Докладчик» как ссылку',
-		setSpeakerLinkDesc: 'В новых заметках поле «Докладчик» записывается как пустая вики-ссылка (**Докладчик:** [[]]). Клик между скобками открывает собственное автодополнение Obsidian, так что один и тот же брат всегда пишется одинаково, а его заметка показывает все его речи в обратных ссылках. По умолчанию выключено; существующие заметки не меняются — это поле ваше, и ни одно обновление его не трогает.',
+		setSpeakerLinkDesc: 'В новых заметках поле «Докладчик» записывается как пустая Wiki-ссылка (**Докладчик:** [[]]). Клик между скобками открывает собственное автодополнение Obsidian, так что один и тот же брат всегда пишется одинаково, а его заметка показывает все его речи в обратных ссылках. По умолчанию выключено; существующие заметки не меняются — это поле ваше, и ни одно обновление его не трогает.',
 		speakerLinkCommand: 'Превратить имена докладчиков в ссылки',
 		speakerLinkTitle: 'Превращение имён докладчиков в ссылки',
 		speakerLinkDesc: 'Ищет по всему хранилищу имена докладчиков, вписанные вручную, и предлагает, какие написания относятся к одному человеку. Это предложение, а не решение: имя и группировку можно изменить, и ничего не записывается до подтверждения. Исходное написание остаётся видимым — меняется лишь то, куда ведёт ссылка. Имена вне поля «Докладчик» намеренно не затрагиваются: их найдёт сам Obsidian в «несвязанных упоминаниях», как только появится заметка этого человека.',
@@ -2134,7 +2230,7 @@ suggestRemoveLink: 'Excluir o link',
 		removeLinkCommand: 'Удалить ссылку под курсором',
 		noticeNoLinkAtCursor: 'В этом месте нет ссылки этого плагина.',
 						setUnderlineLinks: 'Подчёркивать ссылки',
-		setUnderlineLinksDesc: 'Касается только ссылок этого плагина — библейских стихов, песен и указаний на источники. Если выключить, они останутся цветными, но без подчёркивания, которое появится при наведении; в заметке, полной ссылок, это читается спокойнее. Только в режиме чтения: в режиме правки Obsidian рисует ссылки без адреса, и наши там неотличимы от прочих.',
+		setUnderlineLinksDesc: 'Касается только ссылок этого плагина — библейских стихов, песен и указаний на источники. Если выключить, они останутся цветными, но без подчёркивания, которое появится при наведении; в заметке, полной ссылок, это читается спокойнее. Только в режиме просмотра: в режиме редактирования Obsidian рисует ссылки без адреса, и наши там неотличимы от прочих.',
 setSongSuggest: 'Связывать песни',
 		setSongSuggestDesc: 'Если набрать номер песни текстом («Песня 45»), будет предложено связать её с JW Library — так же, как с набранным библейским стихом. Адрес берётся из официального сборника песен, а не из формулы; песни, которых там нет, намеренно не предлагаются.',
 		songSuggestLink: 'Связать песню',
@@ -2151,7 +2247,7 @@ suggestRemoveLink: 'Удалить ссылку',
 		},
 		btnApply: 'Применить',
 		headImportMwb: 'Импорт и обновление рабочей тетради',
-		headImportMwbDesc: 'Импортирует файлы рабочей тетради (.jwpub) как еженедельные заметки для встречи «Наша христианская жизнь и служение» — одна заметка на неделю с тремя постоянными частями встречи. Команда «Импортировать заметки рабочей тетради» создаёт новую папку; команда «Обновить заметки рабочей тетради» сверяет уже импортированную папку поле за полем, ничего из вписанного не теряется, — так же, как для программы конгресса. Поддерживаются файлы на немецком и корейском языках.',
+		headImportMwbDesc: 'Импортирует файлы рабочей тетради (.jwpub) как еженедельные заметки для встречи «Наша христианская жизнь и служение» — одна заметка на неделю с тремя постоянными частями встречи. Команда «Импортировать заметки рабочей тетради» создаёт новую папку; команда «Обновить заметки рабочей тетради» сверяет уже импортированную папку поле за полем, ничего из вписанного не теряется, — так же, как для программы конгресса. Поддерживаются файлы на всех восьми языках плагина.',
 		setImportMwbActionDesc: 'Выберите файл рабочей тетради и создайте на его основе еженедельные заметки.',
 		importMwbCommand: 'Импортировать заметки рабочей тетради',
 		importMwbTitle: 'Импортировать заметки рабочей тетради',
@@ -2209,6 +2305,23 @@ suggestRemoveLink: 'Удалить ссылку',
 		folderCAco: (season, theme) => `Programa de la asamblea de circuito ${season} – con el superintendente de circuito – “${theme}”`,
 		folderCAbr: (season, theme) => `Programa de la asamblea de circuito ${season} – con representante de la sucursal – “${theme}”`,
 
+		// ── Meeting Workbook ───────────────────────────────────────────────
+		// Section headings and the Congregation Bible Study title are parser
+		// anchors (see NoteStrings), read off the January-February and
+		// March-April 2026 issues and held against the German ones, week by week.
+		treasuresLabel: 'TESOROS DE LA BIBLIA',
+		ministryLabel: 'SEAMOS MEJORES MAESTROS',
+		livingLabel: 'NUESTRA VIDA CRISTIANA',
+		cbsLabel: 'Estudio bíblico de la congregación',
+		weeklyBibleReadingLabel: 'Lectura bíblica de esta semana',
+		durationLabel: 'Duración',
+		mwbFolder: (year, month) => month ? `Vida y Ministerio ${year} ${monthName('es', month)}-${monthName('es', month % 12 + 1)}` : `Vida y Ministerio ${year}`,
+		mwbDuration: minutes => `${minutes} ${one(minutes, 'min.', 'mins.')}`,
+		mwbSong: n => `Canción ${n}`,
+		mwbPrayer: 'y oración',
+		mwbIntroWords: 'Palabras de introducción',
+		mwbClosingWords: 'Palabras de conclusión',
+
 		popupLoading: 'Cargando el texto bíblico…',
 		popupMissing: 'No hay texto disponible para este versículo (este pasaje no está indexado en el archivo de la Biblia cargado).',
 		popupLoadFailed: 'No se pudo cargar el archivo de la Biblia. El botón de abajo abre el pasaje en JW Library en su lugar.',
@@ -2237,13 +2350,13 @@ suggestRemoveLink: 'Удалить ссылку',
 		scriptureSuggestLinkAndOpen: 'Enlazar y abrir JW Library',
 		scriptureSuggestQuoteKeepLink: 'Insertar como cita y mantener el enlace',
 
-		noticeUpdated: version => `JW Convention Program se actualizó a la versión ${version}.\n\nLas mejoras en las plantillas de notas no llegan automáticamente a los congresos ya importados: ejecute "Actualizar notas del congreso" (paleta de comandos) con el mismo archivo de programa para aplicarlas — todo lo que ya haya escrito (orador, notas) se conserva. Solo las notas de una versión muy antigua del plugin no se pueden actualizar así; para esas, elimine la carpeta del congreso y vuelva a importar.\n\n(Haga clic para cerrar)`,
+		noticeUpdated: version => `JW Convention Program se actualizó a la versión ${version}.\n\nLas mejoras en las plantillas de notas no llegan automáticamente a los congresos ya importados: ejecute "Actualizar notas del congreso" (paleta de comandos) con el mismo archivo de programa para aplicarlas — todo lo que ya haya escrito (orador, notas) se conserva. Solo las notas de una versión muy antigua del complemento no se pueden actualizar así; para esas, elimine la carpeta del congreso y vuelva a importar.\n\n(Haga clic para cerrar)`,
 		noticeBibleSaved: 'Archivo de la Biblia guardado.',
 		noticeBibleSaveFailed: err => `No se pudo guardar el archivo de la Biblia: ${err}`,
 		noticeBibleRemoveFailed: err => `No se pudo eliminar el archivo de la Biblia: ${err}`,
-		noticeBibleMissingOnDevice: 'El archivo de la Biblia no está presente en este dispositivo (la configuración se sincroniza entre dispositivos, pero el archivo en sí no). Vuelva a seleccionarlo en "Archivo de la Biblia" en la configuración del plugin.',
+		noticeBibleMissingOnDevice: 'El archivo de la Biblia no está presente en este dispositivo (los ajustes se sincronizan entre dispositivos, pero el archivo en sí no). Vuelva a seleccionarlo en "Archivo de la Biblia" en los ajustes del complemento.',
 		noticeBibleLoadFailed: err => `No se pudo cargar el archivo de la Biblia: ${err}`,
-		noticeQuoteNeedsBibleFile: 'No hay ningún archivo de la Biblia cargado; en su lugar, se enlazó el texto bíblico. Agregue un archivo de la Biblia en la configuración del plugin para insertar citas directamente.',
+		noticeQuoteNeedsBibleFile: 'No hay ningún archivo de la Biblia cargado; en su lugar, se enlazó el texto bíblico. Agregue un archivo de la Biblia en los ajustes del complemento para insertar citas directamente.',
 		describeParseError: (code, detail) => {
 			switch (code) {
 				case 'unknownFormat': return `Formato de archivo desconocido: "${detail}". Seleccione un archivo .jwpub o .rtf/.zip.`;
@@ -2255,12 +2368,12 @@ suggestRemoveLink: 'Удалить ссылку',
 				case 'jwpubEmptyPublication': return 'El archivo jwpub está dañado: la tabla Publication está vacía.';
 				case 'fileTooLarge': return `El archivo es inusualmente grande (${detail}) y fue rechazado por precaución.`;
 				case 'decompressedTooLarge': return `El contenido descomprimido es inusualmente grande (${detail}) y fue rechazado por precaución.`;
-				case 'notMwbPublication': return `Este archivo no es un folleto "Nuestra vida y ministerio": "${detail}".`;
-				case 'mwbLanguageNotSupported': return 'La importación de folletos "Nuestra vida y ministerio" actualmente solo es compatible con archivos en alemán y coreano.';
+				case 'notMwbPublication': return `Este archivo no es una Guía de actividades "Vida y Ministerio Cristianos": "${detail}".`;
+				case 'mwbLanguageNotSupported': return 'La Guía de actividades en el idioma de este archivo todavía no es compatible.';
 				case 'mwbNoWeekDocuments': return 'No se encontró ningún programa semanal en este archivo.';
 			}
 		},
-		noticeBibleHint: 'Consejo: Agregue un archivo jwpub de la Biblia (por ejemplo, la edición de estudio de jw.org) en la configuración del plugin — al hacer clic en un texto bíblico se abrirá entonces el versículo con referencias y notas de estudio directamente en una ventana emergente en Obsidian. (Haga clic para abrir la configuración)',
+		noticeBibleHint: 'Consejo: Agregue un archivo jwpub de la Biblia (por ejemplo, la edición de estudio de jw.org) en los ajustes del complemento — al hacer clic en un texto bíblico se abrirá entonces el versículo con referencias y notas de estudio directamente en una ventana emergente en Obsidian. (Haga clic para abrir los ajustes)',
 		noticeImportFailed: err => `Error al importar: ${err}`,
 		noticeRtfFallback: 'Error al procesar el archivo jwpub; se usó el método alternativo RTF.',
 		noticeImportProgress: (done, total) => `Importando… ${done}/${total}`,
@@ -2277,15 +2390,15 @@ suggestRemoveLink: 'Удалить ссылку',
 		noticeNotAFolder: path => `"${path}" no es una carpeta.`,
 
 		headImport: 'Importar y actualizar programas de congreso',
-		headImportDesc: 'Hay dos formas de incorporar un programa de congreso: "Importar programa de congreso" crea una nueva carpeta de congreso — volver a importar en la misma carpeta solo actualiza los archivos generados automáticamente (resumen, imagen de portada); las notas con anotaciones propias no se modifican. "Actualizar notas del congreso", en cambio, concilia campo por campo (día, hora, textos bíblicos, encabezados) una carpeta ya importada — incluso dentro de notas ya editadas a mano, sin perder nada de lo escrito allí. Útil, por ejemplo, después de que una actualización del plugin corrige un error en las notas. Para notas de una versión muy antigua del plugin (sin marcadores invisibles), "Actualizar notas del congreso" ofrece en su lugar una ventana de revisión con correcciones propuestas, que se pueden confirmar individualmente.',
+		headImportDesc: 'Hay dos formas de incorporar un programa de congreso: "Importar programa de congreso" crea una nueva carpeta de congreso — volver a importar en la misma carpeta solo actualiza los archivos generados automáticamente (resumen, imagen de portada); las notas con anotaciones propias no se modifican. "Actualizar notas del congreso", en cambio, concilia campo por campo (día, hora, textos bíblicos, encabezados) una carpeta ya importada — incluso dentro de notas ya editadas a mano, sin perder nada de lo escrito allí. Útil, por ejemplo, después de que una actualización del complemento corrige un error en las notas. Para notas de una versión muy antigua del complemento (sin marcadores invisibles), "Actualizar notas del congreso" ofrece en su lugar una ventana de revisión con correcciones propuestas, que se pueden confirmar individualmente.',
 		setImportActionDesc: 'Seleccione un archivo de programa y cree notas a partir de él (véase la explicación anterior).',
 		btnOpen: 'Abrir',
 		headGeneral: 'General',
 		setTargetFolder: 'Carpeta de destino',
-		setTargetFolderDesc: 'Carpeta principal en la que se crean las carpetas de congreso. Déjela vacía para que cada congreso se convierta en su propia carpeta de nivel superior en la raíz del vault (sin carpeta contenedora adicional).',
-		setTargetFolderPlaceholder: '(raíz del vault)',
+		setTargetFolderDesc: 'Carpeta principal en la que se crean las carpetas de congreso. Déjela vacía para que cada congreso se convierta en su propia carpeta de nivel superior en la carpeta de la bóveda (sin carpeta contenedora adicional).',
+		setTargetFolderPlaceholder: '(carpeta de la bóveda)',
 		setLang: 'Idioma de la interfaz y de la ventana emergente de versículos bíblicos',
-		setLangDesc: 'Las etiquetas del plugin y los nombres de los libros bíblicos en la ventana emergente. Las notas siguen automáticamente el idioma del archivo de programa importado.',
+		setLangDesc: 'Las etiquetas del complemento y los nombres de los libros bíblicos en la ventana emergente. Las notas siguen automáticamente el idioma del archivo de programa importado.',
 		headScripture: 'Textos bíblicos',
 		setScriptureLinks: 'Enlazar textos bíblicos',
 		setScriptureLinksDesc: 'Genera enlaces a JW Library en los que se puede hacer clic para cada texto bíblico.',
@@ -2309,7 +2422,7 @@ suggestRemoveLink: 'Удалить ссылку',
 		setFrontmatterDesc: 'Agrega frontmatter YAML con claves estables en inglés (convention, type, day, time) a cada nota generada, por ejemplo, para consultas de Dataview. Las claves son intencionalmente independientes del idioma.',
 		setBibleFile: 'Archivo de la Biblia',
 		bibleDescLoaded: 'El archivo de la Biblia está cargado. Al hacer clic en un texto bíblico se muestra el versículo directamente en Obsidian (con un botón para abrirlo en JW Library).',
-		bibleDescMissing: 'Opcional: seleccione un archivo jwpub de la Biblia (por ejemplo, descargado de jw.org) para que, al hacer clic en un texto bíblico, se muestre el versículo directamente en Obsidian en lugar de abrir solo JW Library. La edición de estudio (nwtsty) ofrece notas de estudio y más notas; en dispositivos móviles con memoria limitada, la edición normal (nwt), mucho más pequeña, es la opción que ahorra memoria. El archivo se guarda localmente en la carpeta del plugin, no se copia al vault.',
+		bibleDescMissing: 'Opcional: seleccione un archivo jwpub de la Biblia (por ejemplo, descargado de jw.org) para que, al hacer clic en un texto bíblico, se muestre el versículo directamente en Obsidian en lugar de abrir solo JW Library. La edición de estudio (nwtsty) ofrece notas de estudio y más notas; en dispositivos móviles con memoria limitada, la edición normal (nwt), mucho más pequeña, es la opción que ahorra memoria. El archivo se guarda localmente en la carpeta del complemento, no se copia a la bóveda.',
 		btnChooseFile: 'Elegir archivo…',
 		btnReplaceFile: 'Reemplazar archivo…',
 		btnRemoveBible: 'Quitar archivo de la Biblia',
@@ -2324,8 +2437,8 @@ suggestRemoveLink: 'Удалить ссылку',
 		importFileDesc: 'Seleccione un archivo .jwpub o un ZIP con RTF.',
 		btnPickFile: 'Elegir archivo…',
 		importTarget: 'Carpeta de destino',
-		importTargetDesc: 'Predeterminado: raíz del vault; el congreso se crea directamente como su propia carpeta, sin carpeta contenedora. También puede elegir una carpeta existente o crear una nueva.',
-		optVaultRoot: 'Raíz del vault (sin subcarpeta)',
+		importTargetDesc: 'Predeterminado: carpeta de la bóveda; el congreso se crea directamente como su propia carpeta, sin carpeta contenedora. También puede elegir una carpeta existente o crear una nueva.',
+		optVaultRoot: 'Carpeta de la bóveda (sin subcarpeta)',
 		optNewFolder: '➕ Nueva carpeta…',
 		importNewFolder: 'Nombre de la nueva carpeta',
 		importNewFolderPlaceholder: 'p. ej. Congresos',
@@ -2350,10 +2463,10 @@ suggestRemoveLink: 'Удалить ссылку',
 
 		updateCommand: 'Actualizar notas del congreso',
 		updateTitle: 'Actualizar notas del congreso',
-		updateExplanation: 'Vuelva a seleccionar el mismo archivo de programa y concílielo con una carpeta de congreso ya importada — útil después de que una actualización del plugin corrija un error en las notas (por ejemplo, día, hora o textos bíblicos). Todo lo que ya haya escrito (nombre del orador, notas personales) se deja intacto; solo se actualizan los campos generados automáticamente.',
+		updateExplanation: 'Vuelva a seleccionar el mismo archivo de programa y concílielo con una carpeta de congreso ya importada — útil después de que una actualización del complemento corrija un error en las notas (por ejemplo, día, hora o textos bíblicos). Todo lo que ya haya escrito (nombre del orador, notas personales) se deja intacto; solo se actualizan los campos generados automáticamente.',
 		updateTargetFolder: 'Carpeta de congreso a actualizar',
 		updateTargetFolderDesc: 'La carpeta creada por la importación original.',
-		updateNoFoldersFound: 'No se encontraron carpetas en el vault.',
+		updateNoFoldersFound: 'No se encontraron carpetas en la bóveda.',
 		btnUpdate: 'Actualizar',
 		noticeUpdateFolderNotFound: path => `No se encontró la carpeta "${path}".`,
 		noticeUpdateResult: (merged, created, needsReimport, unchanged) => {
@@ -2388,7 +2501,7 @@ suggestRemoveLink: 'Удалить ссылку',
 
 		previewUpdateCommand: 'Mostrar los cambios antes de actualizar',
 		previewUpdateTitle: 'Mostrar los cambios antes de actualizar',
-		previewUpdateExplanation: 'Calcula exactamente la misma actualización que «Actualizar notas del congreso», pero no escribe nada: primero ve campo por campo lo que cambiaría y después decide. Útil tras una actualización del plugin, para ver si sus notas están afectadas, y cuando hay varios congresos que actualizar a la vez.',
+		previewUpdateExplanation: 'Calcula exactamente la misma actualización que «Actualizar notas del congreso», pero no escribe nada: primero ve campo por campo lo que cambiaría y después decide. Útil tras una actualización del complemento, para ver si sus notas están afectadas, y cuando hay varios congresos que actualizar a la vez.',
 		btnShowChanges: 'Mostrar los cambios',
 		previewNoChanges: 'Sin cambios: todas las notas ya están actualizadas.',
 		previewSummary: (changed, created, unchanged, needsReimport) => {
@@ -2406,15 +2519,15 @@ suggestRemoveLink: 'Удалить ссылку',
 		previewMarkerOnly: 'Solo se actualizan marcadores invisibles: el texto visible no cambia.',
 
 		setSpeakerLink: 'Preparar el campo Orador como enlace',
-		setSpeakerLinkDesc: 'Escribe el campo Orador de las notas nuevas como un enlace wiki vacío (**Orador:** [[]]). Al hacer clic entre los corchetes se abre el autocompletado propio de Obsidian, de modo que el mismo hermano se escribe siempre igual, y su nota lista después todos sus discursos en los enlaces entrantes. Desactivado de forma predeterminada; las notas existentes no se modifican, porque el campo Orador es suyo y ninguna actualización lo toca.',
+		setSpeakerLinkDesc: 'Escribe el campo Orador de las notas nuevas como un wikilink vacío (**Orador:** [[]]). Al hacer clic entre los corchetes se abre el autocompletado propio de Obsidian, de modo que el mismo hermano se escribe siempre igual, y su nota lista después todos sus discursos en los enlaces entrantes. Desactivado de forma predeterminada; las notas existentes no se modifican, porque el campo Orador es suyo y ninguna actualización lo toca.',
 		speakerLinkCommand: 'Convertir los nombres de oradores en enlaces',
 		speakerLinkTitle: 'Convertir los nombres de oradores en enlaces',
-		speakerLinkDesc: 'Busca en todo el vault los nombres de oradores escritos a mano y propone qué grafías se refieren a la misma persona. Propuesto, no decidido: el nombre y la agrupación se pueden cambiar por persona y no se escribe nada hasta que aplique. La grafía original permanece visible: solo cambia lo que Obsidian resuelve por debajo. Los nombres escritos fuera del campo Orador no se tocan a propósito; el propio Obsidian los encuentra en «menciones no enlazadas» en cuanto exista la nota de la persona.',
+		speakerLinkDesc: 'Busca en toda la bóveda los nombres de oradores escritos a mano y propone qué grafías se refieren a la misma persona. Propuesto, no decidido: el nombre y la agrupación se pueden cambiar por persona y no se escribe nada hasta que aplique. La grafía original permanece visible: solo cambia lo que Obsidian resuelve por debajo. Los nombres escritos fuera del campo Orador no se tocan a propósito; el propio Obsidian los encuentra en «menciones no enlazadas» en cuanto exista la nota de la persona.',
 		speakerLinkTarget: 'Enlazar a',
 		speakerLinkTargetDesc: 'La grafía bajo la que se registra a esta persona. Editable: esta es la única decisión que debe ser suya.',
 		speakerLinkConvert: 'Convertir',
 		speakerLinkAmbiguous: 'Esta abreviatura encaja con más de una persona, por eso no se asignó a ninguna y empieza desactivada.',
-		speakerLinkFound: (variants, count) => `Grafías encontradas: ${variants} (${count} veces en el vault)`,
+		speakerLinkFound: (variants, count) => `Grafías encontradas: ${variants} (${count} veces en la bóveda)`,
 		noticeSpeakerLinkNothingFound: 'No se encontró ningún nombre de orador escrito a mano.',
 		noticeSpeakerLinkNothingSelected: 'No se seleccionó ningún grupo para convertir.',
 		noticeSpeakerLinksApplied: (converted, skipped) => {
@@ -2424,9 +2537,9 @@ suggestRemoveLink: 'Удалить ссылку',
 		},
 
 		removeLinkCommand: 'Quitar el enlace bajo el cursor',
-		noticeNoLinkAtCursor: 'No hay ningún enlace de este plugin en esta posición.',
+		noticeNoLinkAtCursor: 'No hay ningún enlace de este complemento en esta posición.',
 						setUnderlineLinks: 'Subrayar los enlaces',
-		setUnderlineLinksDesc: 'Afecta solo a los enlaces de este plugin: textos bíblicos, canciones y citas de fuentes. Desactivado siguen coloreados pero sin subrayado, que reaparece al pasar el ratón; en una nota llena de referencias se lee con más calma. Solo en el modo lectura: en edición Obsidian dibuja los enlaces sin destino, así que los nuestros no se distinguen de los demás.',
+		setUnderlineLinksDesc: 'Afecta solo a los enlaces de este complemento: textos bíblicos, canciones y citas de fuentes. Desactivado siguen coloreados pero sin subrayado, que reaparece al pasar el ratón; en una nota llena de referencias se lee con más calma. Solo en el modo lectura: en la vista de edición Obsidian dibuja los enlaces sin destino, así que los nuestros no se distinguen de los demás.',
 setSongSuggest: 'Enlazar canciones',
 		setSongSuggestDesc: 'Al escribir el número de una canción como texto («Canción 45»), se ofrece enlazarla con JW Library, igual que con un texto bíblico escrito. La dirección procede del cancionero oficial y no de una fórmula; las canciones que no figuran en él no se ofrecen, a propósito.',
 		songSuggestLink: 'Enlazar canción',
@@ -2434,7 +2547,7 @@ suggestRemoveLink: 'Eliminar el enlace',
 		suggestEditLink: 'Ajustar el enlace',
 
 		legacyModalTitle: 'Posibles correcciones para notas antiguas',
-		legacyModalDesc: 'Estas notas se crearon con una versión del plugin anterior a la 1.9.0 y no tienen marcadores invisibles — por eso aquí solo se proponen líneas que se puedan asociar sin ambigüedad a un campo conocido. Solo se modifican las notas con el interruptor activado al hacer clic en "Aplicar"; el resto de cada nota permanece intacto.',
+		legacyModalDesc: 'Estas notas se crearon con una versión del complemento anterior a la 1.9.0 y no tienen marcadores invisibles — por eso aquí solo se proponen líneas que se puedan asociar sin ambigüedad a un campo conocido. Solo se modifican las notas con el interruptor activado al hacer clic en "Aplicar"; el resto de cada nota permanece intacto.',
 		noticeLegacyCorrectionsFound: count => `${one(count, 'Se encontró', 'Se encontraron')} ${count} ${one(count, 'nota antigua', 'notas antiguas')} con posibles correcciones. (Haga clic para revisar)`,
 		noticeLegacyApplied: (count, failed) => {
 			const parts = [`${count} ${one(count, 'nota actualizada', 'notas actualizadas')}`];
@@ -2443,7 +2556,7 @@ suggestRemoveLink: 'Eliminar el enlace',
 		},
 		btnApply: 'Aplicar',
 		headImportMwb: 'Importar y actualizar Vida y Ministerio Cristianos',
-		headImportMwbDesc: 'Importa los archivos de la Guía de actividades (.jwpub) como notas semanales para la reunión Vida y Ministerio Cristianos: una nota por semana con las tres secciones fijas de la reunión. "Importar notas de Vida y Ministerio Cristianos" crea una carpeta nueva; "Actualizar notas de Vida y Ministerio Cristianos" concilia campo por campo una carpeta ya importada sin perder nada de lo escrito, igual que con el programa de congreso. Se admiten archivos en alemán y en coreano.',
+		headImportMwbDesc: 'Importa los archivos de la Guía de actividades (.jwpub) como notas semanales para la reunión Vida y Ministerio Cristianos: una nota por semana con las tres secciones fijas de la reunión. "Importar notas de Vida y Ministerio Cristianos" crea una carpeta nueva; "Actualizar notas de Vida y Ministerio Cristianos" concilia campo por campo una carpeta ya importada sin perder nada de lo escrito, igual que con el programa de congreso. Se admiten archivos en los ocho idiomas del complemento.',
 		setImportMwbActionDesc: 'Seleccione un archivo de la Guía de actividades y cree notas semanales a partir de él.',
 		importMwbCommand: 'Importar notas de Vida y Ministerio Cristianos',
 		importMwbTitle: 'Importar notas de Vida y Ministerio Cristianos',
@@ -2452,8 +2565,8 @@ suggestRemoveLink: 'Eliminar el enlace',
 		updateMwbTitle: 'Actualizar notas de Vida y Ministerio Cristianos',
 		updateMwbExplanation: 'Seleccione de nuevo el mismo archivo de la Guía de actividades y compárelo con una carpeta ya importada; el texto ya escrito no se modifica y solo se actualizan los campos generados automáticamente.',
 		setMwbTargetFolder: 'Carpeta de destino para las notas de Vida y Ministerio Cristianos',
-		setMwbTargetFolderDesc: 'Carpeta principal en la que se crea la carpeta de cada número. Déjela vacía para que cada número se convierta en su propia carpeta en la raíz del vault.',
-		importMwbTargetDesc: 'Predeterminado: raíz del vault; el número se crea directamente como su propia carpeta, sin carpeta contenedora. También puede elegir una carpeta existente o crear una nueva.',
+		setMwbTargetFolderDesc: 'Carpeta principal en la que se crea la carpeta de cada número. Déjela vacía para que cada número se convierta en su propia carpeta en la carpeta de la bóveda.',
+		importMwbTargetDesc: 'Predeterminado: carpeta de la bóveda; el número se crea directamente como su propia carpeta, sin carpeta contenedora. También puede elegir una carpeta existente o crear una nueva.',
 		noticeImportMwbResult: (folder, created, updated, skipped) => {
 			const parts = [`${created} ${one(created, 'nueva', 'nuevas')}`];
 			if (updated > 0) parts.push(`${updated} ${one(updated, 'actualizada', 'actualizadas')}`);
@@ -2563,7 +2676,7 @@ suggestRemoveLink: 'Eliminar el enlace',
 				case 'fileTooLarge': return `파일이 비정상적으로 커서(${detail}) 안전을 위해 거부했습니다.`;
 				case 'decompressedTooLarge': return `압축을 푼 내용이 비정상적으로 커서(${detail}) 안전을 위해 거부했습니다.`;
 				case 'notMwbPublication': return `이 파일은 집회 교재가 아닙니다: “${detail}”.`;
-				case 'mwbLanguageNotSupported': return '「그리스도인 생활과 봉사—집회 교재」 가져오기는 현재 독일어와 한국어 파일만 지원합니다.';
+				case 'mwbLanguageNotSupported': return '이 파일의 언어로 된 집회 교재는 아직 지원하지 않습니다.';
 				case 'mwbNoWeekDocuments': return '이 파일에서 주별 프로그램을 찾을 수 없습니다.';
 			}
 		},
@@ -2771,7 +2884,7 @@ suggestRemoveLink: 'Eliminar el enlace',
 		mwbIntroWords: '소개말',
 		mwbClosingWords: '맺음말',
 		headImportMwb: '생활과 봉사 가져오기 및 업데이트',
-		headImportMwbDesc: '집회 교재 파일(.jwpub)을 “그리스도인 생활과 봉사” 집회의 주별 노트로 가져옵니다. 한 주에 노트 하나씩, 세 가지 고정된 프로그램 부분이 담깁니다. “생활과 봉사 노트 가져오기”는 새 폴더를 만들고, “생활과 봉사 노트 업데이트”는 이미 가져온 폴더를 항목별로 맞추어 보며, 직접 입력한 내용은 잃지 않습니다. 대회 프로그램과 같은 방식입니다. 독일어와 한국어 집회 교재 파일을 지원합니다.',
+		headImportMwbDesc: '집회 교재 파일(.jwpub)을 “그리스도인 생활과 봉사” 집회의 주별 노트로 가져옵니다. 한 주에 노트 하나씩, 세 가지 고정된 프로그램 부분이 담깁니다. “생활과 봉사 노트 가져오기”는 새 폴더를 만들고, “생활과 봉사 노트 업데이트”는 이미 가져온 폴더를 항목별로 맞추어 보며, 직접 입력한 내용은 잃지 않습니다. 대회 프로그램과 같은 방식입니다. 플러그인이 지원하는 여덟 가지 언어의 집회 교재 파일을 모두 지원합니다.',
 		setImportMwbActionDesc: '집회 교재 파일을 선택하여 주별 노트를 만듭니다.',
 		importMwbCommand: '생활과 봉사 노트 가져오기',
 		importMwbTitle: '생활과 봉사 노트 가져오기',

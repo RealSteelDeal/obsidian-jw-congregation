@@ -188,3 +188,40 @@ test('French takes the singular for zero as well', () => {
 	// The other languages only for exactly one.
 	assert.equal(L.es.noticeImportResult('Carpeta', 0, 0, 0), '"Carpeta": 0 nuevas.');
 });
+
+/** Every piece of interface text in one language, functions called with a
+ *  sample so their wording is checked too. */
+function allText(lang) {
+	const out = [];
+	const walk = value => {
+		if (typeof value === 'string') out.push(value);
+		else if (typeof value === 'function') { try { walk(value(1, 2, 3, 4, 5, [])); } catch { /* not every helper takes numbers */ } }
+		else if (Array.isArray(value)) value.forEach(walk);
+		else if (value && typeof value === 'object') Object.values(value).forEach(walk);
+	};
+	walk(L[lang]);
+	return out.join('\n');
+}
+
+test('the interface uses Obsidian\u2019s own words for what Obsidian names', () => {
+	// Read off Obsidian's own translation (02.10.2026): "Vault-Hauptordner" and
+	// "Erweiterung", "bóveda" and "complementos", European Portuguese
+	// throughout ("ficheiro", "definições") — as Obsidian's Portuguese and the
+	// Portugal programmes the notes come from.
+	const avoid = {
+		de: [/Vault-Wurzel/, /\bPlugins?\b/, /Plugin-/, /ins Vault/],
+		en: [/vault root/i, /wiki link/],
+		fr: [/réglages?/, /\bplugin\b/, /lien wiki/],
+		it: [/radice del vault/i, /palette dei comandi/],
+		pt: [/\barquivos?\b/i, /\bvocê\b/, /configuraç/, /\bexclu/, /\bsalv[oa]\b/, /meio[- ]tempo/, /\bcofre\b/, /\bem uma? /, /mouse/, /banco de dados/],
+		ru: [/вики-ссылк/, /режиме правки/],
+		es: [/\bvault\b/, /\bplugin\b/, /configuración/, /enlace wiki/],
+	};
+	for (const [lang, patterns] of Object.entries(avoid)) {
+		const text = allText(lang);
+		for (const pattern of patterns) assert.doesNotMatch(text, pattern, `${lang}: ${pattern}`);
+	}
+	assert.match(allText('de'), /Vault-Hauptordner/);
+	assert.match(allText('es'), /bóveda/);
+	assert.match(allText('pt'), /ficheiro/);
+});

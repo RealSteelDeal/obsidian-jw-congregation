@@ -19,7 +19,7 @@ import { ScriptureNormalizer } from './ScriptureNormalizer';
  * songs) — both were tried first and both were wrong.
  *
  * The ids are **language-independent**, which is why one table serves all
- * seven languages: a link carries its language in `wtlocale=`. Established on
+ * eight languages: a link carries its language in `wtlocale=`. Established on
  * 22.09.2026 against the German, English and Russian convention programmes —
  * 36 songs, identical ids in all three — and the table was cross-checked
  * against the 18 songs the real parser reads out of a programme file, plus

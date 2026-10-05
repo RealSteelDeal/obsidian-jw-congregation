@@ -42,7 +42,7 @@ test('the formula the table replaced is wrong for twelve songs, Lied 160 among t
 
 test('a song link carries the language in wtlocale, not in the id', () => {
 	// Established across the German, English and Russian programmes: the same
-	// song has the same id in all three. One table therefore serves all seven
+	// song has the same id in all three. One table therefore serves all eight
 	// languages, and only the locale parameter differs.
 	const de = songFinderUrl(45, 'de');
 	const en = songFinderUrl(45, 'en');
@@ -75,7 +75,7 @@ test('a typed song number is recognised at the end of a line', () => {
 test('a typed song number is recognised in each language that writes it differently', () => {
 	// The wording, including the "No."/"no"/"№" infix that only some languages
 	// use, comes from NoteBuilder.splitSongTitle — verified there against real
-	// programme files of all seven.
+	// programme files of all eight.
 	for (const text of ['Song No. 45', 'Song 45', 'Cantique no 45', 'Cantico 45', 'Cântico 45', 'Canción 45', 'Песня 45']) {
 		assert.equal(findSongNumberAtEnd(text)?.songNumber, 45, text);
 	}

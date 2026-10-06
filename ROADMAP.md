@@ -46,7 +46,8 @@ items move up when they're ready. Suggestions welcome via GitHub issues.
   An `.ics` export for external calendars used to be the other half of this
   entry and was **dropped on 21.09.2026** as not worth its cost: programme
   files carry no calendar dates at all (only weekday names and clock times —
-  `Day.date` exists in the model but no parser ever fills it), so every export
+  the model's `Day.date` field was never filled by any parser and was removed
+  the same day), so every export
   would have had to ask for the date it cannot know, to produce entries for an
   event whose date the user already knows by heart.
 

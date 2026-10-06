@@ -47,14 +47,14 @@ src/
     ScriptureTextParser.ts   # erkennt eine als Klartext getippte Bibelstelle (für den Editor-Suggester)
   util/
     jwpubCrypto.ts           # geteilte jwpub-Krypto: openJwpubDatabase(), readPublication(), deriveKey(), decryptBlob()
-    jwpubLinks.ts            # geteilte jwpub-Konstanten: MEPS_LANGUAGE_INDEX, Bibel-/Lied-Href-Regexe, assertPlatformSupport(), stripZeroWidthSpace() (nur für Koreanisch angewandt, siehe "Sprachen")
+    jwpubLinks.ts            # geteilte jwpub-Konstanten: MEPS_LANGUAGE_INDEX, Bibel-/Lied-Href-Regexe, assertPlatformSupport(), stripZeroWidthSpace() (in jeder Sprache angewandt: JwpubParser/MwbParser.clean(), quoteBuilder; siehe "Sprachen")
     fileSignature.ts         # looksLikeJwpub()/hasPkZipSignature() — von SourceRouter.ts und MwbSourceRouter.ts geteilt
     folderList.ts            # listAllFolders() — von allen vier Import/Update-Modalen geteilt; findFoldersByName() für die Datei-↔-Ordner-Zuordnung des Sammel-Updates
     bytes.ts                 # latin1Decode(), hexToBytes()
     parseErrors.ts           # ParseError/ParseErrorCode — strukturierte Fehler statt hartkodierter Strings (siehe unten)
     decompressionGuard.ts    # Größenlimits gegen Zip-Bomb-artige Dekompression (siehe unten)
-                             #   markBlockKept() setzt data-jw-kept="1": vom Nutzer korrigierte Blöcke überlebt das Update
     noteMerge.ts             # Marker-basiertes Merge für "…Notizen aktualisieren" (unsichtbare <span>-Marker, siehe eigener Abschnitt unten) — von Kongress- UND mwb-Feature genutzt; diffNoteContent() meldet dasselbe Merge, statt es auszuführen (Vorschau)
+                             #   markBlockKept() setzt data-jw-kept="1": vom Nutzer korrigierte Blöcke überleben das Update
     legacyFieldPatch.ts      # Heuristischer Fallback für Notizen ohne Marker (vor v1.9.0) — siehe eigener Abschnitt unten
     quoteBuilder.ts          # Vers-Text → Obsidian-Zitat-Callout (`> [!quote] …`)
     scriptureLinkScan.ts     # findet jwlibrary://-Links/Zitat-Callouts im Notiztext (Klick-Feature, Einfüge-/Löschpunkt)
@@ -91,6 +91,8 @@ src/
 scripts/
   dump-song-docids.mjs       # Entwickler-Tool: Liednummer→docid aus einem Liederbuch lesen; --check prüft die 4 belegten Fälle
   dump-structure.mjs         # Entwickler-Tool: Publication-Zeile + h1/h2/li-Struktur je Dokument ausgeben (nutzt util/jwpubCrypto)
+  dump-book-names.mjs        # Entwickler-Tool: die 66 Buchnamen aus einer nwt/nwtsty-Datei; --compare=<lang> gleicht gegen bookNames.ts ab
+  dump-book-abbreviations.mjs # Entwickler-Tool: Buch-Abkürzungen, wie eine Publikation sie druckt (sichtbarer Linktext + Buchnummer aus dem Href)
   test-parse.mjs             # Entwickler-Test: importiert den echten JwpubParser per jiti und parst übergebene .jwpub-Dateien
   measure-parse.mjs          # Entwickler-Tool: misst Gesamtzeit und längste Blockade der Event-Loop beim Einlesen (Kongress, Arbeitsheft, Bibel)
   extract-changelog.mjs      # Release-Tool: extrahiert den Abschnitt einer Version aus CHANGELOG.md für die GitHub-Release-Notes

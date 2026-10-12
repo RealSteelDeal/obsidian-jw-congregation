@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.30.1
+
+### Documentation
+
+- **The 1.29.0 changelog entry had lost its heading.** The 1.30.0 entry replaced it
+  instead of going above it, so the Korean notes of 1.29.0 read as part of 1.30.0, and
+  the release tooling could no longer find 1.29.0 at all. The heading is back and the
+  section is unchanged.
+
+- **The plugin description now names Korean** among the program-file languages, in
+  `manifest.json` and `package.json`, as the README already did.
+
+- A few statements about the code no longer held and were corrected: the song table
+  serves all eight languages, not seven; the model has no `Day.date` field any more; and
+  the module map in `AGENTS.md` now says where `markBlockKept()` lives, that zero-width
+  spaces are stripped in every language, and lists the two book-name scripts.
+
+### Developer tools
+
+- **`scripts/measure-parse.mjs` measures how long reading a file blocks Obsidian.**
+  Moving import work into a Web Worker has been deferred on the grounds that it freezes
+  Obsidian for 1–3 seconds, a figure that was an estimate. The script runs the plugin's
+  own import and Bible-loading code on real files and reports, per run, the total time
+  and the longest stretch in which nothing else could run.
+
 ## 1.30.0
 
 ### New

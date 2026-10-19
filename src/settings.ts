@@ -427,7 +427,12 @@ export class JwSettingTab extends PluginSettingTab {
 		setting
 			.addButton(btn =>
 				btn.setButtonText(this.plugin.settings.bibleFileLoaded ? t.btnReplaceFile : t.btnChooseFile).onClick(() => {
-					const input = createEl('input', { type: 'file' });
+					// Since Obsidian 1.13 the settings tab lives in its own window, and the
+					// global createEl() builds into the main window's document. A file
+					// input from another window than the click opens no dialog at all,
+					// silently (checked in Chromium) — so build it in the button's own.
+					const input = btn.buttonEl.doc.createElement('input');
+					input.type = 'file';
 					input.accept = '.jwpub';
 					input.onchange = async () => {
 						const file = input.files?.[0];

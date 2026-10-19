@@ -34,7 +34,10 @@ export class ImportModal extends Modal {
 			.setDesc(this.t.importFileDesc)
 			.addButton(btn =>
 				btn.setButtonText(this.t.btnPickFile).onClick(() => {
-					const input = createEl('input', { type: 'file' });
+					// In the clicked button's own window: a file input from another window
+					// opens no dialog (see renderBibleFileSetting in settings.ts).
+					const input = btn.buttonEl.doc.createElement('input');
+					input.type = 'file';
 					input.accept = '.jwpub,.zip,.rtf';
 					input.onchange = async () => {
 						const file = input.files?.[0];

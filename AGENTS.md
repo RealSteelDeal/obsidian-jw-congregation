@@ -998,6 +998,11 @@ per WebSocket `Runtime.evaluate` gegen `app`. Hinweise:
 - Tippen: `Input.insertText` (fertige Silbe), `Input.imeSetComposition` für eine offene
   IME-Komposition (koreanisch), `Input.dispatchKeyEvent` für echte Tasten.
 - Obsidian 1.13 öffnet die Einstellungen in einem **eigenen Fenster** (eigenes CDP-Target).
+  ⚠️ Folge für Plugin-Code: Das globale `createEl()` baut ins Dokument des **Hauptfensters**.
+  Ein `<input type="file">` von dort öffnet nach einem Klick im Einstellungsfenster **keinen**
+  Dateidialog, ohne Fehlermeldung (in Chromium nachgestellt; gemeldet am 19.10.2026 für
+  „Datei wählen …“ der Bibel-Datei, Obsidian 1.14.4). Im Einstellungs-Tab daher immer im
+  Dokument des auslösenden Elements bauen (`btn.buttonEl.doc.createElement(…)`).
 - Handy-Layout: `app.emulateMobile(true)` lädt die App neu, danach warten;
   `Emulation.setDeviceMetricsOverride` für die Breite.
 - esbuild schreibt Nicht-ASCII in `main.js` als `\u`-Escapes — bei Suchen im Bundle beachten.

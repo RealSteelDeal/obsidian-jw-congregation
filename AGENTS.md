@@ -1001,8 +1001,9 @@ per WebSocket `Runtime.evaluate` gegen `app`. Hinweise:
   ⚠️ Folge für Plugin-Code: Das globale `createEl()` baut ins Dokument des **Hauptfensters**.
   Ein `<input type="file">` von dort öffnet nach einem Klick im Einstellungsfenster **keinen**
   Dateidialog, ohne Fehlermeldung (in Chromium nachgestellt; gemeldet am 19.10.2026 für
-  „Datei wählen …“ der Bibel-Datei, Obsidian 1.14.4). Im Einstellungs-Tab daher immer im
-  Dokument des auslösenden Elements bauen (`btn.buttonEl.doc.createElement(…)`).
+  „Datei wählen …“ der Bibel-Datei, Obsidian 1.14.4). Datei-Felder deshalb überall im
+  Dokument des auslösenden Elements bauen (`btn.buttonEl.doc.createElement(…)`) — so in
+  `settings.ts` und allen fünf Import-/Update-Dialogen.
 - Handy-Layout: `app.emulateMobile(true)` lädt die App neu, danach warten;
   `Emulation.setDeviceMetricsOverride` für die Breite.
 - esbuild schreibt Nicht-ASCII in `main.js` als `\u`-Escapes — bei Suchen im Bundle beachten.

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.30.2
+
+### Fixes
+
+- **"Choose file" for the Bible file did nothing.** Since Obsidian 1.13 the settings open
+  in a window of their own, and the plugin built its hidden file field in the main window.
+  A file field from another window than the one clicked in opens no dialog, and nothing
+  says why, so the click simply had no effect. The field is now built in the window of the
+  button that was clicked. The five import and update dialogs pick their files the same
+  way now, so they keep working should Obsidian ever open them outside the main window.
+
 ## 1.30.1
 
 ### Documentation

@@ -4,10 +4,24 @@ on:
     push:
         tags:
             - '*'
+    # A release can also be started by hand (Actions tab, or the API) for
+    # whoever cannot push a tag. The version given must match manifest.json
+    # on the branch it runs on; the tag is then created by the release step
+    # below, on exactly the commit that was built.
+    workflow_dispatch:
+        inputs:
+            version:
+                description: 'Version to release, e.g. 1.30.3 (must match manifest.json)'
+                required: true
 
 jobs:
     build:
         runs-on: ubuntu-latest
+        # Manual runs only from the default branch, so a release is never cut
+        # from an unmerged branch.
+        if: github.event_name == 'push' || github.ref == 'refs/heads/master'
+        env:
+            VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
         permissions:
             contents: write
             id-token: write
@@ -20,6 +34,20 @@ jobs:
               with:
                   node-version: 24
                   cache: 'npm'
+
+            - name: Check the version to release
+              if: github.event_name == 'workflow_dispatch'
+              run: |
+                  if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+                      echo "Not a version number: $VERSION"; exit 1
+                  fi
+                  manifest=$(node -p "require('./manifest.json').version")
+                  if [ "$manifest" != "$VERSION" ]; then
+                      echo "manifest.json says $manifest, not $VERSION"; exit 1
+                  fi
+                  if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" > /dev/null; then
+                      echo "Tag $VERSION already exists"; exit 1
+                  fi
 
             - name: Build plugin
               run: |
@@ -35,18 +63,21 @@ jobs:
                       styles.css
 
             - name: Extract changelog section for this version
-              run: node scripts/extract-changelog.mjs "${{ github.ref_name }}" > /tmp/release-notes.md
+              run: node scripts/extract-changelog.mjs "$VERSION" > /tmp/release-notes.md
 
             - name: Create release
               # v3 only moves the action's own runtime from Node 20 to Node 24
               # (its release notes say so, and its manifest declares
-              # using: "node24"); the four inputs below are unchanged. v2 still
+              # using: "node24"); the inputs it took then are unchanged. v2 still
               # worked, but GitHub was already forcing it onto Node 24 and
-              # warning on every release run.
+              # warning on every release run. target_commitish only matters for
+              # a manual run, where the tag does not exist yet and is created on
+              # the commit just built; on a tag push it is that tag's commit anyway.
               uses: softprops/action-gh-release@v3
               with:
-                  tag_name: ${{ github.ref_name }}
-                  name: ${{ github.ref_name }}
+                  tag_name: ${{ env.VERSION }}
+                  name: ${{ env.VERSION }}
+                  target_commitish: ${{ github.sha }}
                   body_path: /tmp/release-notes.md
                   files: |
                       main.js

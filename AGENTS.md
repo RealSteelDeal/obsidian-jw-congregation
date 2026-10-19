@@ -30,6 +30,14 @@ npm run build     # Produktions-Build (tsc-Check + esbuild)
 npm run lint      # ESLint
 ```
 
+**Release:** Version hochsetzen (`npm version <x.y.z> --no-git-tag-version`, schreibt
+`manifest.json`/`versions.json`), `## x.y.z` in `CHANGELOG.md` anlegen — `release.yml`
+übernimmt genau diesen Abschnitt als Release-Notes und bricht ohne ihn ab. Gestartet wird
+der Release durch einen Tag-Push **oder** von Hand (`workflow_dispatch` mit `version`, nur
+auf `master`, die Version muss `manifest.json` entsprechen; der Workflow legt den Tag dann
+selbst an). Den zweiten Weg gibt es, weil Claude-Cloud-Sitzungen keine Tags pushen dürfen
+(HTTP 403), den Workflow über die GitHub-Werkzeuge aber starten können.
+
 ## Modulstruktur
 
 ```

@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.30.3
+
+### Fixes
+
+- **Meeting Workbooks from 2027 on could not be imported**
+  ([#5](https://github.com/RealSteelDeal/obsidian-jw-congregation/issues/5)). The 2027
+  issues print the songs as ordinary paragraphs instead of headings, and "Concluding
+  Comments" now stands on its own with the closing song after it. The plugin found no
+  songs, discarded every week and reported that the file held none. Both layouts are read
+  now, and the notes come out exactly as before. A song printed without a link, like the
+  new song 165 in the March 2027 issue, is recognised from its number.
+
+  Checked against the January and March 2027 issues in German and Italian: all 32 weeks
+  are read, with the same items, songs, scripture references and sources in both
+  languages.
+
 ## 1.30.2
 
 ### Fixes

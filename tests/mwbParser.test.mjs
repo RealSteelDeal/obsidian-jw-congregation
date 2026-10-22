@@ -243,6 +243,80 @@ test('classifySongHeadings rejects a week with an unexpected song-heading count 
 	assert.equal(parser()['parseWeekDocument'](dom), null);
 });
 
+// From the 2027 issues on, every song is a plain paragraph opening with the
+// song link, and "Schlussworte" is a heading of its own with the closing song
+// in the paragraph after it (reported in issue #5, checked against the real
+// January and March 2027 issues in German and Italian).
+const WEEK_HTML_2027 = WEEK_HTML
+	.replace(
+		'<h3 class="dc-icon--music"><a href="jwpub://p/X:1102016800/"><strong>Lied 1</strong></a> <strong>und Gebet | Einleitende Worte</strong> <span>(1 Min.)</span></h3>',
+		'<p><a class="xt" href="jwpub://p/X:1102016800/"><strong>Lied 1</strong></a> <strong>und Gebet | Einleitende Worte</strong> (1 Min.)</p>',
+	)
+	.replace(
+		'<h3 class="dc-icon--music"><a href="jwpub://p/X:1102016801/"><strong>Lied 2</strong></a></h3>',
+		'<p><a class="xt" href="jwpub://p/X:1102016801/"><strong>Lied 2</strong></a></p>',
+	)
+	.replace(
+		'<h3><strong>Schlussworte</strong> <span>(3 Min.)</span> <strong>|</strong> <span class="dc-icon--music"><a href="jwpub://p/X:1102016802/"><strong>Lied 3</strong></a></span> <strong>und Gebet</strong></h3>',
+		'<h3><strong>Schlussworte</strong> <span>(3 Min.)</span></h3>\n<p><a class="xt" href="jwpub://p/X:1102016802/"><strong>Lied 3</strong></a> <strong>und Gebet</strong></p>',
+	);
+
+test('parseWeekDocument reads the 2027 song paragraphs and assigns them by position', () => {
+	const week = parser()['parseWeekDocument'](parseHtml(WEEK_HTML_2027));
+	assert.deepEqual(week.openingSong, { songNumber: 1, songDocid: 1102016800, includesPrayer: true, includesIntroWords: true });
+	assert.deepEqual(week.midWeekSong, { songNumber: 2, songDocid: 1102016801, includesPrayer: undefined, includesIntroWords: undefined });
+	assert.deepEqual(week.closingSong, { songNumber: 3, songDocid: 1102016802, includesPrayer: true, includesIntroWords: undefined });
+});
+
+test('parseWeekDocument keeps the 2027 items exactly as the 2026 layout gives them', () => {
+	const before = parser()['parseWeekDocument'](parseHtml(WEEK_HTML));
+	const after = parser()['parseWeekDocument'](parseHtml(WEEK_HTML_2027));
+	assert.deepEqual(after.items, before.items);
+});
+
+test('parseWeekDocument reads a 2027 song printed without a link from its label', () => {
+	// March 2027 prints the new song 165 as plain bold text.
+	const html = WEEK_HTML_2027.replace(
+		'<p><a class="xt" href="jwpub://p/X:1102016802/"><strong>Lied 3</strong></a> <strong>und Gebet</strong></p>',
+		'<p><strong>Lied 165</strong> <strong>und Gebet</strong></p>',
+	);
+	const week = parser()['parseWeekDocument'](parseHtml(html));
+	assert.equal(week.midWeekSong.songNumber, 2);
+	assert.deepEqual(week.closingSong, { songNumber: 165, songDocid: undefined, includesPrayer: true, includesIntroWords: undefined });
+});
+
+test('parseWeekDocument reads the Italian 2027 song paragraphs', () => {
+	const html = WEEK_HTML_2027
+		.replace('<strong>Lied 1</strong></a> <strong>und Gebet | Einleitende Worte</strong>', '<strong>Cantico 1</strong></a> <strong>e preghiera | Commenti introduttivi</strong>')
+		.replace('<strong>Lied 2</strong>', '<strong>Cantico 2</strong>')
+		.replace('<strong>Lied 3</strong></a> <strong>und Gebet</strong>', '<strong>Cantico 3</strong></a> <strong>e preghiera</strong>');
+	const week = parser()['parseWeekDocument'](parseHtml(html));
+	assert.deepEqual(
+		[week.openingSong, week.midWeekSong, week.closingSong].map(s => [s.songNumber, s.includesPrayer, s.includesIntroWords]),
+		[[1, true, true], [2, undefined, undefined], [3, true, undefined]],
+	);
+});
+
+test('a paragraph inside an item that merely starts with a song label stays item text', () => {
+	const html = WEEK_HTML_2027.replace(
+		'<div><p>(15 Min.) Testinhalt drei.</p></div>',
+		'<div><p>(15 Min.) Testinhalt drei.</p><p>Lied 9 wird hier besprochen.</p></div>',
+	);
+	const week = parser()['parseWeekDocument'](parseHtml(html));
+	assert.equal(week.midWeekSong.songNumber, 2);
+	assert.equal(week.closingSong.songNumber, 3);
+	const item5 = week.items.find(i => i.number === 5);
+	assert.equal(item5.paragraphs.length, 2);
+});
+
+test('parseWeekDocument rejects a 2027 week without a closing song', () => {
+	const html = WEEK_HTML_2027.replace(
+		'<p><a class="xt" href="jwpub://p/X:1102016802/"><strong>Lied 3</strong></a> <strong>und Gebet</strong></p>',
+		'',
+	);
+	assert.equal(parser()['parseWeekDocument'](parseHtml(html)), null);
+});
+
 // ── Memorial Bible-reading-schedule document ────────────────────────────────
 
 const MEMORIAL_HTML = `

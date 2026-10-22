@@ -70,6 +70,9 @@ const DURATION_ONLY_RE = /^\(\d{1,3}\s*(?:mins?\.?|мин\.?|분)\)\.?$/iu;
 export const MEMORIAL_READING_TITLE_RE = /Bibelleseprogramm|Memorial Bible Reading|programme de lecture biblique|Lettura della Bibbia per la Commemorazione|Leitura da Bíblia para o Memorial|чтения Библии в период Вечери|Lectura bíblica para la Conmemoración|성서 읽기 계획표/iu;
 // Additions in a song heading: "Lied 153 und Gebet | Einleitende Worte",
 // "Song 153 and Prayer | Opening Comments", "노래 153 및 기도 | 소개말", …
+// A song's label at the start of a paragraph — the same wording as
+// NoteBuilder.splitSongTitle, read off the programmes of every language.
+const SONG_LABEL_RE = /^(?:(?:Lied|Song|Cantique|Cantico|Cântico|Песня|Canción)(?:\s+(?:No\.|no|№))?\s+(\d{1,3})|노래\s+(\d{1,3})번)/iu;
 const SONG_PRAYER_RE = /und Gebet|and Prayer|et prière|e preghiera|e oração|и молитва|y oración|및 기도/iu;
 const SONG_INTRO_WORDS_RE = /Einleitende Worte|Opening Comments|Paroles d[’']introduction|Commenti introduttivi|Comentários iniciais|Вступительные слова|Palabras de introducción|소개말/iu;
 // Any jwpub://p/ publication cross-reference (source-material citation),
@@ -304,6 +307,10 @@ export class MwbParser {
 		type PartialItem = { number: number; title: string; section: MwbSection | null; contentEls: Element[] };
 		const items: MwbItem[] = [];
 		const songHeadingEls: Element[] = [];
+		// From 2027 the songs are paragraphs, and their place says which is
+		// which: before the first item, between items, after the closing heading.
+		const songParagraphs: { el: Element; role: 'opening' | 'midWeek' | 'closing' }[] = [];
+		let closingHeadingSeen = false;
 		let currentSection: MwbSection | null = null;
 		let currentItem: PartialItem | null = null;
 
@@ -326,8 +333,19 @@ export class MwbParser {
 					currentItem = { number: Number(m[1]), title: m[2]!.trim(), section: currentSection, contentEls: [] };
 				} else {
 					flushItem();
-					songHeadingEls.push(block);
+					// Up to 2026 the closing comments and the closing song share one
+					// heading. From 2027 "Concluding Comments" is a heading of its own,
+					// without a song, and the song follows as a paragraph.
+					if (block.querySelector(SONG_HREF_SELECTOR)) songHeadingEls.push(block);
+					else if (items.length > 0) closingHeadingSeen = true;
 				}
+				continue;
+			}
+			// Outside an item a paragraph was dropped up to 2026, so this only
+			// ever sees the 2027 song paragraphs.
+			if (!currentItem && this.isSongParagraph(block)) {
+				const role = closingHeadingSeen ? 'closing' : items.length === 0 ? 'opening' : 'midWeek';
+				songParagraphs.push({ el: block, role });
 				continue;
 			}
 			// Plain content block — belongs to whichever item most recently
@@ -340,7 +358,9 @@ export class MwbParser {
 
 		if (items.length === 0) return null;
 
-		const songs = this.classifySongHeadings(songHeadingEls, dateRangeLabel);
+		const songs = songParagraphs.length > 0
+			? this.classifySongParagraphs(songParagraphs, dateRangeLabel)
+			: this.classifySongHeadings(songHeadingEls, dateRangeLabel);
 		if (!songs) return null;
 
 		// Positional CBS fallback: the title match inside finalizeItem() already
@@ -608,21 +628,51 @@ export class MwbParser {
 		return questions;
 	}
 
+	private isSongParagraph(el: Element): boolean {
+		return el.tagName === 'P' && SONG_LABEL_RE.test(this.cleanText(el.textContent ?? ''));
+	}
+
+	/** A song heading (up to 2026) or song paragraph (from 2027). A paragraph
+	 *  may carry no link at all — the March 2027 issue prints a new song,
+	 *  165, as plain text — so its number then comes from the label. */
 	private parseSongHeading(h3: Element): MwbSong | null {
 		const songLink = h3.querySelector(SONG_HREF_SELECTOR);
-		if (!songLink) return null;
-		const linkText = songLink.textContent?.trim() ?? '';
-		const numMatch = /(\d+)/.exec(linkText);
-		if (!numMatch) return null;
-		const songNumber = Number(numMatch[1]);
-		const docidMatch = SONG_DOCID_HREF_RE.exec(songLink.getAttribute('href') ?? '');
-		const songDocid = docidMatch?.[1] ? Number(docidMatch[1]) : undefined;
+		let songNumber: number;
+		let songDocid: number | undefined;
+		if (songLink) {
+			const numMatch = /(\d+)/.exec(songLink.textContent?.trim() ?? '');
+			if (!numMatch) return null;
+			songNumber = Number(numMatch[1]);
+			const docidMatch = SONG_DOCID_HREF_RE.exec(songLink.getAttribute('href') ?? '');
+			songDocid = docidMatch?.[1] ? Number(docidMatch[1]) : undefined;
+		} else {
+			const labelMatch = h3.tagName === 'P' ? SONG_LABEL_RE.exec(this.cleanText(h3.textContent ?? '')) : null;
+			if (!labelMatch) return null;
+			songNumber = Number(labelMatch[1] ?? labelMatch[2]);
+		}
 
 		const fullText = h3.textContent ?? '';
 		const includesPrayer = SONG_PRAYER_RE.test(fullText) || undefined;
 		const includesIntroWords = SONG_INTRO_WORDS_RE.test(fullText) || undefined;
 
 		return { songNumber, songDocid, includesPrayer, includesIntroWords };
+	}
+
+	private classifySongParagraphs(
+		found: { el: Element; role: 'opening' | 'midWeek' | 'closing' }[],
+		dateRangeLabel: string,
+	): { opening: MwbSong; midWeek?: MwbSong; closing: MwbSong } | null {
+		const pick = (role: string) => {
+			const hit = found.find(f => f.role === role);
+			return hit ? this.parseSongHeading(hit.el) : null;
+		};
+		const opening = pick('opening');
+		const closing = pick('closing');
+		if (!opening || !closing) {
+			console.warn(`MwbParser: week "${dateRangeLabel}" has no opening or no closing song — skipping this week.`);
+			return null;
+		}
+		return { opening, midWeek: pick('midWeek') ?? undefined, closing };
 	}
 
 	private classifySongHeadings(

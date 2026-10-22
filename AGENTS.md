@@ -840,6 +840,20 @@ aus der Medien-API (`GETPUBMEDIALINKS?pub=mwb&issue=202601&langwritten=<Symbol>`
   „этих главах“, dort ist `Чтение Библии на неделю` gewählt, nicht abgelesen.
 - **U+200B**: das koreanische Heft hat 981 je Ausgabe, das englische einige vor
   Gedankenstrichen; `clean()` entfernt sie wie beim Kongress in jeder Sprache.
+- **Lieder ab 2027 als Absätze** (Issue #5, 22.10.2026): Bis 2026 ist jedes Lied eine
+  `h3` mit dem Lied-Link, und Schlussworte und Schlusslied teilen sich eine Überschrift. Ab
+  den Heften 2027 steht jedes Lied in einem `<p>`, das mit dem Lied beginnt, und
+  „Schlussworte“ ist eine eigene `h3` **ohne** Lied, das Schlusslied folgt als Absatz. Ohne
+  Anpassung fand der Parser keine Lieder und verwarf jede Woche (`mwbNoWeekDocuments`).
+  Lied-Absätze zählen nur außerhalb eines Programmpunkts; ihre Rolle ergibt sich aus der
+  Lage (vor dem ersten Punkt → Anfang, nach der Schlussworte-Überschrift → Schluss,
+  dazwischen → Mitte), nicht aus der Anzahl wie bei den Überschriften. Ein Lied kann
+  **ohne Link** gedruckt sein (März 2027: das neue Lied 165) — dann kommt die Nummer aus
+  dem Label (`SONG_LABEL_RE`, Wortlaut wie `NoteBuilder.splitSongTitle`). Geprüft an den
+  Heften Jan/Feb und Mär/Apr 2027 in Deutsch und Italienisch: alle 32 Wochen, Struktur
+  identisch; die übrigen sechs Sprachen sind für 2027 noch nicht gegengeprüft. Der
+  Überschriften-Weg für 2026 ist unverändert, bis auf eines: Eine Überschrift ohne Nummer
+  und ohne Lied zählt nicht mehr als Lied.
 - **Leerzeichen an Link-Grenzen**: `renderParagraphSegments` trimmt nur die beiden Enden
   des Absatzes, nicht jeden Textlauf. Bis 02.10.2026 wurde jeder Lauf einzeln getrimmt, und
   das Wort vor oder nach einem Bibelstellen-/Quellen-Link klebte daran (86 von 91
